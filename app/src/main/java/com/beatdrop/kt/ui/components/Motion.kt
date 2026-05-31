@@ -24,7 +24,7 @@ fun Modifier.pressableScale(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
     scaleTo: Float = 0.97f,
-    haptic: Boolean = true,
+    haptic: Boolean = false,
 ): Modifier {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()

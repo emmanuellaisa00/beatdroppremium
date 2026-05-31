@@ -33,9 +33,9 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF1A0A2E),  // Deep purple at top
-                        Color(0xFF0D0618),  // Darker middle
-                        Color(0xFF05030A),  // Near black at bottom
+                        if (C.isDark) Color(0xFF2A1A3E) else C.bg0,  // Use theme background, lighter purple in dark
+                        if (C.isDark) Color(0xFF1E1528) else C.bg0,
+                        if (C.isDark) Color(0xFF16121F) else C.bg0,
                     )
                 )
             )
@@ -128,7 +128,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                             listOf(Color(0xFFC77DFF), Color(0xFF9D4EDD))
                         )
                     )
-                    .pressableScale(onClick = onGetStarted, haptic = true)
+                    .pressableScale(onClick = onGetStarted, haptic = false)
                     .padding(vertical = 18.dp),
                 contentAlignment = Alignment.Center,
             ) {

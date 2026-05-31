@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -35,16 +34,18 @@ import com.beatdrop.kt.ui.components.TabSpec
 import com.beatdrop.kt.ui.screens.*
 import com.beatdrop.kt.ui.theme.BeatDropTheme
 import com.beatdrop.kt.ui.theme.LocalAppColors
-import com.beatdrop.kt.youtube.YoutubeIFramePlayerHost
-import com.beatdrop.kt.youtube.YoutubeStreamExtractorHost
+import com.beatdrop.kt.youtube.initHiddenYoutubeWebViews
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 
 class MainActivity : ComponentActivity() {
+    private var cleanupWebViews: (() -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // enableEdgeToEdge() removed — was causing black screen on some devices
+        cleanupWebViews = initHiddenYoutubeWebViews(this)
         setContent {
             val vm: PlayerViewModel = viewModel()
             val themePref by vm.theme.collectAsState()
@@ -52,25 +53,15 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize()) {
                         Root(vm)
-
-                        // Hidden YouTube WebViews — mounted ONCE, never unmounted.
-                        // IFrame player: runs YouTube audio via YouTube's own JS engine.
-                        // Stream extractor: loads embed pages to pull out direct stream URLs.
-                        // Both live at pixel (−9999, −9999) so they're invisible but alive.
-                        YoutubeIFramePlayerHost(
-                            modifier = Modifier
-                                .size(1.dp)
-                                .offset(x = (-9999).dp, y = (-9999).dp)
-                        )
-                        YoutubeStreamExtractorHost(
-                            modifier = Modifier
-                                .size(1.dp)
-                                .offset(x = (-9999).dp, y = (-9999).dp)
-                        )
                     }
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        cleanupWebViews?.invoke()
+        super.onDestroy()
     }
 }
 

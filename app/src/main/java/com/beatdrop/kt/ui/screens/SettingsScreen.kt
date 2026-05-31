@@ -117,7 +117,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                         modifier = Modifier.pressableScale(
                             onClick = { uriHandler.openUri("https://laisadevstudio.vercel.app") },
                             scaleTo = 0.94f,
-                            haptic = true,
+                            haptic = false,
                         ),
                     )
                 }

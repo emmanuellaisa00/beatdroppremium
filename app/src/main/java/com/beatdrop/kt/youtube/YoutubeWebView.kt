@@ -242,3 +242,77 @@ fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
         update = { YoutubeExtractor.webView = it },
     )
 }
+
+// ─── Safe programmatic initializer (outside Compose) ──────────────────────────
+/**
+ * Initializes both YouTube WebViews in a hidden 0×0 [FrameLayout] added via
+ * [android.app.Activity.addContentView]. This avoids Compose compositing
+ * bugs caused by negative-offset [AndroidView] mounts.
+ *
+ * Call from [androidx.activity.ComponentActivity.onCreate] **before** [setContent].
+ * Invoke the returned cleanup lambda from [onDestroy].
+ */
+@SuppressLint("SetJavaScriptEnabled")
+fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
+    val container = android.widget.FrameLayout(activity).apply {
+        visibility = android.view.View.GONE
+    }
+
+    // IFrame player
+    val playerWv = WebView(activity).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = false
+        settings.userAgentString = CHROME_UA
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.allowFileAccess = false
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+        }
+        val bridge = object {
+            @JavascriptInterface
+            fun onMessage(json: String) = YoutubePlayerService.handleMessage(json)
+        }
+        addJavascriptInterface(bridge, "AndroidBridge")
+        YoutubePlayerService.webView = this
+        loadDataWithBaseURL("https://www.youtube.com", YT_IFRAME_HTML, "text/html", "UTF-8", null)
+    }
+    container.addView(playerWv, android.view.ViewGroup.LayoutParams(1, 1))
+
+    // Stream extractor
+    val extractWv = WebView(activity).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.mediaPlaybackRequiresUserGesture = true
+        settings.userAgentString = CHROME_UA
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+        addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
+        webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                val vid = YoutubeExtractor.pendingVideoId ?: return
+                if (url.contains("youtube.com/embed")) {
+                    view.evaluateJavascript(makeExtractJs(vid), null)
+                }
+            }
+            override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
+                super.onReceivedError(v, req, err)
+                if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
+            }
+        }
+        YoutubeExtractor.webView = this
+    }
+    container.addView(extractWv, android.view.ViewGroup.LayoutParams(1, 1))
+
+    activity.addContentView(container, android.view.ViewGroup.LayoutParams(0, 0))
+
+    return {
+        container.removeAllViews()
+        YoutubePlayerService.webView = null
+        YoutubeExtractor.webView = null
+    }
+}

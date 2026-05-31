@@ -106,11 +106,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val playCounts: StateFlow<Map<String, Int>> = _playCounts.asStateFlow()
 
     // ── Settings ──────────────────────────────────────────────────────────────
-    private val _haptics = MutableStateFlow(true)
+    private val _haptics = MutableStateFlow(false)
     val haptics: StateFlow<Boolean> = _haptics.asStateFlow()
     fun setHaptics(v: Boolean) { _haptics.value = v; viewModelScope.launch { prefs.setHaptics(v) } }
 
-    private val _theme = MutableStateFlow("dark")
+    private val _theme = MutableStateFlow("light")
     val theme: StateFlow<String> = _theme.asStateFlow()
     fun setTheme(v: String) { _theme.value = v; viewModelScope.launch { prefs.setTheme(v) } }
 

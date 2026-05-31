@@ -27,7 +27,7 @@ data class AppColors(
 )
 
 val DarkColors = AppColors(
-    bg0 = Color(0xFF000000), bg1 = Color(0xFF080808), bg2 = Color(0xFF111111),
+    bg0 = Color(0xFF121212), bg1 = Color(0xFF1E1E1E), bg2 = Color(0xFF242424),
     bg3 = Color(0xFF1A1A1A), bg4 = Color(0xFF242424), bg5 = Color(0xFF2E2E2E),
     accent = Color(0xFFC77DFF), accentDark = Color(0xFF9D4EDD), purple = Color(0xFF7B2CBF),
     accentSoft = Color(0x24C77DFF), accentBorder = Color(0x80C77DFF),
