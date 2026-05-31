@@ -54,10 +54,80 @@ window.__ytCmd={
 };
 </script></body></html>"""
 
-// ─── Stream extraction JS (port of EXTRACT_JS from YoutubeStreamExtractor.tsx)
+// ─── Stream extraction JS (SnapTube Network Request Interceptor Hook) ────────
 private fun makeExtractJs(videoId: String): String {
-    val v = JSONObject.quote(videoId)
-    return """(function(){var _v=$v,_t=0,_i=setInterval(function(){_t++;var pr=window.ytInitialPlayerResponse;if(pr&&pr.streamingData){clearInterval(_i);var af=(pr.streamingData.adaptiveFormats||[]).filter(function(f){var m=(f.mimeType||f.type||'').toLowerCase();return m.indexOf('audio/')===0&&!!f.url}).sort(function(a,b){return(b.bitrate||b.averageBitrate||0)-(a.bitrate||a.averageBitrate||0)});var url='';if(af.length){url=af[0].url}else{var fs=(pr.streamingData.formats||[]).filter(function(f){return!!f.url});if(fs.length)url=fs[0].url}window.AndroidBridge.onStreamResult(url);return}if(pr&&pr.playabilityStatus&&pr.playabilityStatus.status!=='OK'){clearInterval(_i);window.AndroidBridge.onStreamError(pr.playabilityStatus.reason||pr.playabilityStatus.status||'unavailable');return}if(_t>=30){clearInterval(_i);window.AndroidBridge.onStreamError('timeout')}},500)})();true;"""
+    return """(function(){
+        if (window.__hooked) return;
+        window.__hooked = true;
+        
+        function sendFormats(sd) {
+            if (!sd || !sd.adaptiveFormats) return false;
+            var af = sd.adaptiveFormats.filter(function(f){
+                var m=(f.mimeType||f.type||'').toLowerCase();
+                return m.indexOf('audio/')===0;
+            });
+            if (af.length) {
+                var best = af.sort(function(a,b){return(b.bitrate||0)-(a.bitrate||0)})[0];
+                var url = best.url || '';
+                if (url) {
+                    window.AndroidBridge.onStreamResult(url);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 1. Hook Fetch requests
+        var oldFetch = window.fetch;
+        window.fetch = function() {
+            return oldFetch.apply(this, arguments).then(function(res) {
+                if (res && res.url && res.url.indexOf('/v1/player') !== -1) {
+                    res.clone().json().then(function(data) {
+                        if (data && data.streamingData) {
+                            sendFormats(data.streamingData);
+                        }
+                    }).catch(function(err){});
+                }
+                return res;
+            });
+        };
+
+        // 2. Hook XMLHttpRequest
+        var oldSend = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function() {
+            this.addEventListener('load', function() {
+                if (this.responseURL && this.responseURL.indexOf('/v1/player') !== -1) {
+                    try {
+                        var data = JSON.parse(this.responseText);
+                        if (data && data.streamingData) {
+                            sendFormats(data.streamingData);
+                        }
+                    } catch(e){}
+                }
+            });
+            return oldSend.apply(this, arguments);
+        };
+
+        // 3. Fallback: check static context objects
+        var pr = window.ytInitialPlayerResponse;
+        if (pr && pr.streamingData) {
+            if (sendFormats(pr.streamingData)) return;
+        }
+        
+        // Poll for asynchronous loading
+        var t = 0;
+        var interval = setInterval(function() {
+            t++;
+            var pr = window.ytInitialPlayerResponse;
+            if (pr && pr.streamingData) {
+                if (sendFormats(pr.streamingData)) {
+                    clearInterval(interval);
+                    return;
+                }
+            }
+            if (t >= 20) clearInterval(interval);
+        }, 500);
+    })();true;"""
 }
 
 // ─── IFrame Player Service ────────────────────────────────────────────────────
@@ -225,6 +295,11 @@ fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
                 addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+                    override fun onLoadResource(view: WebView, url: String) {
+                        super.onLoadResource(view, url)
+                        val vid = YoutubeExtractor.pendingVideoId ?: return
+                        view.evaluateJavascript(makeExtractJs(vid), null)
+                    }
                     override fun onPageFinished(view: WebView, url: String) {
                         super.onPageFinished(view, url)
                         val vid = YoutubeExtractor.pendingVideoId ?: return
@@ -293,6 +368,11 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+            override fun onLoadResource(view: WebView, url: String) {
+                super.onLoadResource(view, url)
+                val vid = YoutubeExtractor.pendingVideoId ?: return
+                view.evaluateJavascript(makeExtractJs(vid), null)
+            }
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 val vid = YoutubeExtractor.pendingVideoId ?: return
