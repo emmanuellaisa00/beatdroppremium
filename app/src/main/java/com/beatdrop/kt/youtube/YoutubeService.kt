@@ -201,8 +201,10 @@ suspend fun getStreamUrl(videoId: String): String {
                     put("hl", "en"); put("gl", "US")
                     client.extraContext.keys().forEach { k -> put(k, client.extraContext.get(k)) }
                 }))
-                put("playbackContext", JSONObject().put("contentPlaybackContext",
-                    JSONObject().put("html5Preference", "HTML5_PREF_WANTS")))
+                if (client.clientName != "IOS") {
+                    put("playbackContext", JSONObject().put("contentPlaybackContext",
+                        JSONObject().put("html5Preference", "HTML5_PREF_WANTS")))
+                }
                 put("contentCheckOk", true); put("racyCheckOk", true)
             }.toString()
 
