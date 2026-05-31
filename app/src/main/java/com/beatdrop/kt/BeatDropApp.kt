@@ -14,6 +14,13 @@ class BeatDropApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
 
+        // Patch security provider for modern TLS 1.2 / 1.3 support on older devices
+        try {
+            com.google.android.gms.security.ProviderInstaller.installIfNeeded(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         // Wire online search to the real Innertube backend (no API key required)
         OnlineSearch.provider = InnertubeSearchProvider()
 

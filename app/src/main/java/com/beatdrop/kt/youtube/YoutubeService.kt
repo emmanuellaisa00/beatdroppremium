@@ -17,9 +17,9 @@ import java.util.concurrent.TimeUnit
 
 // ─── HTTP Client ──────────────────────────────────────────────────────────────
 private val okHttp = OkHttpClient.Builder()
-    .connectTimeout(10, TimeUnit.SECONDS)
-    .readTimeout(15, TimeUnit.SECONDS)
-    .writeTimeout(10, TimeUnit.SECONDS)
+    .connectTimeout(5, TimeUnit.SECONDS)
+    .readTimeout(6, TimeUnit.SECONDS)
+    .writeTimeout(5, TimeUnit.SECONDS)
     .followRedirects(true)
     .build()
 
@@ -29,10 +29,12 @@ private const val YT_PLAYER = "https://www.youtube.com/youtubei/v1/player"
 private const val YT_SEARCH = "https://www.youtube.com/youtubei/v1/search"
 
 private val INVIDIOUS_INSTANCES = listOf(
-    "https://invidious.io.lol",
-    "https://invidious.fdn.fr",
-    "https://vid.puffyan.us",
-    "https://invidious.slipfox.xyz",
+    "https://yewtu.be",
+    "https://invidious.privacydev.net",
+    "https://inv.nadeko.net",
+    "https://inv.tux.pizza",
+    "https://invidious.private.coffee",
+    "https://invidious.fdn.fr"
 )
 
 // Innertube player clients — same fallback chain as the React Native app

@@ -106,6 +106,9 @@ dependencies {
     // Permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
+    // Google Play Services Basement / Security Provider Installer
+    implementation("com.google.android.gms:play-services-base:18.5.0")
+
     // OkHttp — for Innertube search, stream URL resolution, and downloads
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 

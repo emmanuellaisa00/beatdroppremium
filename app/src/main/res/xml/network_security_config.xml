@@ -20,5 +20,10 @@
         <domain includeSubdomains="true">invidious.io.lol</domain>
         <domain includeSubdomains="true">invidious.fdn.fr</domain>
         <domain includeSubdomains="true">vid.puffyan.us</domain>
+        <domain includeSubdomains="true">yewtu.be</domain>
+        <domain includeSubdomains="true">invidious.privacydev.net</domain>
+        <domain includeSubdomains="true">inv.nadeko.net</domain>
+        <domain includeSubdomains="true">inv.tux.pizza</domain>
+        <domain includeSubdomains="true">invidious.private.coffee</domain>
     </domain-config>
 </network-security-config>
