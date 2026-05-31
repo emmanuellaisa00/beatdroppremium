@@ -14,8 +14,8 @@ import androidx.media3.session.SessionToken
 import androidx.media3.exoplayer.ExoPlayer
 import com.beatdrop.kt.data.*
 import com.beatdrop.kt.lyrics.LrcParser
-import com.beatdrop.kt.lyrics.LrcLibProvider
 import com.beatdrop.kt.lyrics.LyricLine
+import com.beatdrop.kt.lyrics.LyricsEngine
 import com.beatdrop.kt.playback.PlaybackService
 import com.beatdrop.kt.youtube.*
 import android.net.Uri
@@ -180,7 +180,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Derived lists (memoized) ──────────────────────────────────────────────
     val filteredTracks: StateFlow<List<Track>> =
-        combine(_tracks, _query, _sort) { tracks, query, sort ->
+        combine(_tracks, _query.debounce(150), _sort) { tracks, query, sort ->
             val q = query.trim()
             val base = if (q.isBlank()) tracks else tracks.filter {
                 it.title.contains(q, true) || it.artist.contains(q, true) || it.album.contains(q, true)
@@ -284,10 +284,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private fun loadLyrics(track: Track) {
         viewModelScope.launch {
             _activeLyric.value = -1; _lyrics.value = emptyList(); _lyricsLoading.value = true
-            val local = withContext(Dispatchers.IO) { LrcParser.findAndParse(track) }
-            if (local.isNotEmpty()) { _lyrics.value = local; _lyricsLoading.value = false; return@launch }
-            val online = withContext(Dispatchers.IO) { LrcLibProvider.fetch(track) }
-            if (_current.value?.id == track.id) { _lyrics.value = online; _lyricsLoading.value = false }
+            val lines = withContext(Dispatchers.IO) { LyricsEngine.fetch(getApplication(), track) }
+            if (_current.value?.id == track.id) {
+                _lyrics.value = lines; _lyricsLoading.value = false
+            }
         }
     }
 
@@ -346,8 +346,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _onlineResults = MutableStateFlow<List<OnlineResult>>(emptyList())
     val onlineResults: StateFlow<List<OnlineResult>> = _onlineResults.asStateFlow()
 
-    private val _onlineLoading = MutableStateFlow(false)
-    val onlineLoading: StateFlow<Boolean> = _onlineLoading.asStateFlow()
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private val _isFetchingStream = MutableStateFlow(false)
+    val isFetchingStream: StateFlow<Boolean> = _isFetchingStream.asStateFlow()
+
+    private val _fetchingVideoId = MutableStateFlow<String?>(null)
+    val fetchingVideoId: StateFlow<String?> = _fetchingVideoId.asStateFlow()
 
     private val _onlineMessage = MutableStateFlow<String?>(null)
     val onlineMessage: StateFlow<String?> = _onlineMessage.asStateFlow()
@@ -362,12 +368,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun runOnlineSearch() {
         val q = _onlineQuery.value.trim()
         if (q.isBlank()) return
-        _onlineLoading.value = true; _suggestions.value = emptyList()
+        _isSearching.value = true; _suggestions.value = emptyList()
         viewModelScope.launch {
             val res = runCatching { OnlineSearch.provider.search(q) }.getOrElse {
                 _onlineMessage.value = "Search failed: ${it.message}"; emptyList()
             }
-            _onlineResults.value = res; _onlineLoading.value = false
+            _onlineResults.value = res; _isSearching.value = false
         }
     }
 
@@ -386,16 +392,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun playOnline(result: OnlineResult) {
         viewModelScope.launch {
-            _onlineLoading.value = true
+            _isFetchingStream.value = true
+            _fetchingVideoId.value = result.videoId
             val track = runCatching { youtubeResultToTrack(result) }.getOrElse {
                 _onlineMessage.value = "Could not load track: ${it.message}"
-                _onlineLoading.value = false; return@launch
+                _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch
             }
             _ytTrackCache[track.id] = track
-            val c = controller ?: run { _onlineLoading.value = false; return@launch }
+            val c = controller ?: run { _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch }
             c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
             _current.value = track; _duration.value = track.durationMs
-            _onlineLoading.value = false
+            loadLyrics(track)
+            _isFetchingStream.value = false
+            _fetchingVideoId.value = null
         }
     }
 

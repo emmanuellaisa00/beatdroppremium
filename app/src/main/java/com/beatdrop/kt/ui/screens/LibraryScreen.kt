@@ -162,10 +162,8 @@ private fun SongsList(vm: PlayerViewModel) {
                 SortMenu(sort) { vm.setSort(it) }
             }
         }
-        itemsIndexed(list, key = { _, t -> t.id }) { index, song ->
-            AnimatedRow(index) {
-                SongRow(song, current?.id == song.id, onClick = { vm.play(song) }, onLongClick = { sheetTrack = song })
-            }
+        itemsIndexed(list, key = { _, t -> t.id }) { _, song ->
+            SongRow(song, current?.id == song.id, onClick = { vm.play(song) }, onLongClick = { sheetTrack = song })
         }
     }
     sheetTrack?.let { tk ->
@@ -195,7 +193,7 @@ private fun AlbumsGrid(vm: PlayerViewModel, onOpen: (String, String) -> Unit) {
         items(albums, key = { it.album + it.artist }) { a ->
             Column(Modifier.pressableScale(onClick = { onOpen(a.album, a.artist) })) {
                 Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
-                    AsyncImage(model = ImageRequest.Builder(ctx).data(a.artworkUri).crossfade(true).build(),
+                    AsyncImage(model = ImageRequest.Builder(ctx).data(a.artworkUri).crossfade(true).size(256).build(),
                         contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
                 Spacer(Modifier.height(8.dp))
@@ -211,17 +209,15 @@ private fun ArtistsList(vm: PlayerViewModel, onOpen: (String) -> Unit) {
     val C = LocalAppColors.current
     val artists by vm.artistGroups.collectAsState()
     LazyColumn(contentPadding = PaddingValues(bottom = 170.dp)) {
-        itemsIndexed(artists, key = { _, ar -> ar.artist }) { index, ar ->
-            AnimatedRow(index) {
-                Row(Modifier.fillMaxWidth().pressableScale(onClick = { onOpen(ar.artist) }).padding(horizontal = Spacing.lg, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(52.dp).clip(CircleShape).background(Brush.linearGradient(listOf(C.accent, C.purple))), Alignment.Center) {
-                        Text(ar.artist.take(1).uppercase(), style = Type.title3, color = Color.White)
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(ar.artist, style = Type.headline, color = C.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${ar.trackCount} songs", style = Type.footnote, color = C.textSecondary)
-                    }
+        itemsIndexed(artists, key = { _, ar -> ar.artist }) { _, ar ->
+            Row(Modifier.fillMaxWidth().pressableScale(onClick = { onOpen(ar.artist) }).padding(horizontal = Spacing.lg, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(52.dp).clip(CircleShape).background(Brush.linearGradient(listOf(C.accent, C.purple))), Alignment.Center) {
+                    Text(ar.artist.take(1).uppercase(), style = Type.title3, color = Color.White)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(ar.artist, style = Type.headline, color = C.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${ar.trackCount} songs", style = Type.footnote, color = C.textSecondary)
                 }
             }
         }
@@ -234,7 +230,7 @@ private fun SongRow(song: Track, isCurrent: Boolean, onClick: () -> Unit, onLong
     val ctx = LocalContext.current
     Row(Modifier.fillMaxWidth().pressableScale(onClick = onClick, onLongClick = onLongClick).padding(horizontal = Spacing.lg, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(52.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3), Alignment.Center) {
-            AsyncImage(model = ImageRequest.Builder(ctx).data(song.artworkUri).crossfade(true).build(),
+            AsyncImage(model = ImageRequest.Builder(ctx).data(song.artworkUri).crossfade(true).size(96).build(),
                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             Icon(Icons.Filled.MusicNote, null, tint = C.textTertiary.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
         }
@@ -256,17 +252,6 @@ private fun EmptyLibrary() {
         Text("No music found", style = Type.title3, color = C.text)
         Text("Add audio files to your device.", style = Type.footnote, color = C.textSecondary)
     }
-}
-
-@Composable
-private fun AnimatedRow(index: Int, content: @Composable () -> Unit) {
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-    androidx.compose.animation.AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(260, delayMillis = (index.coerceAtMost(10)) * 30)) +
-            slideInVertically(tween(260, delayMillis = (index.coerceAtMost(10)) * 30)) { it / 5 },
-    ) { content() }
 }
 
 @Composable

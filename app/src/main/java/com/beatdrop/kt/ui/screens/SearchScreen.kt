@@ -41,7 +41,8 @@ fun SearchScreen(vm: PlayerViewModel) {
     val ctx      = LocalContext.current
     val q        by vm.onlineQuery.collectAsState()
     val results  by vm.onlineResults.collectAsState()
-    val loading  by vm.onlineLoading.collectAsState()
+    val searching  by vm.isSearching.collectAsState()
+    val fetchingId by vm.fetchingVideoId.collectAsState()
     val message  by vm.onlineMessage.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
     val jobs     by vm.downloadJobs.collectAsState()
@@ -106,7 +107,7 @@ fun SearchScreen(vm: PlayerViewModel) {
             Spacer(Modifier.height(8.dp))
 
             when {
-                loading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                searching -> Box(Modifier.fillMaxSize(), Alignment.Center) {
                     CircularProgressIndicator(color = C.accent)
                 }
                 results.isNotEmpty() -> {
@@ -121,6 +122,7 @@ fun SearchScreen(vm: PlayerViewModel) {
                             OnlineTrackRow(
                                 result  = r,
                                 job     = job,
+                                isFetching = fetchingId == r.videoId,
                                 onPlay  = { vm.playOnline(r) },
                                 onDownload = {
                                     when (job?.status) {
@@ -165,6 +167,7 @@ fun SearchScreen(vm: PlayerViewModel) {
 private fun OnlineTrackRow(
     result: OnlineResult,
     job: com.beatdrop.kt.youtube.DownloadJob?,
+    isFetching: Boolean,
     onPlay: () -> Unit,
     onDownload: () -> Unit,
 ) {
@@ -209,6 +212,15 @@ private fun OnlineTrackRow(
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${result.author} · ${result.durationText}",
                 color = C.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+
+        // Inline fetch spinner on the exact row being resolved
+        if (isFetching) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(28.dp).padding(end = 4.dp),
+                color = C.accent,
+                strokeWidth = 2.5.dp,
+            )
         }
 
         // Download button with state
