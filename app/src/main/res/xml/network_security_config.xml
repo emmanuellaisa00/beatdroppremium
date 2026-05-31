@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Standard HTTPS-only config.
+    YouTube, googlevideo.com (stream delivery), ytimg.com, and Invidious
+    all use TLS — no cleartext needed.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- Explicit allowlist so the WebView can reach YouTube normally -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">youtube.com</domain>
+        <domain includeSubdomains="true">ytimg.com</domain>
+        <domain includeSubdomains="true">googlevideo.com</domain>
+        <domain includeSubdomains="true">ggpht.com</domain>
+        <domain includeSubdomains="true">itunes.apple.com</domain>
+        <domain includeSubdomains="true">invidious.io.lol</domain>
+        <domain includeSubdomains="true">invidious.fdn.fr</domain>
+        <domain includeSubdomains="true">vid.puffyan.us</domain>
+    </domain-config>
+</network-security-config>

@@ -49,3 +49,14 @@
     public static *** v(...);
     public static *** i(...);
 }
+
+# Keep @JavascriptInterface methods used by YoutubeExtractor and the IFrame bridge
+-keepclassmembers class com.beatdrop.kt.youtube.YoutubeExtractor {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+# Keep OkHttp internals
+-dontwarn okhttp3.**
+-dontwarn okio.**

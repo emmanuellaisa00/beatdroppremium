@@ -1,8 +1,8 @@
 package com.beatdrop.kt.youtube
 
 /**
- * Online search result (what the Search UI renders).
- * Maps closely to the RN YoutubeSearchResult shape so your backend can populate it.
+ * Online search result — mirrors YoutubeSearchResult from YoutubeService.ts.
+ * Added durationSecs + isLive compared to the original shell.
  */
 data class OnlineResult(
     val videoId: String,
@@ -10,37 +10,34 @@ data class OnlineResult(
     val author: String,
     val thumbnailUrl: String?,
     val durationText: String,
+    val durationSecs: Int = 0,
+    val isLive: Boolean = false,
 )
 
-/**
- * Pluggable search backend. The UI talks ONLY to this interface, so wiring your
- * own implementation (YouTube Data API, an internal service, etc.) is a one-file
- * change — no UI edits required.
- *
- * NOTE: returning metadata for search is fine; actual stream extraction lives in
- * [YoutubeExtractor] and is left unimplemented by design (ToS/copyright).
- */
+/** Pluggable search backend — the UI only talks to this interface. */
 interface SearchProvider {
     suspend fun search(query: String): List<OnlineResult>
+    suspend fun suggestions(query: String): List<String> = emptyList()
 }
 
-/**
- * Default provider — returns nothing and signals "not configured" so the UI can
- * show a clear hint instead of fake data. Swap this out via [OnlineSearch.provider].
- */
 object NotConfiguredProvider : SearchProvider {
     override suspend fun search(query: String): List<OnlineResult> = emptyList()
 }
 
 /**
- * Single injection point. Replace [provider] with your own implementation:
- *
- *   OnlineSearch.provider = MyYoutubeDataApiProvider(apiKey = "…")
+ * Production search backend — calls YouTube Innertube /search directly.
+ * No API key, no quota. Mirrors searchYoutube() from YoutubeService.ts.
  */
-object OnlineSearch {
-    @Volatile
-    var provider: SearchProvider = NotConfiguredProvider
+class InnertubeSearchProvider : SearchProvider {
+    override suspend fun search(query: String): List<OnlineResult> =
+        searchYoutube(query)
 
-    /** True while the default (unconfigured) provider is in place. */
+    override suspend fun suggestions(query: String): List<String> =
+        getSearchSuggestions(query)
+}
+
+/** Injection point. Set in BeatDropApp.onCreate(). */
+object OnlineSearch {
+    @Volatile var provider: SearchProvider = NotConfiguredProvider
     val isConfigured: Boolean get() = provider !== NotConfiguredProvider
 }

@@ -6,7 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Load keystore.properties once (if present) for local release signing.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) FileInputStream(keystorePropsFile).use { load(it) }
@@ -25,8 +24,6 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
-    // Release signing — driven by env vars (CI) or keystore.properties (local).
-    // Falls back to debug signing so builds never fail without secrets.
     signingConfigs {
         create("release") {
             val ksPath = System.getenv("KEYSTORE_FILE") ?: keystoreProps.getProperty("storeFile")
@@ -43,7 +40,6 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            // Use the release signing config only if a keystore was actually provided.
             val rel = signingConfigs.getByName("release")
             signingConfig = if (rel.storeFile != null) rel else signingConfigs.getByName("debug")
             proguardFiles(
@@ -56,9 +52,7 @@ android {
         }
     }
 
-    testOptions {
-        unitTests.isReturnDefaultValues = true
-    }
+    testOptions { unitTests.isReturnDefaultValues = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -67,9 +61,7 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
-    packaging {
-        resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
-    }
+    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }
 
 dependencies {
@@ -91,28 +83,31 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.animation:animation")
 
-    // Navigation-Compose  (replaces @react-navigation)
+    // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // Media3 / ExoPlayer  (replaces react-native-track-player)
+    // Media3 / ExoPlayer
     val media3 = "1.3.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-session:$media3")
     implementation("androidx.media3:media3-common:$media3")
     implementation("androidx.media3:media3-ui:$media3")
 
-    // Coil for artwork  (replaces Image uri loading)
+    // Coil image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("androidx.palette:palette-ktx:1.0.0")
 
-    // DataStore (replaces mmkv / async-storage for settings)
+    // DataStore (settings)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Accompanist permissions (runtime perms in Compose)
+    // Permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
+    // OkHttp — for Innertube search, stream URL resolution, and downloads
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Unit tests
     testImplementation("junit:junit:4.13.2")

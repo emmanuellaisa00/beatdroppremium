@@ -17,34 +17,21 @@ import com.beatdrop.kt.lyrics.LrcParser
 import com.beatdrop.kt.lyrics.LrcLibProvider
 import com.beatdrop.kt.lyrics.LyricLine
 import com.beatdrop.kt.playback.PlaybackService
-import com.beatdrop.kt.youtube.OnlineResult
-import com.beatdrop.kt.youtube.OnlineSearch
-import com.beatdrop.kt.youtube.YoutubeExtractor
+import com.beatdrop.kt.youtube.*
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Replaces the RN Zustand store + PlayerService. Holds all playback + library
- * UI state as StateFlows and drives a MediaController bound to PlaybackService.
- */
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val repo = MediaRepository(app)
-    private val prefs = Prefs(app)
+    private val repo   = MediaRepository(app)
+    private val prefs  = Prefs(app)
 
-    private val _tracks = MutableStateFlow<List<Track>>(emptyList())
+    // ── Library ───────────────────────────────────────────────────────────────
+    private val _tracks  = MutableStateFlow<List<Track>>(emptyList())
     val tracks: StateFlow<List<Track>> = _tracks.asStateFlow()
 
     private val _loaded = MutableStateFlow(false)
@@ -58,25 +45,28 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val sort: StateFlow<SortMode> = _sort.asStateFlow()
     fun setSort(s: SortMode) { _sort.value = s }
 
-    private val _current = MutableStateFlow<Track?>(null)
+    // ── Playback ──────────────────────────────────────────────────────────────
+    private val _current   = MutableStateFlow<Track?>(null)
     val current: StateFlow<Track?> = _current.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
-    private val _position = MutableStateFlow(0L)
+    private val _position  = MutableStateFlow(0L)
     val position: StateFlow<Long> = _position.asStateFlow()
 
-    private val _duration = MutableStateFlow(0L)
+    private val _duration  = MutableStateFlow(0L)
     val duration: StateFlow<Long> = _duration.asStateFlow()
 
-    private val _lyrics = MutableStateFlow<List<LyricLine>>(emptyList())
+    // ── Lyrics ────────────────────────────────────────────────────────────────
+    private val _lyrics        = MutableStateFlow<List<LyricLine>>(emptyList())
     val lyrics: StateFlow<List<LyricLine>> = _lyrics.asStateFlow()
     private val _lyricsLoading = MutableStateFlow(false)
     val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
-    private val _activeLyric = MutableStateFlow(-1)
+    private val _activeLyric   = MutableStateFlow(-1)
     val activeLyric: StateFlow<Int> = _activeLyric.asStateFlow()
 
+    // ── Liked / Playlists / Counts ────────────────────────────────────────────
     private val _liked = MutableStateFlow<Set<String>>(emptySet())
     val liked: StateFlow<Set<String>> = _liked.asStateFlow()
     fun isLiked(id: String) = _liked.value.contains(id)
@@ -86,7 +76,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { prefs.setLiked(next) }
     }
 
-    // ── Playlists (name -> ordered track ids) ─────────────────────────────────
     private val _playlists = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     val playlists: StateFlow<Map<String, List<String>>> = _playlists.asStateFlow()
     fun createPlaylist(name: String) {
@@ -113,7 +102,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { prefs.setPlaylists(m) }
     }
 
-    // ── Play counts / stats ───────────────────────────────────────────────────
     private val _playCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val playCounts: StateFlow<Map<String, Int>> = _playCounts.asStateFlow()
 
@@ -140,15 +128,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Queue / shuffle / repeat ──────────────────────────────────────────────
-    private val _queue = MutableStateFlow<List<Track>>(emptyList())
+    private val _queue   = MutableStateFlow<List<Track>>(emptyList())
     val queue: StateFlow<List<Track>> = _queue.asStateFlow()
 
     private val _shuffle = MutableStateFlow(false)
     val shuffle: StateFlow<Boolean> = _shuffle.asStateFlow()
-    fun toggleShuffle() {
-        _shuffle.value = !_shuffle.value
-        controller?.shuffleModeEnabled = _shuffle.value
-    }
+    fun toggleShuffle() { _shuffle.value = !_shuffle.value; controller?.shuffleModeEnabled = _shuffle.value }
 
     private val _repeat = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeat: StateFlow<Int> = _repeat.asStateFlow()
@@ -158,8 +143,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
-        _repeat.value = next
-        controller?.repeatMode = next
+        _repeat.value = next; controller?.repeatMode = next
     }
 
     private fun refreshQueueFromController() {
@@ -171,41 +155,30 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
         _queue.value = out
     }
-
     fun playQueueIndex(index: Int) {
         val c = controller ?: return
         if (index in 0 until c.mediaItemCount) { c.seekTo(index, 0L); c.play() }
     }
-
     fun moveQueueItem(from: Int, to: Int) {
         val c = controller ?: return
         if (from == to) return
         if (from in 0 until c.mediaItemCount && to in 0 until c.mediaItemCount) {
-            c.moveMediaItem(from, to)
-            refreshQueueFromController()
+            c.moveMediaItem(from, to); refreshQueueFromController()
         }
     }
-
     fun removeFromQueue(index: Int) {
         val c = controller ?: return
         if (index in 0 until c.mediaItemCount) { c.removeMediaItem(index); refreshQueueFromController() }
     }
-
     fun shuffleAll() {
-        val all = _tracks.value
-        if (all.isEmpty()) return
-        val list = all.shuffled()
-        playList(list, list.first().id)
-        _shuffle.value = true
-        controller?.shuffleModeEnabled = true
+        val all = _tracks.value; if (all.isEmpty()) return
+        val list = all.shuffled(); playList(list, list.first().id)
+        _shuffle.value = true; controller?.shuffleModeEnabled = true
     }
-
 
     private var controller: MediaController? = null
 
-    // Derived helpers ----------------------------------------------------------
-    // Memoized derived lists — computed once when inputs change (off the UI path),
-    // then just collected. Avoids re-filtering/sorting/grouping on every recompose.
+    // ── Derived lists (memoized) ──────────────────────────────────────────────
     val filteredTracks: StateFlow<List<Track>> =
         combine(_tracks, _query, _sort) { tracks, query, sort ->
             val q = query.trim()
@@ -223,20 +196,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _tracks.map { repo.groupArtists(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Back-compat helpers (used by Album/Artist/Discover screens)
     fun filteredSorted(): List<Track> = filteredTracks.value
-    fun albums(): List<AlbumGroup> = albumGroups.value.ifEmpty { repo.groupAlbums(_tracks.value) }
+    fun albums(): List<AlbumGroup>   = albumGroups.value.ifEmpty  { repo.groupAlbums(_tracks.value) }
     fun artists(): List<ArtistGroup> = artistGroups.value.ifEmpty { repo.groupArtists(_tracks.value) }
 
-    // Lifecycle ----------------------------------------------------------------
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
     fun connect() {
         observePrefs()
         val token = SessionToken(getApplication(), ComponentName(getApplication(), PlaybackService::class.java))
         val future = MediaController.Builder(getApplication(), token).buildAsync()
         future.addListener({
-            controller = future.get()
-            attach()
-            startTicker()
+            controller = future.get(); attach(); startTicker()
         }, ContextCompat.getMainExecutor(getApplication()))
     }
 
@@ -253,35 +223,33 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun syncCurrent() {
         val id = controller?.currentMediaItem?.mediaId ?: return
-        val t = _tracks.value.firstOrNull { it.id == id } ?: return
-        _current.value = t
-        _duration.value = t.durationMs
+        // Check local tracks first, then youtube cache
+        val t = _tracks.value.firstOrNull { it.id == id } ?: _ytTrackCache[id] ?: return
+        _current.value = t; _duration.value = t.durationMs
         loadLyrics(t)
     }
 
     @Volatile private var libraryLoadStarted = false
     fun loadLibrary() {
-        if (libraryLoadStarted) return       // avoid re-scanning on recompositions
+        if (libraryLoadStarted) return
         libraryLoadStarted = true
         viewModelScope.launch(Dispatchers.IO) {
             repo.loadTracksStreaming(batchSize = 60) { batch ->
-                // Push each batch to the UI on the main thread; first batch shows instantly.
                 _tracks.value = batch
                 if (!_loaded.value) _loaded.value = true
             }
         }
     }
 
+    // ── Playback ──────────────────────────────────────────────────────────────
     fun play(track: Track) {
         val c = controller ?: return
         val list = filteredSorted()
         val startIndex = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         c.setMediaItems(list.map { it.toMediaItem() }, startIndex, 0L)
         c.prepare(); c.play()
-        _current.value = track
-        _duration.value = track.durationMs
-        loadLyrics(track)
-        refreshQueueFromController()
+        _current.value = track; _duration.value = track.durationMs
+        loadLyrics(track); refreshQueueFromController()
         viewModelScope.launch { prefs.incrementPlayCount(track.id) }
     }
 
@@ -290,11 +258,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val idx = tracks.indexOfFirst { it.id == startId }.coerceAtLeast(0)
         c.setMediaItems(tracks.map { it.toMediaItem() }, idx, 0L)
         c.prepare(); c.play()
-        _current.value = tracks.getOrNull(idx)
-        refreshQueueFromController()
+        _current.value = tracks.getOrNull(idx); refreshQueueFromController()
     }
 
-    /** Insert a track right after the current one. */
     fun playNext(track: Track) {
         val c = controller ?: return
         val at = (c.currentMediaItemIndex + 1).coerceIn(0, c.mediaItemCount)
@@ -303,7 +269,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         refreshQueueFromController()
     }
 
-    /** Append a track to the end of the queue. */
     fun addToQueueEnd(track: Track) {
         val c = controller ?: return
         c.addMediaItem(track.toMediaItem())
@@ -318,22 +283,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadLyrics(track: Track) {
         viewModelScope.launch {
-            _activeLyric.value = -1
-            _lyrics.value = emptyList()
-            _lyricsLoading.value = true
-            // 1) Local sidecar .lrc (instant, offline)
+            _activeLyric.value = -1; _lyrics.value = emptyList(); _lyricsLoading.value = true
             val local = withContext(Dispatchers.IO) { LrcParser.findAndParse(track) }
-            if (local.isNotEmpty()) {
-                _lyrics.value = local
-                _lyricsLoading.value = false
-                return@launch
-            }
-            // 2) Online: LRCLIB (free, synced). Skip if we switched track meanwhile.
+            if (local.isNotEmpty()) { _lyrics.value = local; _lyricsLoading.value = false; return@launch }
             val online = withContext(Dispatchers.IO) { LrcLibProvider.fetch(track) }
-            if (_current.value?.id == track.id) {
-                _lyrics.value = online
-                _lyricsLoading.value = false
-            }
+            if (_current.value?.id == track.id) { _lyrics.value = online; _lyricsLoading.value = false }
         }
     }
 
@@ -346,85 +300,46 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     if (c.duration > 0) _duration.value = c.duration
                     if (_lyrics.value.isNotEmpty())
                         _activeLyric.value = LrcParser.activeIndex(_lyrics.value, _position.value)
-                    delay(120)            // smooth seek bar while playing
-                } else {
-                    delay(400)            // idle: save battery when paused
-                }
+                    delay(120)
+                } else delay(400)
             }
         }
     }
 
-    // ── DJ Mode: two independent decks with crossfade ─────────────────────────
-    // Deck A = the main MediaController; Deck B = a private ExoPlayer.
+    // ── DJ Mode ───────────────────────────────────────────────────────────────
     private var deckB: ExoPlayer? = null
-
-    private val _deckATrack = MutableStateFlow<Track?>(null)
+    private val _deckATrack   = MutableStateFlow<Track?>(null)
     val deckATrack: StateFlow<Track?> = _deckATrack.asStateFlow()
-    private val _deckBTrack = MutableStateFlow<Track?>(null)
+    private val _deckBTrack   = MutableStateFlow<Track?>(null)
     val deckBTrack: StateFlow<Track?> = _deckBTrack.asStateFlow()
-
     private val _deckAPlaying = MutableStateFlow(false)
     val deckAPlaying: StateFlow<Boolean> = _deckAPlaying.asStateFlow()
     private val _deckBPlaying = MutableStateFlow(false)
     val deckBPlaying: StateFlow<Boolean> = _deckBPlaying.asStateFlow()
-
-    /** Crossfader: 0f = full A, 1f = full B. */
-    private val _crossfade = MutableStateFlow(0f)
+    private val _crossfade    = MutableStateFlow(0f)
     val crossfade: StateFlow<Float> = _crossfade.asStateFlow()
 
     private fun ensureDeckB(): ExoPlayer {
-        val existing = deckB
-        if (existing != null) return existing
-        val p = ExoPlayer.Builder(getApplication()).build()
-        p.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) { _deckBPlaying.value = playing }
-        })
-        deckB = p
-        return p
+        return deckB ?: ExoPlayer.Builder(getApplication()).build().also { p ->
+            p.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(playing: Boolean) { _deckBPlaying.value = playing }
+            })
+            deckB = p
+        }
     }
-
-    fun loadDeckA(track: Track) {
-        // Deck A reuses the main controller (so the system notification reflects it).
-        play(track)
-        _deckATrack.value = track
-        _deckAPlaying.value = true
-        applyCrossfade(_crossfade.value)
-    }
-
+    fun loadDeckA(track: Track) { play(track); _deckATrack.value = track; _deckAPlaying.value = true; applyCrossfade(_crossfade.value) }
     fun loadDeckB(track: Track) {
         val p = ensureDeckB()
         p.setMediaItem(MediaItem.Builder().setMediaId(track.id).setUri(track.uri).build())
-        p.prepare()
-        p.playWhenReady = true
-        _deckBTrack.value = track
-        applyCrossfade(_crossfade.value)
+        p.prepare(); p.playWhenReady = true; _deckBTrack.value = track; applyCrossfade(_crossfade.value)
     }
+    fun toggleDeckA() { val c = controller ?: return; if (c.isPlaying) c.pause() else c.play(); _deckAPlaying.value = c.isPlaying }
+    fun toggleDeckB() { val p = deckB ?: return; p.playWhenReady = !p.isPlaying }
+    fun setCrossfade(v: Float) { val x = v.coerceIn(0f, 1f); _crossfade.value = x; applyCrossfade(x) }
+    private fun applyCrossfade(x: Float) { controller?.volume = (1f - x); deckB?.volume = x }
 
-    fun toggleDeckA() {
-        val c = controller ?: return
-        if (c.isPlaying) c.pause() else c.play()
-        _deckAPlaying.value = c.isPlaying
-    }
-
-    fun toggleDeckB() {
-        val p = deckB ?: return
-        p.playWhenReady = !p.isPlaying
-    }
-
-    fun setCrossfade(v: Float) {
-        val x = v.coerceIn(0f, 1f)
-        _crossfade.value = x
-        applyCrossfade(x)
-    }
-
-    private fun applyCrossfade(x: Float) {
-        // Equal-power-ish: simple linear is fine for a phone DJ toy.
-        controller?.volume = (1f - x)
-        deckB?.volume = x
-    }
-
-    // ── Online search (pluggable backend) ─────────────────────────────────────
-    private val _onlineQuery = MutableStateFlow("")
+    // ── Online Search ─────────────────────────────────────────────────────────
+    private val _onlineQuery   = MutableStateFlow("")
     val onlineQuery: StateFlow<String> = _onlineQuery.asStateFlow()
     fun setOnlineQuery(q: String) { _onlineQuery.value = q }
 
@@ -438,55 +353,92 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val onlineMessage: StateFlow<String?> = _onlineMessage.asStateFlow()
     fun clearOnlineMessage() { _onlineMessage.value = null }
 
+    // Suggestions for the search bar
+    private val _suggestions = MutableStateFlow<List<String>>(emptyList())
+    val suggestions: StateFlow<List<String>> = _suggestions.asStateFlow()
+
     val searchConfigured: Boolean get() = OnlineSearch.isConfigured
-    val extractorConfigured: Boolean get() = YoutubeExtractor.isConfigured
 
     fun runOnlineSearch() {
         val q = _onlineQuery.value.trim()
         if (q.isBlank()) return
-        if (!OnlineSearch.isConfigured) {
-            _onlineMessage.value = "Search backend not configured. Set OnlineSearch.provider."
-            return
-        }
-        _onlineLoading.value = true
+        _onlineLoading.value = true; _suggestions.value = emptyList()
         viewModelScope.launch {
             val res = runCatching { OnlineSearch.provider.search(q) }.getOrElse {
                 _onlineMessage.value = "Search failed: ${it.message}"; emptyList()
             }
-            _onlineResults.value = res
+            _onlineResults.value = res; _onlineLoading.value = false
+        }
+    }
+
+    fun loadSuggestions() {
+        val q = _onlineQuery.value.trim()
+        if (q.length < 2) { _suggestions.value = emptyList(); return }
+        viewModelScope.launch {
+            val s = runCatching { OnlineSearch.provider.suggestions(q) }.getOrElse { emptyList() }
+            _suggestions.value = s
+        }
+    }
+
+    // ── YouTube playback — resolve URL then play via ExoPlayer ────────────────
+    // Cache of ytTrack objects so syncCurrent() can find them by mediaId
+    private val _ytTrackCache = mutableMapOf<String, Track>()
+
+    fun playOnline(result: OnlineResult) {
+        viewModelScope.launch {
+            _onlineLoading.value = true
+            val track = runCatching { youtubeResultToTrack(result) }.getOrElse {
+                _onlineMessage.value = "Could not load track: ${it.message}"
+                _onlineLoading.value = false; return@launch
+            }
+            _ytTrackCache[track.id] = track
+            val c = controller ?: run { _onlineLoading.value = false; return@launch }
+            c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
+            _current.value = track; _duration.value = track.durationMs
             _onlineLoading.value = false
         }
     }
 
-    /** Resolve a result to a stream URL (via your extractor) and play it. */
-    fun playOnline(result: OnlineResult) {
-        viewModelScope.launch {
-            val url = runCatching { YoutubeExtractor.extractStreamUrl(result.videoId) }.getOrNull()
-            if (url == null) {
-                _onlineMessage.value = "Playback backend not configured (YoutubeExtractor)."
-                return@launch
+    // ── Downloads ─────────────────────────────────────────────────────────────
+    private val _downloadJobs = MutableStateFlow<Map<String, DownloadJob>>(emptyMap())
+    val downloadJobs: StateFlow<Map<String, DownloadJob>> = _downloadJobs.asStateFlow()
+
+    fun downloadJobFor(videoId: String): DownloadJob? = _downloadJobs.value[videoId]
+
+    private fun updateJob(job: DownloadJob) {
+        _downloadJobs.value = _downloadJobs.value + (job.videoId to job)
+    }
+
+    fun downloadOnline(result: OnlineResult) {
+        val existing = _downloadJobs.value[result.videoId]
+        if (existing != null && existing.status in listOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)) return
+
+        updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.QUEUED))
+        viewModelScope.launch(Dispatchers.IO) {
+            updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.DOWNLOADING))
+            runCatching {
+                downloadYoutubeTrack(result) { progress ->
+                    updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.DOWNLOADING, progress.percent))
+                }
+            }.onSuccess { track ->
+                // Add downloaded track to library
+                _tracks.value = _tracks.value + track
+                updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.COMPLETED, 100, track))
+            }.onFailure { err ->
+                updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.FAILED, 0, null, err.message))
+                _onlineMessage.value = "Download failed: ${err.message}"
             }
-            val c = controller ?: return@launch
-            c.setMediaItem(
-                MediaItem.Builder().setMediaId("yt_${result.videoId}").setUri(Uri.parse(url))
-                    .setMediaMetadata(
-                        MediaMetadata.Builder().setTitle(result.title).setArtist(result.author).build()
-                    ).build()
-            )
-            c.prepare(); c.play()
         }
     }
 
-    /** Hook for downloading — resolves URL then hands off to your download code. */
-    fun downloadOnline(result: OnlineResult, onUrl: (String) -> Unit) {
-        viewModelScope.launch {
-            val url = runCatching { YoutubeExtractor.extractStreamUrl(result.videoId) }.getOrNull()
-            if (url == null) {
-                _onlineMessage.value = "Download backend not configured (YoutubeExtractor)."
-                return@launch
-            }
-            onUrl(url)
-        }
+    fun cancelDownload(videoId: String) {
+        // Mark as cancelled — OkHttp will clean up on next use
+        _downloadJobs.value = _downloadJobs.value - videoId
+    }
+
+    fun retryDownload(result: OnlineResult) {
+        _downloadJobs.value = _downloadJobs.value - result.videoId
+        downloadOnline(result)
     }
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
@@ -500,21 +452,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _sleepMinutesLeft.value = minutes
         sleepJob = viewModelScope.launch {
             var left = minutes
-            while (left > 0) {
-                delay(60_000)
-                left--
-                _sleepMinutesLeft.value = left
-            }
+            while (left > 0) { delay(60_000); left--; _sleepMinutesLeft.value = left }
             controller?.pause()
         }
     }
+    fun cancelSleepTimer() { sleepJob?.cancel(); _sleepMinutesLeft.value = 0 }
 
-    fun cancelSleepTimer() {
-        sleepJob?.cancel()
-        _sleepMinutesLeft.value = 0
+    override fun onCleared() {
+        sleepJob?.cancel(); controller?.release(); deckB?.release(); super.onCleared()
     }
-
-    override fun onCleared() { sleepJob?.cancel(); controller?.release(); deckB?.release(); super.onCleared() }
 }
 
 private fun Track.toMediaItem(): MediaItem =
