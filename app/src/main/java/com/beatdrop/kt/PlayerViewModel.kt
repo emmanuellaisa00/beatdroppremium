@@ -184,6 +184,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private var controller: MediaController? = null
 
+    private val _volume = MutableStateFlow(1f)
+    val volume: StateFlow<Float> = _volume.asStateFlow()
+    fun setVolume(v: Float) {
+        val x = v.coerceIn(0f, 1f)
+        _volume.value = x
+        controller?.volume = x
+    }
+
     // ── Derived lists (memoized) ──────────────────────────────────────────────
     val filteredTracks: StateFlow<List<Track>> =
         combine(_tracks, _query.debounce(150), _sort) { tracks, query, sort ->
@@ -223,6 +231,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             override fun onTimelineChanged(t: Timeline, reason: Int) { refreshQueueFromController() }
             override fun onPlaybackStateChanged(state: Int) {
                 _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
+                _volume.value = controller?.volume ?: 1f
             }
         })
     }
