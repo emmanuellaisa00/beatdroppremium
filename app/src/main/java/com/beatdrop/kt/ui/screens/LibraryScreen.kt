@@ -67,7 +67,7 @@ fun LibraryScreen(
     Column(Modifier.fillMaxSize()) {
         // ── Top bar: title + action icons ───────────────────────────────────
         Row(
-            Modifier.fillMaxWidth().padding(start = Spacing.lg, end = 4.dp, top = 10.dp, bottom = 2.dp),
+            Modifier.fillMaxWidth().statusBarsPadding().padding(start = Spacing.lg, end = 4.dp, top = 10.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(Modifier.weight(1f)) {

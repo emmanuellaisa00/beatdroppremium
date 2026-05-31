@@ -129,7 +129,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
     }
 
     if (loading) {
-        Box(Modifier.fillMaxSize().background(C.bg0), Alignment.Center) {
+        Box(Modifier.fillMaxSize().background(Color.Transparent), Alignment.Center) {
             CircularProgressIndicator(color = C.accent, strokeWidth = 3.dp)
         }
         return
@@ -138,9 +138,10 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}) {
     val featured = trending.firstOrNull() ?: FALLBACK_TRENDING.first()
     val quickGrid = trending.drop(1).take(6)
 
+    val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     LazyColumn(
-        Modifier.fillMaxSize().background(C.bg0),
-        contentPadding = PaddingValues(bottom = 170.dp)
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 170.dp)
     ) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
@@ -304,7 +305,8 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
     val jumpBackIn = remember(tracks) { tracks.shuffled().take(12) }
     val quickGrid = remember(tracks) { tracks.shuffled().take(6) }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 170.dp)) {
+    val topPaddingLocal = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 170.dp)) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
             Row(Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.lg, top = 10.dp, bottom = 8.dp),

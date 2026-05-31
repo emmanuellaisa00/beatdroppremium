@@ -53,7 +53,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // enableEdgeToEdge() removed — was causing black screen on some devices
+        // Immersive edge-to-edge system bars
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         cleanupWebViews = initHiddenYoutubeWebViews(this)
         setContent {
             val vm: PlayerViewModel = viewModel()
@@ -211,7 +214,7 @@ private fun TabsHost(
 ) {
     val C = LocalAppColors.current
     Box(Modifier.fillMaxSize().background(Color.Transparent)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     "library"  -> LibraryScreen(vm, onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist,
@@ -235,6 +238,9 @@ private fun TabsHost(
             }
             GlassTabBar(TABS, tab) { onTab(it) }
         }
+
+        // Premium status bar frosted glass blur overlay
+        StatusBarGlassOverlay()
     }
 }
 
@@ -280,4 +286,29 @@ fun GlobalGlassLoader() {
             }
         }
     }
+}
+
+@Composable
+fun StatusBarGlassOverlay() {
+    val C = LocalAppColors.current
+    val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    if (topPadding <= 0.dp) return
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(topPadding)
+            .then(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Modifier.graphicsLayer {
+                        renderEffect = android.graphics.RenderEffect
+                            .createBlurEffect(40f, 40f, android.graphics.Shader.TileMode.CLAMP)
+                            .asComposeRenderEffect()
+                        clip = true
+                    }
+                } else Modifier
+            )
+            .background(
+                if (C.isDark) Color(0x1F0A0910) else Color(0x1FDDDDDD)
+            )
+    )
 }
