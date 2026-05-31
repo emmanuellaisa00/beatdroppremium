@@ -315,7 +315,10 @@ suspend fun downloadYoutubeTrack(
     val fileName = "${safeTitle}_${result.videoId}.$fileExt"
     val filePath = File(dir, fileName)
 
-    val req = Request.Builder().url(streamUrl).build()
+    val req = Request.Builder()
+        .url(streamUrl)
+        .header("User-Agent", "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)")
+        .build()
     okHttp.newCall(req).execute().use { resp ->
         if (!resp.isSuccessful) throw Exception("Download failed (HTTP ${resp.code})")
         val body = resp.body ?: throw Exception("Empty response body")
