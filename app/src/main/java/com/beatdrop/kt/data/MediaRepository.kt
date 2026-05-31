@@ -37,18 +37,28 @@ class MediaRepository(private val context: Context) {
             val dC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val dataC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val daC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val seen = mutableSetOf<String>()
             while (c.moveToNext()) {
                 val id = c.getLong(idC)
+                val title = c.getString(tC) ?: "Unknown"
+                val artist = c.getString(arC) ?: "Unknown artist"
+                val album = c.getString(alC) ?: ""
+                val duration = c.getLong(dC)
+                val data = c.getString(dataC)
+                // De-dup by file path (preferred) or title+artist+duration
+                val key = if (!data.isNullOrBlank()) data else "$title|$artist|$duration"
+                if (key in seen) continue
+                seen.add(key)
                 out.add(
                     Track(
                         id = id.toString(),
                         uri = ContentUris.withAppendedId(collection, id),
-                        title = c.getString(tC) ?: "Unknown",
-                        artist = c.getString(arC) ?: "Unknown artist",
-                        album = c.getString(alC) ?: "",
+                        title = title,
+                        artist = artist,
+                        album = album,
                         albumId = c.getLong(alIdC),
-                        durationMs = c.getLong(dC),
-                        data = c.getString(dataC),
+                        durationMs = duration,
+                        data = data,
                         dateAdded = c.getLong(daC),
                     )
                 )
@@ -88,19 +98,29 @@ class MediaRepository(private val context: Context) {
             val dC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val dataC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val daC = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val seen = mutableSetOf<String>()
             var sinceEmit = 0
             while (c.moveToNext()) {
                 val id = c.getLong(idC)
+                val title = c.getString(tC) ?: "Unknown"
+                val artist = c.getString(arC) ?: "Unknown artist"
+                val album = c.getString(alC) ?: ""
+                val duration = c.getLong(dC)
+                val data = c.getString(dataC)
+                // De-dup key: file path preferred, fallback to title+artist+duration
+                val key = if (!data.isNullOrBlank()) data else "$title|$artist|$duration"
+                if (key in seen) continue
+                seen.add(key)
                 out.add(
                     Track(
                         id = id.toString(),
                         uri = ContentUris.withAppendedId(collection, id),
-                        title = c.getString(tC) ?: "Unknown",
-                        artist = c.getString(arC) ?: "Unknown artist",
-                        album = c.getString(alC) ?: "",
+                        title = title,
+                        artist = artist,
+                        album = album,
                         albumId = c.getLong(alIdC),
-                        durationMs = c.getLong(dC),
-                        data = c.getString(dataC),
+                        durationMs = duration,
+                        data = data,
                         dateAdded = c.getLong(daC),
                     )
                 )

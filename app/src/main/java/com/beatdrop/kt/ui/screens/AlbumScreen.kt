@@ -50,7 +50,7 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
             Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(200.dp).clip(RoundedCornerShape(Radius.xl)).background(C.bg3)) {
                     AsyncImage(
-                        model = ImageRequest.Builder(ctx).data(group?.artworkUri).crossfade(true).build(),
+                        model = ImageRequest.Builder(ctx).data(group?.artworkUri).crossfade(true).size(512).build(),
                         contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                     )
                 }

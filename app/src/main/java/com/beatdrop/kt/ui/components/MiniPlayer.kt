@@ -64,6 +64,8 @@ fun MiniPlayer(
         Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)
             .graphicsLayer { translationX = animX; translationY = animY }
             .clip(RoundedCornerShape(Radius.xxl))
+            // Opaque base layer prevents content bleeding through
+            .background(if (C.isDark) Color(0xFF101018) else Color(0xFFF2F2F7))
             .background(if (C.isDark) C.liquidGlass else Color.White.copy(alpha = 0.85f))
             .border(1.dp, C.liquidGlassBorder, RoundedCornerShape(Radius.xxl))
             .pointerInput(track.id) {
@@ -90,7 +92,7 @@ fun MiniPlayer(
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
                 AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).build(),
+                    model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).size(96).build(),
                     contentDescription = null, contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )

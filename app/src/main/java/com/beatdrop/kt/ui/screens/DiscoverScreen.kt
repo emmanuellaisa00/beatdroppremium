@@ -103,7 +103,7 @@ private fun FeaturedHero(track: Track, onPlay: () -> Unit) {
             .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)
             .pressableScale(onClick = onPlay, scaleTo = 0.98f),
     ) {
-        AsyncImage(model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).build(),
+        AsyncImage(model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).size(512).build(),
             contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
         Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {

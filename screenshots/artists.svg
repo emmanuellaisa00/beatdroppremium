@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" width="400" height="800">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000"/>
+      <stop offset="100%" style="stop-color:#080808"/>
+    </linearGradient>
+    <linearGradient id="artistBg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C77DFF"/>
+      <stop offset="100%" style="stop-color:#7B2CBF"/>
+    </linearGradient>
+    <linearGradient id="artistBg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A84FF"/>
+      <stop offset="100%" style="stop-color:#0040A0"/>
+    </linearGradient>
+    <linearGradient id="artistBg3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B"/>
+      <stop offset="100%" style="stop-color:#CC0000"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="400" height="800" fill="url(#bg)"/>
+
+  <text x="200" y="50" fill="#666" font-size="11" font-weight="bold" text-anchor="middle" font-family="Arial">ARTISTS</text>
+
+  <!-- Artist Rows -->
+  <g transform="translate(20, 80)">
+    <circle cx="30" cy="30" r="26" fill="url(#artistBg1)"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">B</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">Backstreet Boys</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">24 songs</text>
+  </g>
+
+  <g transform="translate(20, 150)">
+    <circle cx="30" cy="30" r="26" fill="url(#artistBg2)"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">A</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">Alan Walker</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">15 songs</text>
+  </g>
+
+  <g transform="translate(20, 220)">
+    <circle cx="30" cy="30" r="26" fill="url(#artistBg3)"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">E</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">Ed Sheeran</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">18 songs</text>
+  </g>
+
+  <g transform="translate(20, 290)">
+    <circle cx="30" cy="30" r="26" fill="#333"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">T</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">The Weeknd</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">12 songs</text>
+  </g>
+
+  <g transform="translate(20, 360)">
+    <circle cx="30" cy="30" r="26" fill="#444"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">D</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">Drake</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">22 songs</text>
+  </g>
+
+  <g transform="translate(20, 430)">
+    <circle cx="30" cy="30" r="26" fill="#555"/>
+    <text x="30" y="38" fill="#FFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">T</text>
+    <text x="75" y="30" fill="#FFF" font-size="16" font-weight="600" font-family="Arial">Taylor Swift</text>
+    <text x="75" y="50" fill="#888" font-size="12" font-family="Arial">31 songs</text>
+  </g>
+
+  <text x="200" y="520" fill="#666" font-size="14" text-anchor="middle" font-family="Arial">👤 Artists Screen — Fixed</text>
+  <text x="200" y="550" fill="#444" font-size="12" text-anchor="middle" font-family="Arial">Avatar circles with gradient backgrounds</text>
+
+  <!-- Bottom Tab Bar (opaque) -->
+  <rect x="20" y="720" width="360" height="50" rx="25" fill="#101018" stroke="#2A2A2A" stroke-width="1"/>
+  <text x="80" y="750" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">📚 Library</text>
+  <text x="160" y="750" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">🔍 Discover</text>
+  <text x="240" y="750" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">📻 Radio</text>
+  <text x="320" y="750" fill="#C77DFF" font-size="12" text-anchor="middle" font-weight="bold" font-family="Arial">👤 Artists</text>
+</svg>

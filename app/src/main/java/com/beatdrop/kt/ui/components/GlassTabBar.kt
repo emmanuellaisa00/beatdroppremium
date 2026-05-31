@@ -29,7 +29,12 @@ data class TabSpec(val route: String, val label: String, val icon: ImageVector)
 @Composable
 fun GlassTabBar(tabs: List<TabSpec>, current: String, onSelect: (String) -> Unit) {
     val C = LocalAppColors.current
-    Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+    Box(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(Radius.xxl))
+            // Opaque base layer prevents content from bleeding through
+            .background(if (C.isDark) Color(0xFF101018) else Color(0xFFF2F2F7))
+    ) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -74,10 +79,7 @@ private fun TabItem(tab: TabSpec, active: Boolean, modifier: Modifier, onClick: 
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(tab.icon, tab.label, tint = if (active) C.accent else C.textSecondary, modifier = Modifier.size(22.dp))
-            if (active) {
-                Text(tab.label, color = C.accent, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(top = 3.dp))
-            }
+            Text(tab.label, color = if (active) C.accent else C.textSecondary, fontSize = 10.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium, modifier = Modifier.padding(top = 3.dp))
         }
     }
 }

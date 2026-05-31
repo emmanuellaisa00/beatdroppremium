@@ -84,7 +84,7 @@ fun SearchScreen(vm: PlayerViewModel) {
                         ) {
                             Box(Modifier.size(56.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3), Alignment.Center) {
                                 if (r.thumbnailUrl != null) {
-                                    AsyncImage(model = ImageRequest.Builder(ctx).data(r.thumbnailUrl).crossfade(true).build(),
+                                    AsyncImage(model = ImageRequest.Builder(ctx).data(r.thumbnailUrl).crossfade(true).size(128).build(),
                                         contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                                 } else Icon(Icons.Filled.MusicNote, null, tint = C.textTertiary)
                             }

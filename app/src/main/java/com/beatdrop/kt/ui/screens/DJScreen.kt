@@ -45,7 +45,7 @@ fun DJScreen(vm: PlayerViewModel) {
 
     Column(
         Modifier.fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF15101F), Color(0xFF0B0B0F))))
+            .background(C.bg0)
             .statusBarsPadding().padding(16.dp),
     ) {
         Text("DJ Mode", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp)

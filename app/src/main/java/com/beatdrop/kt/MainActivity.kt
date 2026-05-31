@@ -135,13 +135,16 @@ fun MainScaffold(vm: PlayerViewModel) {
         AnimatedContent(
             targetState = currentDest,
             transitionSpec = {
-                val isPush = targetState != Dest.Tabs
-                if (isPush) {
-                    (slideInHorizontally(tween(260)) { it } + fadeIn(tween(160))) togetherWith
-                        (fadeOut(tween(160)))
+                val sameLevel = targetState == Dest.Tabs && initialState == Dest.Tabs
+                val isPush = targetState != Dest.Tabs && initialState == Dest.Tabs
+                if (sameLevel) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else if (isPush) {
+                    (slideInHorizontally(tween(280)) { it } + fadeIn(tween(200))) togetherWith
+                        (fadeOut(tween(120)))
                 } else {
-                    (fadeIn(tween(160))) togetherWith
-                        (slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)))
+                    (fadeIn(tween(180))) togetherWith
+                        (slideOutHorizontally(tween(220)) { it } + fadeOut(tween(120)))
                 }
             },
             label = "screen",
@@ -214,13 +217,19 @@ private fun TabsHost(
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) {
-            current?.let { t ->
-                MiniPlayer(
-                    track = t, isPlaying = isPlaying,
-                    progress = if (dur > 0) pos.toFloat() / dur else 0f,
-                    onToggle = { vm.togglePlay() }, onNext = { vm.next() }, onPrev = { vm.prev() },
-                    onExpand = onExpandPlayer,
-                )
+            // Opaque scrim behind mini-player + tab bar prevents content bleeding through
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(if (C.isDark) Color(0xFF101018) else Color(0xFFF2F2F7))
+            ) {
+                current?.let { t ->
+                    MiniPlayer(
+                        track = t, isPlaying = isPlaying,
+                        progress = if (dur > 0) pos.toFloat() / dur else 0f,
+                        onToggle = { vm.togglePlay() }, onNext = { vm.next() }, onPrev = { vm.prev() },
+                        onExpand = onExpandPlayer,
+                    )
+                }
             }
             GlassTabBar(TABS, tab) { onTab(it) }
         }

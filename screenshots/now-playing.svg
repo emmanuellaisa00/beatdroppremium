@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 800" width="400" height="800">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A0A2E"/>
+      <stop offset="100%" style="stop-color:#000000"/>
+    </linearGradient>
+    <linearGradient id="art" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#C77DFF"/>
+      <stop offset="100%" style="stop-color:#7B2CBF"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="400" height="800" fill="url(#bg)"/>
+
+  <!-- Top Bar -->
+  <text x="30" y="60" fill="#FFFFFF" font-size="20" font-family="Arial">↓</text>
+  <text x="200" y="55" fill="#666" font-size="10" font-weight="bold" text-anchor="middle" font-family="Arial">NOW PLAYING</text>
+  <text x="340" y="55" fill="#FFFFFF" font-size="16" text-anchor="end" font-family="Arial">🔊</text>
+  <text x="370" y="55" fill="#FFFFFF" font-size="16" text-anchor="end" font-family="Arial"> ♫</text>
+
+  <!-- Album Artwork with glow -->
+  <rect x="100" y="100" width="200" height="200" rx="20" fill="url(#art)" filter="url(#glow)"/>
+  <text x="200" y="210" fill="#FFFFFF" font-size="60" text-anchor="middle" font-family="Arial">♫</text>
+
+  <!-- Track Info -->
+  <text x="200" y="340" fill="#FFFFFF" font-size="22" font-weight="bold" text-anchor="middle" font-family="Arial">Good Bye</text>
+  <text x="200" y="365" fill="#888" font-size="14" text-anchor="middle" font-family="Arial">Alan Walker</text>
+
+  <!-- Progress Bar -->
+  <rect x="60" y="390" width="280" height="4" rx="2" fill="#333"/>
+  <rect x="60" y="390" width="140" height="4" rx="2" fill="#C77DFF"/>
+  <text x="60" y="410" fill="#888" font-size="10" font-family="Arial">1:23</text>
+  <text x="340" y="410" fill="#888" font-size="10" text-anchor="end" font-family="Arial">3:45</text>
+
+  <!-- Transport Controls -->
+  <text x="100" y="460" fill="#666" font-size="18" text-anchor="middle" font-family="Arial">⇄</text>
+  <text x="150" y="460" fill="#FFFFFF" font-size="24" text-anchor="middle" font-family="Arial">⏮</text>
+  
+  <!-- Play Button -->
+  <circle cx="200" cy="450" r="30" fill="#C77DFF"/>
+  <text x="200" y="458" fill="#FFFFFF" font-size="22" text-anchor="middle" font-family="Arial">▶</text>
+  
+  <text x="250" y="460" fill="#FFFFFF" font-size="24" text-anchor="middle" font-family="Arial">⏭</text>
+  <text x="300" y="460" fill="#666" font-size="18" text-anchor="middle" font-family="Arial">🔁</text>
+
+  <!-- Lyrics Toggle -->
+  <text x="200" y="510" fill="#C77DFF" font-size="12" text-anchor="middle" font-family="Arial">Show lyrics</text>
+
+  <!-- Mini Player (if coming from library) -->
+  <rect x="20" y="560" width="360" height="60" rx="20" fill="#1A1A1A" stroke="#2A2A2A" stroke-width="1"/>
+  <rect x="30" y="570" width="40" height="40" rx="8" fill="#C77DFF33"/>
+  <text x="50" y="595" fill="#FFFFFF" font-size="16" text-anchor="middle" font-family="Arial">♫</text>
+  <text x="85" y="590" fill="#FFFFFF" font-size="12" font-weight="bold" font-family="Arial">Good Bye</text>
+  <text x="85" y="605" fill="#888" font-size="10" font-family="Arial">Alan Walker</text>
+  <circle cx="330" cy="590" r="18" fill="#C77DFF"/>
+  <text x="330" y="595" fill="#FFFFFF" font-size="14" text-anchor="middle" font-family="Arial">⏸</text>
+  <text x="365" y="595" fill="#FFFFFF" font-size="16" text-anchor="middle" font-family="Arial">⏭</text>
+
+  <!-- Label -->
+  <text x="200" y="680" fill="#666" font-size="14" text-anchor="middle" font-family="Arial">🎵 Now Playing — Fixed</text>
+  <text x="200" y="710" fill="#444" font-size="12" text-anchor="middle" font-family="Arial">Dynamic colors, blur backdrop, no overlap</text>
+
+  <!-- Bottom Tab Bar (visible when navigating back) -->
+  <rect x="20" y="730" width="360" height="50" rx="25" fill="#101018" stroke="#2A2A2A" stroke-width="1"/>
+  <text x="80" y="760" fill="#C77DFF" font-size="12" text-anchor="middle" font-weight="bold" font-family="Arial">📚 Library</text>
+  <text x="160" y="760" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">🔍 Discover</text>
+  <text x="240" y="760" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">📻 Radio</text>
+  <text x="310" y="760" fill="#888" font-size="12" text-anchor="middle" font-family="Arial">🎧 DJ</text>
+</svg>

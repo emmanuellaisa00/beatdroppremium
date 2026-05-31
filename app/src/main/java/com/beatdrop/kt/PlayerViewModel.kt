@@ -122,7 +122,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val haptics: StateFlow<Boolean> = _haptics.asStateFlow()
     fun setHaptics(v: Boolean) { _haptics.value = v; viewModelScope.launch { prefs.setHaptics(v) } }
 
-    private val _theme = MutableStateFlow("system")
+    private val _theme = MutableStateFlow("dark")
     val theme: StateFlow<String> = _theme.asStateFlow()
     fun setTheme(v: String) { _theme.value = v; viewModelScope.launch { prefs.setTheme(v) } }
 
