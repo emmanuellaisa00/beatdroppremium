@@ -64,14 +64,29 @@ private data class YtClient(
     val clientVersion: String,
     val headers: Map<String, String>,
     val extraContext: JSONObject = JSONObject(),
+    val bodyExtra: JSONObject = JSONObject(),   // injected at top level of player body
 )
 
 private val YT_CLIENTS = listOf(
+    // ── ANDROID — the single most reliable client in 2025 ───────────────────
+    // YouTube server-side decodes the `n` throttle param for native Android
+    // clients, so ExoPlayer receives clean, unthrottled CDN URLs directly.
+    YtClient(
+        name = "ANDROID", clientName = "ANDROID", clientVersion = "19.09.37",
+        headers = mapOf(
+            "User-Agent"               to "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+            "X-Youtube-Client-Name"    to "3",
+            "X-Youtube-Client-Version" to "19.09.37",
+        ),
+        extraContext = JSONObject()
+            .put("osName", "Android").put("osVersion", "11").put("androidSdkVersion", 30),
+    ),
+    // ── IOS — exempt from web BotGuard, plain URLs for most content ─────────
     YtClient(
         name = "IOS", clientName = "IOS", clientVersion = "20.03.02",
         headers = mapOf(
-            "User-Agent"              to IOS_UA,
-            "X-Youtube-Client-Name"   to "5",
+            "User-Agent"               to IOS_UA,
+            "X-Youtube-Client-Name"    to "5",
             "X-Youtube-Client-Version" to "20.03.02",
         ),
         extraContext = JSONObject().apply {
@@ -79,32 +94,37 @@ private val YT_CLIENTS = listOf(
             put("osName", "iPhone");   put("osVersion", "18.2.1.22C161")
         }
     ),
+    // ── MWEB ─────────────────────────────────────────────────────────────────
     YtClient(
         name = "MWEB", clientName = "MWEB", clientVersion = "2.20241202.07.00",
         headers = mapOf(
-            "User-Agent"              to "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
-            "X-Youtube-Client-Name"   to "2",
+            "User-Agent"               to "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+            "X-Youtube-Client-Name"    to "2",
             "X-Youtube-Client-Version" to "2.20241202.07.00",
-            "Origin"                  to "https://m.youtube.com",
+            "Origin"                   to "https://m.youtube.com",
         )
     ),
+    // ── TV_EMBEDDED — works even for age-restricted/embed-locked videos ──────
+    YtClient(
+        name = "TV_EMBEDDED", clientName = "TVHTML5_SIMPLY_EMBEDDED_PLAYER", clientVersion = "2.0",
+        headers = mapOf(
+            "User-Agent"               to "Mozilla/5.0 (SMART-TV; LINUX; Tizen 5.0) AppleWebKit/537.36",
+            "X-Youtube-Client-Name"    to "85",
+            "X-Youtube-Client-Version" to "2.0",
+            "Origin"                   to "https://www.youtube.com",
+            "Referer"                  to "https://www.youtube.com/",
+        ),
+        bodyExtra = JSONObject().put("thirdParty", JSONObject().put("embedUrl", "https://www.youtube.com/")),
+    ),
+    // ── WEB_EMBEDDED fallback ────────────────────────────────────────────────
     YtClient(
         name = "WEB_EMBEDDED", clientName = "WEB_EMBEDDED_PLAYER", clientVersion = "2.20241202.07.00",
         headers = mapOf(
-            "User-Agent"              to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "X-Youtube-Client-Name"   to "56",
+            "User-Agent"               to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "X-Youtube-Client-Name"    to "56",
             "X-Youtube-Client-Version" to "2.20241202.07.00",
-            "Origin"                  to "https://www.youtube.com",
+            "Origin"                   to "https://www.youtube.com",
         )
-    ),
-    YtClient(
-        name = "ANDROID_VR", clientName = "ANDROID_VR", clientVersion = "1.60.19",
-        headers = mapOf(
-            "User-Agent"              to "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-            "X-Youtube-Client-Name"   to "28",
-            "X-Youtube-Client-Version" to "1.60.19",
-        ),
-        extraContext = JSONObject().put("deviceMake", "Oculus").put("deviceModel", "Quest 3").put("androidSdkVersion", 32)
     ),
 )
 
@@ -133,35 +153,54 @@ object YoutubeService {
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────
-suspend fun searchYoutube(query: String, maxResults: Int = 20): List<OnlineResult> =
+suspend fun searchYoutube(query: String, maxResults: Int = 50): List<OnlineResult> =
     withContext(Dispatchers.IO) {
-        val body = JSONObject().apply {
-            put("query", musicifyQuery(query.trim()))
-            put("context", JSONObject().put("client", JSONObject().apply {
-                put("clientName", "MWEB"); put("clientVersion", "2.20241202.07.00")
-                put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
-            }))
-            put("params", "EgWKAQIIAQ%3D%3D")
-        }.toString()
+        // Run both a plain query and a music-tagged query in parallel so we
+        // always get plenty of results even for obscure tracks.
+        val cleanQuery   = query.trim()
+        val musicQuery   = musicifyQuery(cleanQuery)
 
-        val req = Request.Builder()
-            .url("$YT_SEARCH?key=$YT_KEY&prettyPrint=false")
-            .post(body.toRequestBody("application/json".toMediaType()))
-            .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15")
-            .header("X-Youtube-Client-Name", "2")
-            .header("X-Youtube-Client-Version", "2.20241202.07.00")
-            .header("Origin", "https://m.youtube.com")
-            .header("Referer", "https://m.youtube.com/")
-            .build()
+        suspend fun innertubeSearch(q: String): List<JSONObject> {
+            val body = JSONObject().apply {
+                put("query", q)
+                put("context", JSONObject().put("client", JSONObject().apply {
+                    put("clientName", "MWEB"); put("clientVersion", "2.20241202.07.00")
+                    put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
+                }))
+                // No SP/params filter — plain search returns the most results
+            }.toString()
 
-        val json = okHttp.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) throw Exception("Search failed (${resp.code})")
-            JSONObject(resp.body!!.string())
+            val req = Request.Builder()
+                .url("$YT_SEARCH?key=$YT_KEY&prettyPrint=false")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15")
+                .header("X-Youtube-Client-Name", "2")
+                .header("X-Youtube-Client-Version", "2.20241202.07.00")
+                .header("Origin", "https://m.youtube.com")
+                .header("Referer", "https://m.youtube.com/")
+                .build()
+
+            val json = okHttp.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("Search failed (${resp.code})")
+                JSONObject(resp.body!!.string())
+            }
+            return extractVideoRenderers(json)
         }
 
-        extractVideoRenderers(json)
+        // Fetch plain + music-specific queries and merge by videoId
+        val plain  = runCatching { innertubeSearch(cleanQuery) }.getOrElse { emptyList() }
+        val music  = if (musicQuery != cleanQuery) runCatching { innertubeSearch(musicQuery) }.getOrElse { emptyList() } else emptyList()
+
+        val seen   = mutableSetOf<String>()
+        val merged = (plain + music).filter { vr ->
+            val id = vr.optString("videoId")
+            if (id.isBlank() || !seen.add(id)) false else true
+        }
+
+        merged
             .mapNotNull { parseInnertubeRenderer(it) }
-            .filter { !it.isLive && it.durationSecs <= 600 && (it.durationSecs == 0 || it.durationSecs >= 60) }
+            // Allow 30 s–15 min; keep unknowns (duration=0 = no metadata yet, not a live stream)
+            .filter { !it.isLive && it.durationSecs <= 900 && (it.durationSecs == 0 || it.durationSecs >= 30) }
             .sortedByDescending { musicRelevanceScore(it) }
             .take(maxResults)
     }
@@ -199,14 +238,15 @@ suspend fun getSearchSuggestions(query: String): List<String> =
 
 // ─── Stream URL resolution ────────────────────────────────────────────────────
 /**
- * SnapTube strategy order:
- *   1. WebView extractor  — YouTube's own JS handles DroidGuard, n-sig,
- *                           signatureCipher. shouldInterceptRequest captures the
- *                           final googlevideo.com URL. Most reliable.
- *   2. IOS Innertube      — iOS client returns plain URLs most of the time,
- *                           exempt from web BotGuard checks.
- *   3. Other Innertube    — MWEB, WEB_EMBEDDED, ANDROID_VR as fallbacks.
- *   4. Invidious          — Public third-party instances as last resort.
+ * Strategy order (most → least reliable in 2025):
+ *   1. WebView extractor  — YouTube's own JS decodes n-sig/signatureCipher.
+ *                           shouldInterceptRequest captures the CDN URL.
+ *   2. ANDROID Innertube  — YouTube server-side decodes `n` param for native
+ *                           Android clients → unthrottled direct CDN URLs.
+ *   3. IOS Innertube      — Exempt from web BotGuard, plain URLs for most videos.
+ *   4. TV_EMBEDDED        — Works for age-restricted / embed-locked videos.
+ *   5. MWEB / WEB_EMBEDDED — Web fallbacks (may return throttled URLs).
+ *   6. Invidious          — Public instances as last resort.
  */
 suspend fun getStreamUrl(videoId: String): String {
     getCachedUrl(videoId)?.let { return it }
@@ -447,11 +487,14 @@ private fun buildPlayerBody(videoId: String, client: YtClient): String =
             put("hl", "en"); put("gl", "US")
             client.extraContext.keys().forEach { k -> put(k, client.extraContext.get(k)) }
         }))
-        if (client.clientName != "IOS") {
+        // html5Preference only makes sense for web/TV clients, not native Android/iOS
+        if (client.clientName != "IOS" && client.clientName != "ANDROID") {
             put("playbackContext", JSONObject().put("contentPlaybackContext",
                 JSONObject().put("html5Preference", "HTML5_PREF_WANTS")))
         }
         put("contentCheckOk", true); put("racyCheckOk", true)
+        // Inject any client-specific top-level fields (e.g. thirdParty embed URL)
+        client.bodyExtra.keys().forEach { k -> put(k, client.bodyExtra.get(k)) }
     }.toString()
 
 private fun getBestAudioUrl(formats: JSONArray?): String? =
@@ -501,9 +544,17 @@ private fun getBestAudioFormat(formats: JSONArray?): JSONObject? {
 
 private fun musicifyQuery(q: String): String {
     val lower = q.lowercase()
-    return if (lower.contains("official audio") || lower.contains("lyrics") ||
-        lower.contains("audio") || lower.contains("music video")) q
-    else "$q official audio"
+    // Only append a hint when the query has no existing audio/lyric context
+    // and is short enough that YouTube might otherwise return vlogs/reactions
+    val hasAudioHint = lower.contains("official audio") || lower.contains("lyrics") ||
+        lower.contains("audio") || lower.contains("music video") || lower.contains("topic")
+    val hasDash = lower.contains(" - ") || lower.contains(" – ")
+    return when {
+        hasAudioHint -> q
+        hasDash      -> q   // "Artist - Song" is already specific enough
+        q.length > 40 -> q  // Long queries don't need a suffix
+        else          -> "$q audio"   // Short generic queries get "audio" (lighter than "official audio")
+    }
 }
 
 private fun musicRelevanceScore(r: OnlineResult): Int {

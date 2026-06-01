@@ -21,8 +21,13 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        // YouTube CDN requires Referer + Origin; without them streams return 403
         val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)")
+            .setUserAgent("com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip")
+            .setDefaultRequestProperties(mapOf(
+                "Referer" to "https://www.youtube.com/",
+                "Origin"  to "https://www.youtube.com",
+            ))
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
