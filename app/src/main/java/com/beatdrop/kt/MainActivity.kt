@@ -17,22 +17,16 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Radio
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.GraphicEq as OutlinedGraphicEq
-import androidx.compose.material.icons.outlined.LibraryMusic as OutlinedLibraryMusic
-import androidx.compose.material.icons.outlined.Radio as OutlinedRadio
-import androidx.compose.material.icons.outlined.Settings as OutlinedSettings
-import androidx.compose.material.icons.filled.Explore as FilledExplore
-import androidx.compose.material.icons.outlined.Explore as OutlinedExplore
-import androidx.compose.material.icons.filled.Settings as FilledSettings
-import androidx.compose.material.icons.outlined.Settings as OutlinedSettings
-import androidx.compose.material.icons.filled.LibraryMusic as FilledLibraryMusic
-import androidx.compose.material.icons.outlined.LibraryMusic as OutlinedLibraryMusic
-import androidx.compose.material.icons.filled.Radio as FilledRadio
-import androidx.compose.material.icons.outlined.Radio as OutlinedRadio
+import androidx.compose.material.icons.filled.Podcasts
+import androidx.compose.material.icons.filled.SettingsSuggest
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.LibraryMusic
+import androidx.compose.material.icons.outlined.Podcasts
+import androidx.compose.material.icons.outlined.SettingsSuggest
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -120,7 +114,7 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 }
 
 private val TABS = listOf(
-    TabSpec2("library",  "Library",  Icons.Filled.Collections, Icons.Outlined.Collections),
+    TabSpec2("library",  "Library",  Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
     TabSpec2("discover", "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
     TabSpec2("radio",    "Radio",    Icons.Filled.Podcasts, Icons.Outlined.Podcasts),
     TabSpec2("activity", "Activity", Icons.Filled.SettingsSuggest, Icons.Outlined.SettingsSuggest),
