@@ -56,6 +56,7 @@ fun NowPlayingScreen(
     val activeLyric   by vm.activeLyric.collectAsState()
     val liked         by vm.liked.collectAsState()
     val volume        by vm.volume.collectAsState()
+    val isFetchingStream by vm.isFetchingStream.collectAsState()
     var showLyrics    by remember { mutableStateOf(false) }
 
     val t = track ?: run {
