@@ -79,20 +79,19 @@ fun LibraryScreen(
             HeaderIcon(Icons.Filled.Explore, "Discover", onOpenLocalDiscover)
         }
 
-        // ── Search field — liquid glass stadium pill ─────────────────────────
+        // ── Search field — Liquid Glass stadium pill ────────────────────────
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = 8.dp)
                 .clip(RoundedCornerShape(50.dp))
                 .background(
-                    if (C.isDark) androidx.compose.ui.graphics.Color(0x14FFFFFF)
-                    else androidx.compose.ui.graphics.Color(0xB0FFFFFF)
+                    if (C.isDark) Color(0x14FFFFFF)
+                    else Color(0xB0FFFFFF)
                 )
                 .border(
                     0.8.dp,
-                    if (C.isDark) androidx.compose.ui.graphics.Color(0x22FFFFFF)
-                    else androidx.compose.ui.graphics.Color(0x28000000),
+                    C.liquidGlassBorder,
                     RoundedCornerShape(50.dp),
                 )
                 .padding(horizontal = 16.dp, vertical = 13.dp),
@@ -186,8 +185,15 @@ private fun SongsList(vm: PlayerViewModel) {
 
 @Composable
 private fun ActionPill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, bg: Color, fg: Color, modifier: Modifier, onClick: () -> Unit) {
+    val C = LocalAppColors.current
+    val isAccent = bg == C.accent
     Row(
-        modifier.clip(RoundedCornerShape(12.dp)).background(bg).pressableScale(onClick = onClick).padding(vertical = 12.dp),
+        modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isAccent) bg.copy(alpha = 0.55f) else if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+            .border(0.5.dp, if (isAccent) bg.copy(alpha = 0.3f) else C.liquidGlassBorder, RoundedCornerShape(12.dp))
+            .pressableScale(onClick = onClick)
+            .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, tint = fg, modifier = Modifier.size(20.dp))

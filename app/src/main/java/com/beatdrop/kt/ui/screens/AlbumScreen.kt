@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
+import com.beatdrop.kt.ui.components.TintedGlassButton
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
@@ -60,11 +61,30 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                 Text(artistName, color = C.textSecondary, fontSize = 14.sp)
                 Spacer(Modifier.height(16.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) }) {
-                        Icon(Icons.Filled.PlayArrow, null); Spacer(Modifier.width(6.dp)); Text("Play")
+                    TintedGlassButton(modifier = Modifier.height(44.dp).width(120.dp)) {
+                        Row(
+                            Modifier.fillMaxSize()
+                                .pressableScale(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) }),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Play", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
-                    OutlinedButton(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks.shuffled(), tracks.first().id) }) {
-                        Icon(Icons.Filled.Shuffle, null); Spacer(Modifier.width(6.dp)); Text("Shuffle")
+                    Box(
+                        Modifier.height(44.dp).width(120.dp)
+                            .clip(RoundedCornerShape(Radius.xl))
+                            .background(if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
+                            .pressableScale(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks.shuffled(), tracks.first().id) }),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Shuffle, null, tint = C.text, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Shuffle", color = C.text, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

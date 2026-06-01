@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -23,55 +24,70 @@ import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 
-private data class Station(val title: String, val subtitle: String, val c1: Color, val c2: Color, val pick: (List<com.beatdrop.kt.data.Track>) -> List<com.beatdrop.kt.data.Track>)
+private data class RadioMix(val title: String, val desc: String, val gradient: List<Color>)
 
-/** Radio = themed mixes built from the local library (no network). */
+private val MIXES = listOf(
+    RadioMix("Chill Vibes", "Mellow tracks to relax", listOf(Color(0xFF667eea), Color(0xFF764ba2))),
+    RadioMix("Energy Boost", "High-tempo hits", listOf(Color(0xFFf857a6), Color(0xFFff5858))),
+    RadioMix("Deep Focus", "Ambient & instrumental", listOf(Color(0xFF00c6fb), Color(0xFF005bea))),
+    RadioMix("Throwbacks", "Classics from your library", listOf(Color(0xFFf7971e), Color(0xFFffd200))),
+    RadioMix("Night Drive", "Smooth evening tracks", listOf(Color(0xFF654ea3), Color(0xFFeaafc8))),
+    RadioMix("Fresh Mix", "Random picks for you", listOf(Color(0xFF11998e), Color(0xFF38ef7d))),
+)
+
 @Composable
 fun RadioScreen(vm: PlayerViewModel) {
     val C = LocalAppColors.current
     val tracks by vm.tracks.collectAsState()
-    val counts by vm.playCounts.collectAsState()
 
-    val stations = remember(tracks, counts) {
-        listOf(
-            Station("Shuffle All", "Everything, randomized", Color(0xFFC77DFF), Color(0xFF7B2CBF)) { it.shuffled() },
-            Station("Heavy Rotation", "Your most played", Color(0xFFFF6B6B), Color(0xFFEF476F)) { t ->
-                val byId = t.associateBy { s -> s.id }
-                counts.entries.sortedByDescending { it.value }.mapNotNull { byId[it.key] }.ifEmpty { t.shuffled() }
-            },
-            Station("Fresh Finds", "Recently added", Color(0xFF4ECDC4), Color(0xFF1B9AAA)) { it.sortedByDescending { s -> s.dateAdded } },
-            Station("Deep Cuts", "Rarely played", Color(0xFFFFE66D), Color(0xFFFF9F1C)) { t ->
-                t.sortedBy { s -> counts[s.id] ?: 0 }
-            },
-            Station("A–Z Journey", "Alphabetical ride", Color(0xFF06D6A0), Color(0xFF118AB2)) { it.sortedBy { s -> s.title.lowercase() } },
-            Station("Time Machine", "Oldest first", Color(0xFF8E8E93), Color(0xFF3A3A3C)) { it.sortedBy { s -> s.dateAdded } },
-        )
-    }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Text("Radio", style = Type.largeTitle, color = C.text,
+            modifier = Modifier.padding(start = Spacing.lg, top = 14.dp, bottom = 12.dp))
 
-    Column(Modifier.fillMaxSize()) {
-        Text("Radio", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp, modifier = Modifier.statusBarsPadding().padding(16.dp, 10.dp))
         if (tracks.isEmpty()) {
-            Box(Modifier.fillMaxSize(), Alignment.Center) { Text("Add music to start a station.", color = C.textSecondary) }
-            return@Column
-        }
-        LazyVerticalGrid(columns = GridCells.Fixed(2), contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 160.dp)) {
-            items(stations) { st ->
-                Box(
-                    Modifier.padding(6.dp).fillMaxWidth().aspectRatio(1.1f)
-                        .clip(RoundedCornerShape(Radius.lg))
-                        .background(Brush.linearGradient(listOf(st.c1, st.c2)))
-                        .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(Radius.lg))
-                        .pressableScale(onClick = {
-                            val mix = st.pick(tracks).take(100)
-                            if (mix.isNotEmpty()) vm.playList(mix, mix.first().id)
-                        })
-                        .padding(14.dp),
-                ) {
-                    Icon(Icons.Filled.Radio, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.align(Alignment.TopEnd).size(22.dp))
-                    Column(Modifier.align(Alignment.BottomStart)) {
-                        Text(st.title, color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                        Text(st.subtitle, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text("Add music to unlock radio mixes", color = C.textSecondary, style = Type.body)
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(Spacing.lg, 4.dp, Spacing.lg, 170.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(MIXES) { mix ->
+                    val shape = RoundedCornerShape(Radius.lg)
+                    Box(
+                        Modifier.fillMaxWidth().aspectRatio(1.1f)
+                            .clip(shape)
+                            .background(Brush.linearGradient(mix.gradient))
+                            // Glass overlay
+                            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f))
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
+                                        startY = 0f, endY = size.height * 0.3f,
+                                    )
+                                )
+                            }
+                            .border(0.5.dp, Color.White.copy(alpha = 0.15f), shape)
+                            .pressableScale(onClick = {
+                                val shuffled = tracks.shuffled().take(20)
+                                if (shuffled.isNotEmpty()) vm.playList(shuffled, shuffled.first().id)
+                            })
+                            .padding(14.dp),
+                    ) {
+                        Column(Modifier.align(Alignment.BottomStart)) {
+                            Icon(Icons.Filled.Radio, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(22.dp))
+                            Spacer(Modifier.height(6.dp))
+                            Text(mix.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Text(mix.desc, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 2)
+                        }
                     }
                 }
             }

@@ -1,26 +1,36 @@
 package com.beatdrop.kt.ui.screens
 
+import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalUriHandler
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
+/**
+ * Polished Settings screen with Liquid Glass cards, icons per section,
+ * accent-tinted chips, glass dividers, and proper spacing.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}) {
@@ -28,152 +38,256 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     val theme by vm.theme.collectAsState()
     val haptics by vm.haptics.collectAsState()
     val defaultShuffle by vm.defaultShuffle.collectAsState()
+    val autoDj by vm.autoDjEnabled.collectAsState()
     val sleepLeft by vm.sleepMinutesLeft.collectAsState()
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
 
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
+    LazyColumn(
+        Modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(horizontal = 16.dp, bottom = 160.dp),
+    ) {
+        // ── Header ──────────────────────────────────────────────────────────
         item {
-            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back", tint = C.text) }
-                Text("Settings", color = C.text, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, "Back", tint = C.text)
+                }
+                Spacer(Modifier.width(4.dp))
+                Text("Settings", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp)
             }
         }
-        item { SectionHeader("APPEARANCE") }
+
+        // ── APPEARANCE ───────────────────────────────────────────────────────
+        item { SectionHeader("APPEARANCE", Icons.Filled.Palette) }
         item {
-            Card(C) {
+            GlassCard {
                 Text("Theme", color = C.text, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("system", "dark", "light").forEach { t ->
-                        Chip(t.replaceFirstChar { it.uppercase() }, theme == t) { vm.setTheme(t) }
+                    listOf("system" to Icons.Filled.SettingsBrightness, "dark" to Icons.Filled.DarkMode, "light" to Icons.Filled.LightMode).forEach { (t, icon) ->
+                        GlassChip(t.replaceFirstChar { it.uppercase() }, theme == t, icon) { vm.setTheme(t) }
                     }
                 }
             }
         }
-        item { SectionHeader("PLAYBACK") }
+
+        // ── PLAYBACK ─────────────────────────────────────────────────────────
+        item { SectionHeader("PLAYBACK", Icons.Filled.PlayCircle) }
         item {
-            Card(C) {
-                ToggleRow("Haptic feedback", haptics) { vm.setHaptics(it) }
-                Divider(color = C.separator)
-                ToggleRow("Shuffle by default", defaultShuffle) { vm.setDefaultShuffle(it) }
+            GlassCard {
+                ToggleRow("Haptic feedback", Icons.Filled.Vibration, haptics) { vm.setHaptics(it) }
+                GlassDivider()
+                ToggleRow("Shuffle by default", Icons.Filled.Shuffle, defaultShuffle) { vm.setDefaultShuffle(it) }
+                GlassDivider()
+                ToggleRow("Auto DJ crossfade", Icons.Filled.AutoAwesome, autoDj) { vm.setAutoDjEnabled(it) }
             }
         }
+
         item {
-            Card(C) {
-                Row(
-                    Modifier.fillMaxWidth().pressableScale(onClick = onOpenEq).padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Equalizer", color = C.text, modifier = Modifier.weight(1f))
-                    Text("›", color = C.textSecondary, fontSize = 20.sp)
-                }
+            GlassCard {
+                NavRow("Equalizer", Icons.Filled.GraphicEq, onOpenEq)
             }
         }
+
         item {
-            Card(C) {
+            GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Bedtime, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text("Sleep timer", color = C.text, modifier = Modifier.weight(1f))
-                    Text(if (sleepLeft > 0) "$sleepLeft min left" else "Off", color = C.textSecondary)
+                    Text(
+                        if (sleepLeft > 0) "$sleepLeft min left" else "Off",
+                        color = if (sleepLeft > 0) C.accent else C.textSecondary,
+                        fontWeight = if (sleepLeft > 0) FontWeight.Bold else FontWeight.Normal,
+                    )
                 }
-                Spacer(Modifier.height(10.dp))
-                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(12.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(15, 30, 45, 60).forEach { m ->
-                        Chip("$m min", false) { vm.startSleepTimer(m) }
+                        GlassChip("$m min", false) { vm.startSleepTimer(m) }
                     }
-                    Chip("Off", sleepLeft == 0) { vm.cancelSleepTimer() }
+                    GlassChip("Off", sleepLeft == 0) { vm.cancelSleepTimer() }
                 }
             }
         }
-        item { SectionHeader("LIBRARY") }
+
+        // ── LIBRARY STATS ────────────────────────────────────────────────────
+        item { SectionHeader("LIBRARY", Icons.Filled.LibraryMusic) }
         item {
-            Card(C) {
-                InfoRow("Songs", "${tracks.size}")
-                Divider(color = C.separator)
-                InfoRow("Liked", "${liked.size}")
-                Divider(color = C.separator)
-                InfoRow("Albums", "${vm.albums().size}")
-                Divider(color = C.separator)
-                InfoRow("Artists", "${vm.artists().size}")
+            GlassCard {
+                StatRow(Icons.Filled.MusicNote, "Songs", "${tracks.size}")
+                GlassDivider()
+                StatRow(Icons.Filled.Favorite, "Liked", "${liked.size}")
+                GlassDivider()
+                StatRow(Icons.Filled.Album, "Albums", "${vm.albums().size}")
+                GlassDivider()
+                StatRow(Icons.Filled.Person, "Artists", "${vm.artists().size}")
             }
         }
-        item { SectionHeader("ABOUT") }
+
+        // ── ABOUT ────────────────────────────────────────────────────────────
+        item { SectionHeader("ABOUT", Icons.Filled.Info) }
         item {
             val uriHandler = LocalUriHandler.current
-            Card(C) {
-                InfoRow("App", "BeatDrop (Kotlin)")
-                Divider(color = C.separator)
-                InfoRow("Engine", "Media3 / ExoPlayer")
-                Divider(color = C.separator)
+            GlassCard {
+                StatRow(Icons.Filled.PhoneAndroid, "App", "BeatDrop Premium")
+                GlassDivider()
+                StatRow(Icons.Filled.Memory, "Engine", "Media3 / ExoPlayer")
+                GlassDivider()
+                StatRow(Icons.Filled.Architecture, "Design", "Liquid Glass")
+                GlassDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Icon(Icons.Filled.Code, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text("Created by", color = C.text, modifier = Modifier.weight(1f))
                     Text(
                         "laisadevstudio",
                         color = C.accent,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.pressableScale(
                             onClick = { uriHandler.openUri("https://laisadevstudio.vercel.app") },
                             scaleTo = 0.94f,
-                            haptic = false,
                         ),
                     )
                 }
-                Text(
-                    "Tap the name to visit the developer",
-                    color = C.textTertiary,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
             }
         }
+
         item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
-@Composable
-private fun SectionHeader(t: String) {
-    val C = LocalAppColors.current
-    Text(t, color = C.textTertiary, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(start = 22.dp, top = 18.dp, bottom = 8.dp))
-}
+// ─── Liquid Glass Card ───────────────────────────────────────────────────────
 
 @Composable
-private fun Card(C: com.beatdrop.kt.ui.theme.AppColors, content: @Composable ColumnScope.() -> Unit) {
+private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(Radius.lg)
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(Radius.lg))
-            .background(C.bg2).padding(16.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(shape)
+            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.55f))
+            // Rim light for glass thickness
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f),
+                            Color.Transparent,
+                        ),
+                        startY = 0f, endY = size.height * 0.3f,
+                    )
+                )
+            }
+            .border(0.8.dp, C.liquidGlassBorder, shape)
+            .padding(16.dp),
         content = content,
     )
 }
 
 @Composable
-private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
+private fun GlassDivider() {
     val C = LocalAppColors.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = C.text, modifier = Modifier.weight(1f))
-        Switch(checked = value, onCheckedChange = onChange)
+    Divider(
+        color = if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f),
+        thickness = 0.5.dp,
+        modifier = Modifier.padding(vertical = 4.dp),
+    )
+}
+
+@Composable
+private fun SectionHeader(t: String, icon: ImageVector? = null) {
+    val C = LocalAppColors.current
+    Row(
+        Modifier.padding(start = 4.dp, top = 22.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(icon, null, tint = C.textTertiary, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(t, color = C.textTertiary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun ToggleRow(label: String, icon: ImageVector, value: Boolean, onChange: (Boolean) -> Unit) {
     val C = LocalAppColors.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, color = C.text, modifier = Modifier.weight(1f))
+        Switch(
+            checked = value, onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = C.accent),
+        )
+    }
+}
+
+@Composable
+private fun NavRow(label: String, icon: ImageVector, onClick: () -> Unit) {
+    val C = LocalAppColors.current
+    Row(
+        Modifier.fillMaxWidth().pressableScale(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, color = C.text, modifier = Modifier.weight(1f))
+        Icon(Icons.Filled.ChevronRight, null, tint = C.textTertiary, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun StatRow(icon: ImageVector, label: String, value: String) {
+    val C = LocalAppColors.current
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
         Text(label, color = C.text, modifier = Modifier.weight(1f))
         Text(value, color = C.textSecondary)
     }
 }
 
 @Composable
-private fun Chip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun GlassChip(label: String, active: Boolean, icon: ImageVector? = null, onClick: () -> Unit) {
     val C = LocalAppColors.current
-    Box(
-        Modifier.clip(RoundedCornerShape(20.dp)).background(if (active) C.accent else C.bg4)
-            .pressableScale(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier
+            .clip(shape)
+            .background(
+                if (active) C.accent.copy(alpha = 0.55f)
+                else if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
+            )
+            .then(
+                if (active) Modifier.border(0.5.dp, C.accent.copy(alpha = 0.3f), shape)
+                else Modifier.border(0.5.dp, C.liquidGlassBorder, shape)
+            )
+            .pressableScale(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (icon != null) {
+            Icon(icon, null, tint = if (active) Color.White else C.textSecondary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+        }
         Text(label, color = if (active) Color.White else C.textSecondary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
     }
 }
