@@ -1,14 +1,32 @@
 package com.beatdrop.kt.ui.screens
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ColorLens
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,7 +80,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         // ── APPEARANCE ───────────────────────────────────────────────────────
-        item { SectionHeader("APPEARANCE", Icons.Filled.Palette) }
+        item { SectionHeader("APPEARANCE", Icons.Filled.ColorLens) }
         item {
             GlassCard {
                 Text("Theme", color = C.text, fontWeight = FontWeight.SemiBold)
@@ -79,7 +97,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         item { SectionHeader("PLAYBACK", Icons.Filled.PlayCircle) }
         item {
             GlassCard {
-                ToggleRow("Haptic feedback", Icons.Filled.Vibration, haptics) { vm.setHaptics(it) }
+                ToggleRow("Haptic feedback", Icons.Filled.TouchApp, haptics) { vm.setHaptics(it) }
                 GlassDivider()
                 ToggleRow("Shuffle by default", Icons.Filled.Shuffle, defaultShuffle) { vm.setDefaultShuffle(it) }
                 GlassDivider()
@@ -96,7 +114,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         item {
             GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Bedtime, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Nightlight, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Sleep timer", color = C.text, modifier = Modifier.weight(1f))
                     Text(
@@ -136,9 +154,9 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
             GlassCard {
                 StatRow(Icons.Filled.PhoneAndroid, "App", "BeatDrop Premium")
                 GlassDivider()
-                StatRow(Icons.Filled.Memory, "Engine", "Media3 / ExoPlayer")
+                StatRow(Icons.Filled.Tune, "Engine", "Media3 / ExoPlayer")
                 GlassDivider()
-                StatRow(Icons.Filled.Architecture, "Design", "Liquid Glass")
+                StatRow(Icons.Filled.AutoAwesome, "Design", "Liquid Glass")
                 GlassDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 8.dp),
