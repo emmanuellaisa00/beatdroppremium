@@ -104,7 +104,6 @@ fun EqScreen(onBack: () -> Unit) {
             FlowRow(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 presets.forEachIndexed { i, name ->
                     val shape = RoundedCornerShape(20.dp)

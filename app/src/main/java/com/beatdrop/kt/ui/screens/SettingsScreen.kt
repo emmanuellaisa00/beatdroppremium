@@ -124,7 +124,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(15, 30, 45, 60).forEach { m ->
                         GlassChip("$m min", false) { vm.startSleepTimer(m) }
                     }
