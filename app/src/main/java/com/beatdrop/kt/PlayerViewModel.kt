@@ -414,9 +414,6 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
-    private val _isFetchingStream = MutableStateFlow(false)
-    val isFetchingStream: StateFlow<Boolean> = _isFetchingStream.asStateFlow()
-
     private val _fetchingVideoId = MutableStateFlow<String?>(null)
     val fetchingVideoId: StateFlow<String?> = _fetchingVideoId.asStateFlow()
 
@@ -462,7 +459,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun prepareAndPlayOnline(result: OnlineResult) {
-        // Create a temporary track immediately so Now Playing opens instantly
+        // Show track info in Now Playing instantly — no blocking overlay
         val tempTrack = Track(
             id = "yt_${result.videoId}",
             uri = Uri.EMPTY,
@@ -476,27 +473,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             artworkOverride = result.thumbnailUrl,
         )
         _current.value = tempTrack
+        _fetchingVideoId.value = result.videoId
 
         viewModelScope.launch {
-            _isFetchingStream.value = true
-            _fetchingVideoId.value = result.videoId
             val track = runCatching { youtubeResultToTrack(result) }.getOrElse {
                 _onlineMessage.value = "Couldn't stream this song: ${it.message}"
-                _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch
+                _fetchingVideoId.value = null; return@launch
             }
             _ytTrackCache[track.id] = track
-            val c = controller ?: run { _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch }
+            val c = controller ?: run { _fetchingVideoId.value = null; return@launch }
             c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
             _current.value = track; _duration.value = track.durationMs
             loadLyrics(track)
-            _isFetchingStream.value = false
             _fetchingVideoId.value = null
         }
     }
 
     fun playOnlineByMetadata(title: String, artist: String, coverUrl: String?) {
         viewModelScope.launch {
-            _isFetchingStream.value = true
             val query = "$artist $title"
             val results = runCatching { OnlineSearch.provider.search(query) }.getOrNull()
             val bestMatch = results?.firstOrNull()
@@ -508,18 +502,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 _fetchingVideoId.value = cleanMatch.videoId
                 val track = runCatching { youtubeResultToTrack(cleanMatch) }.getOrElse {
                     _onlineMessage.value = "Couldn't stream this song: ${it.message}"
-                    _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch
+                    _fetchingVideoId.value = null; return@launch
                 }
                 _ytTrackCache[track.id] = track
-                val c = controller ?: run { _isFetchingStream.value = false; _fetchingVideoId.value = null; return@launch }
+                val c = controller ?: run { _fetchingVideoId.value = null; return@launch }
                 c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
                 _current.value = track; _duration.value = track.durationMs
                 loadLyrics(track)
-                _isFetchingStream.value = false
                 _fetchingVideoId.value = null
             } else {
                 _onlineMessage.value = "Could not find a stream for: $title"
-                _isFetchingStream.value = false
             }
         }
     }

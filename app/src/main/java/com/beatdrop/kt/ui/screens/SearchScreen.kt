@@ -41,7 +41,6 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
     val q by vm.onlineQuery.collectAsState()
     val results by vm.onlineResults.collectAsState()
     val searching by vm.isSearching.collectAsState()
-    val fetchingId by vm.fetchingVideoId.collectAsState()
     val message by vm.onlineMessage.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
     val history by vm.searchHistory.collectAsState()
@@ -173,7 +172,6 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                             val job = jobs[r.videoId]
                             CatalogRow(
                                 result = r,
-                                isFetching = fetchingId == r.videoId,
                                 isSaved = job?.status == DownloadStatus.COMPLETED,
                                 onPlay = { 
                                     vm.prepareAndPlayOnline(r)
@@ -227,7 +225,6 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
 @Composable
 private fun CatalogRow(
     result: OnlineResult,
-    isFetching: Boolean,
     isSaved: Boolean,
     onPlay: () -> Unit,
     onSave: () -> Unit,
@@ -254,29 +251,14 @@ private fun CatalogRow(
                 )
             }
             // Subtle play overlay
-            if (!isFetching) {
-                Box(
-                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.PlayArrow, "Play",
-                        tint = Color.White, modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-            // Fetching spinner overlay
-            if (isFetching) {
-                Box(
-                    Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp,
-                    )
-                }
+            Box(
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.PlayArrow, "Play",
+                    tint = Color.White, modifier = Modifier.size(22.dp)
+                )
             }
         }
 

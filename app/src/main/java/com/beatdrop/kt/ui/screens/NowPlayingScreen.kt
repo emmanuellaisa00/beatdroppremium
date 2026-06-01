@@ -56,7 +56,6 @@ fun NowPlayingScreen(
     val activeLyric   by vm.activeLyric.collectAsState()
     val liked         by vm.liked.collectAsState()
     val volume        by vm.volume.collectAsState()
-    val isFetchingStream by vm.isFetchingStream.collectAsState()
     var showLyrics    by remember { mutableStateOf(false) }
 
     val t = track ?: run {
@@ -172,32 +171,6 @@ fun NowPlayingScreen(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
                             )
-                            
-                            // Sleek Frosted Glass Buffering Spinner Overlay (Figma style)
-                            if (isFetchingStream) {
-                                Box(
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.45f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        CircularProgressIndicator(
-                                            color = Color.White, 
-                                            strokeWidth = 3.dp,
-                                            modifier = Modifier.size(48.dp)
-                                        )
-                                        Spacer(Modifier.height(14.dp))
-                                        Text(
-                                            "BUFFERING...", 
-                                            color = Color.White, 
-                                            fontSize = 12.sp, 
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 2.sp
-                                        )
-                                    }
-                                }
-                            }
                         }
                     }
                 } else {
