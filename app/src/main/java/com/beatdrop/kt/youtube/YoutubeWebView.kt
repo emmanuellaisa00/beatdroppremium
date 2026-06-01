@@ -9,22 +9,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.util.concurrent.atomic.AtomicReference
 
 // Chrome 124 Android UA — same spoof as the React Native app
 private const val CHROME_UA =
     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
-// ─── IFrame HTML (direct port of YoutubeWebPlayer.tsx) ──────────────────────
-// Key: defines window.ReactNativeWebView shim → delegates to @JavascriptInterface
+// ─── IFrame HTML ──────────────────────────────────────────────────────────────
 private val YT_IFRAME_HTML = """<!DOCTYPE html>
 <html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>*{margin:0;padding:0;background:#000;overflow:hidden}</style>
 </head><body><div id="player"></div><script>
-window.ReactNativeWebView={postMessage:function(m){try{window.AndroidBridge.onMessage(m)}catch(e){}}};
+window.ReactNativeWebView={postMessage:function(m){try{window.AndroidBridge.onMessage(m)}catch(e){}}}; 
 var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);
 window.__ytPlayer=null;window.__ytQueue=[];window.__ytQueueIdx=0;window.__pending=null;window.__progressTimer=null;
 function post(t,e){try{window.ReactNativeWebView.postMessage(JSON.stringify(Object.assign({type:t},e||{})))}catch(e){}}
@@ -54,95 +53,60 @@ window.__ytCmd={
 };
 </script></body></html>"""
 
-// ─── Stream extraction JS (SnapTube Network Request Interceptor Hook) ────────
-private fun makeExtractJs(videoId: String): String {
-    return """(function(){
-        if (window.__hooked) return;
-        window.__hooked = true;
-        
-        function sendFormats(sd) {
-            if (!sd || !sd.adaptiveFormats) return false;
-            var af = sd.adaptiveFormats.filter(function(f){
-                var m=(f.mimeType||f.type||'').toLowerCase();
-                return m.indexOf('audio/')===0;
-            });
-            if (af.length) {
-                var best = af.sort(function(a,b){return(b.bitrate||0)-(a.bitrate||0)})[0];
-                var url = best.url || '';
-                if (url) {
-                    window.AndroidBridge.onStreamResult(url);
-                    return true;
-                }
-            }
-            return false;
+// ─── JS fallback hook (secondary — shouldInterceptRequest is primary) ─────────
+private fun makeExtractJs(videoId: String): String = """(function(){
+    if (window.__hooked) return;
+    window.__hooked = true;
+    function sendFormats(sd) {
+        if (!sd || !sd.adaptiveFormats) return false;
+        var af = sd.adaptiveFormats.filter(function(f){
+            var m=(f.mimeType||f.type||'').toLowerCase();
+            return m.indexOf('audio/')===0 && f.url;
+        });
+        if (af.length) {
+            var best = af.sort(function(a,b){return(b.bitrate||0)-(a.bitrate||0)})[0];
+            if (best.url) { window.AndroidBridge.onStreamResultJS(best.url); return true; }
         }
-
-        // 1. Hook Fetch requests
-        var oldFetch = window.fetch;
-        window.fetch = function() {
-            return oldFetch.apply(this, arguments).then(function(res) {
-                if (res && res.url && res.url.indexOf('/v1/player') !== -1) {
-                    res.clone().json().then(function(data) {
-                        if (data && data.streamingData) {
-                            sendFormats(data.streamingData);
-                        }
-                    }).catch(function(err){});
-                }
-                return res;
-            });
-        };
-
-        // 2. Hook XMLHttpRequest
-        var oldSend = XMLHttpRequest.prototype.send;
-        XMLHttpRequest.prototype.send = function() {
-            this.addEventListener('load', function() {
-                if (this.responseURL && this.responseURL.indexOf('/v1/player') !== -1) {
-                    try {
-                        var data = JSON.parse(this.responseText);
-                        if (data && data.streamingData) {
-                            sendFormats(data.streamingData);
-                        }
-                    } catch(e){}
-                }
-            });
-            return oldSend.apply(this, arguments);
-        };
-
-        // 3. Fallback: check static context objects
-        var pr = window.ytInitialPlayerResponse;
-        if (pr && pr.streamingData) {
-            if (sendFormats(pr.streamingData)) return;
-        }
-        
-        // Poll for asynchronous loading
-        var t = 0;
-        var interval = setInterval(function() {
-            t++;
-            var pr = window.ytInitialPlayerResponse;
-            if (pr && pr.streamingData) {
-                if (sendFormats(pr.streamingData)) {
-                    clearInterval(interval);
-                    return;
-                }
+        return false;
+    }
+    var oldFetch = window.fetch;
+    window.fetch = function() {
+        return oldFetch.apply(this, arguments).then(function(res) {
+            if (res && res.url && res.url.indexOf('/v1/player') !== -1) {
+                res.clone().json().then(function(data) {
+                    if (data && data.streamingData) sendFormats(data.streamingData);
+                }).catch(function(){});
             }
-            if (t >= 20) clearInterval(interval);
-        }, 500);
-    })();true;"""
-}
+            return res;
+        });
+    };
+    var oldSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function() {
+        this.addEventListener('load', function() {
+            if (this.responseURL && this.responseURL.indexOf('/v1/player') !== -1) {
+                try { var d=JSON.parse(this.responseText); if(d&&d.streamingData) sendFormats(d.streamingData); } catch(e){}
+            }
+        });
+        return oldSend.apply(this, arguments);
+    };
+    var pr = window.ytInitialPlayerResponse;
+    if (pr && pr.streamingData && sendFormats(pr.streamingData)) return;
+    var t=0; var iv=setInterval(function(){
+        t++; var pr=window.ytInitialPlayerResponse;
+        if(pr&&pr.streamingData&&sendFormats(pr.streamingData)){clearInterval(iv);return;}
+        if(t>=20) clearInterval(iv);
+    },500);
+})();true;"""
 
 // ─── IFrame Player Service ────────────────────────────────────────────────────
-/**
- * Singleton that controls the hidden YoutubeIFramePlayerHost via evaluateJavascript.
- * Mirrors YoutubePlayerService.ts — same API: load, play, pause, seek, etc.
- */
 object YoutubePlayerService {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile internal var webView: WebView? = null
 
-    var onReady:    (() -> Unit)?                   = null
-    var onState:    ((Int) -> Unit)?                = null
-    var onProgress: ((Double, Double) -> Unit)?     = null
-    var onError:    ((Int) -> Unit)?                = null
+    var onReady:    (() -> Unit)?               = null
+    var onState:    ((Int) -> Unit)?            = null
+    var onProgress: ((Double, Double) -> Unit)? = null
+    var onError:    ((Int) -> Unit)?            = null
 
     private fun inject(expr: String) {
         val wv = webView ?: return
@@ -174,24 +138,28 @@ object YoutubePlayerService {
         } catch (_: Exception) {}
     }
 
-    // YT player state constants (mirrors YT_STATE in YoutubePlayerService.ts)
     const val UNSTARTED = -1; const val ENDED = 0; const val PLAYING = 1
-    const val PAUSED = 2; const val BUFFERING = 3; const val CUED = 5
+    const val PAUSED = 2;     const val BUFFERING = 3; const val CUED = 5
 }
 
 // ─── Stream Extractor Singleton ───────────────────────────────────────────────
 /**
- * Mirrors YoutubeStreamExtractor.tsx:
- *   1. Loads the real YouTube embed page in a hidden WebView so Chromium's BotGuard
- *      and PO-token run natively — same approach as Snaptube / the RN app.
- *   2. Injects JS that polls ytInitialPlayerResponse.streamingData.
- *   3. Returns the highest-bitrate audio-only URL.
+ * SnapTube approach:
+ *   PRIMARY  — shouldInterceptRequest captures googlevideo.com CDN URLs after
+ *              YouTube's own JS runs natively (DroidGuard, n-sig, signatureCipher
+ *              all handled by Chrome's V8 inside the WebView, not by us).
+ *   FALLBACK — JS fetch/XHR hook catches cases where the CDN request fires before
+ *              shouldInterceptRequest, or for non-standard stream delivery.
+ *
+ * AtomicReference<CompletableDeferred> replaces Mutex + @Volatile to eliminate
+ * the race condition between the coroutine timeout and JS-bridge callbacks.
  */
 object YoutubeExtractor {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val mutex = Mutex()
 
-    @Volatile private var pending: CompletableDeferred<String>? = null
+    // Thread-safe: getAndSet is atomic — no lock needed in shouldInterceptRequest
+    // or @JavascriptInterface callbacks
+    internal val pendingRef = AtomicReference<CompletableDeferred<String>?>(null)
     @Volatile internal var pendingVideoId: String? = null
     @Volatile internal var webView: WebView? = null
 
@@ -199,41 +167,105 @@ object YoutubeExtractor {
 
     suspend fun extractStreamUrl(videoId: String, timeoutMs: Long = 15_000): String? {
         val deferred = CompletableDeferred<String>()
-        mutex.withLock { pending = deferred; pendingVideoId = videoId }
+        // Cancel any in-flight extraction before starting a new one
+        pendingRef.getAndSet(deferred)?.cancel()
+        pendingVideoId = videoId
+
         mainHandler.post {
+            // autoplay=1 triggers the player to start loading its stream immediately,
+            // which is what fires the googlevideo.com CDN requests we intercept
             webView?.loadUrl(
-                "https://www.youtube.com/embed/$videoId?autoplay=0&enablejsapi=1&origin=https://www.youtube.com"
+                "https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&origin=https://www.youtube.com"
             )
         }
         return try {
             withTimeout(timeoutMs) { deferred.await() }
         } catch (_: Exception) {
-            mutex.withLock { pending = null; pendingVideoId = null }
+            // Only clear if it's still our deferred (not replaced by a newer call)
+            pendingRef.compareAndSet(deferred, null)
+            pendingVideoId = null
             null
         }
     }
 
-    // Called via @JavascriptInterface from the extractor WebView
-    @JavascriptInterface
+    /**
+     * Called from shouldInterceptRequest (any background thread) — safe because
+     * AtomicReference.getAndSet is a single atomic operation.
+     */
     fun onStreamResult(url: String) {
-        val d = pending; pending = null; pendingVideoId = null
-        if (url.isNotBlank()) d?.complete(url)
-        else d?.completeExceptionally(Exception("empty_url"))
+        val d = pendingRef.getAndSet(null) ?: return
+        pendingVideoId = null
+        if (url.isNotBlank()) d.complete(url)
+        else d.completeExceptionally(Exception("empty_url"))
     }
+
+    /** JS-bridge fallback — same thread-safety guarantee via AtomicReference */
+    @JavascriptInterface
+    fun onStreamResultJS(url: String) = onStreamResult(url)
 
     @JavascriptInterface
     fun onStreamError(error: String) {
-        val d = pending; pending = null; pendingVideoId = null
-        d?.completeExceptionally(Exception(error))
+        val d = pendingRef.getAndSet(null) ?: return
+        pendingVideoId = null
+        d.completeExceptionally(Exception(error))
+    }
+}
+
+// ─── Checks if a CDN URL is an audio-only stream ─────────────────────────────
+private fun isAudioStreamUrl(url: String): Boolean {
+    if (!url.contains("googlevideo.com")) return false
+    // Match by MIME type (URL-encoded or not) or well-known audio-only itags
+    return url.contains("mime=audio") ||
+           url.contains("mime%3Daudio") ||
+           listOf("itag=140", "itag=251", "itag=250", "itag=249",
+                  "itag=139", "itag=599", "itag=600", "itag=171")
+               .any { url.contains(it) }
+}
+
+// ─── Shared WebViewClient factory for the extractor ──────────────────────────
+private fun extractorWebViewClient() = object : WebViewClient() {
+    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+
+    /**
+     * PRIMARY CAPTURE — intercepts the googlevideo.com CDN request the moment
+     * YouTube's player fires it. The URL is already fully deciphered (n-sig,
+     * signatureCipher resolved by Chrome's V8) — no native JS decryption needed.
+     * Returns an empty 204 to prevent the WebView from downloading actual audio data.
+     */
+    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+        val url = request.url.toString()
+        if (YoutubeExtractor.pendingRef.get() != null && isAudioStreamUrl(url)) {
+            YoutubeExtractor.onStreamResult(url)
+            return WebResourceResponse(
+                "audio/mp4", "UTF-8", 204, "No Content",
+                emptyMap(), ByteArrayInputStream(ByteArray(0))
+            )
+        }
+        return null
+    }
+
+    /** FALLBACK JS hook — catches /v1/player responses if CDN interception misses */
+    override fun onLoadResource(view: WebView, url: String) {
+        super.onLoadResource(view, url)
+        val vid = YoutubeExtractor.pendingVideoId ?: return
+        view.evaluateJavascript(makeExtractJs(vid), null)
+    }
+
+    override fun onPageFinished(view: WebView, url: String) {
+        super.onPageFinished(view, url)
+        val vid = YoutubeExtractor.pendingVideoId ?: return
+        if (url.contains("youtube.com/embed")) {
+            view.evaluateJavascript(makeExtractJs(vid), null)
+        }
+    }
+
+    override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
+        super.onReceivedError(v, req, err)
+        if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
     }
 }
 
 // ─── IFrame Player Composable ─────────────────────────────────────────────────
-/**
- * Hidden 1×1 WebView that runs YouTube's IFrame API.
- * Mount ONCE in MainActivity — never unmounts so audio survives navigation.
- * Mirrors YoutubeWebPlayer.tsx from the React Native app.
- */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YoutubeIFramePlayerHost(modifier: Modifier = Modifier) {
@@ -245,7 +277,7 @@ fun YoutubeIFramePlayerHost(modifier: Modifier = Modifier) {
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    mediaPlaybackRequiresUserGesture = false  // allow autoplay
+                    mediaPlaybackRequiresUserGesture = false
                     userAgentString = CHROME_UA
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     allowFileAccess = false
@@ -254,11 +286,9 @@ fun YoutubeIFramePlayerHost(modifier: Modifier = Modifier) {
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
                 }
-                val bridge = object {
-                    @JavascriptInterface
-                    fun onMessage(json: String) = YoutubePlayerService.handleMessage(json)
-                }
-                addJavascriptInterface(bridge, "AndroidBridge")
+                addJavascriptInterface(object {
+                    @JavascriptInterface fun onMessage(json: String) = YoutubePlayerService.handleMessage(json)
+                }, "AndroidBridge")
                 YoutubePlayerService.webView = this
                 loadDataWithBaseURL("https://www.youtube.com", YT_IFRAME_HTML, "text/html", "UTF-8", null)
             }
@@ -268,11 +298,6 @@ fun YoutubeIFramePlayerHost(modifier: Modifier = Modifier) {
 }
 
 // ─── Stream Extractor Composable ──────────────────────────────────────────────
-/**
- * Hidden 0×0 WebView that loads YouTube embed pages to extract stream URLs.
- * Mount ONCE in MainActivity alongside YoutubeIFramePlayerHost.
- * Mirrors YoutubeStreamExtractor.tsx from the React Native app.
- */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
@@ -284,34 +309,16 @@ fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    mediaPlaybackRequiresUserGesture = true  // extractor never plays audio
+                    // Must be false so autoplay=1 triggers stream loading
+                    // (actual audio never plays — we return 204 for the stream URL)
+                    mediaPlaybackRequiresUserGesture = false
                     userAgentString = CHROME_UA
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     cacheMode = WebSettings.LOAD_DEFAULT
                 }
-                // Third-party cookies needed for YouTube BotGuard / PO token
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                // YoutubeExtractor itself is the bridge (has @JavascriptInterface methods)
                 addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
-                    override fun onLoadResource(view: WebView, url: String) {
-                        super.onLoadResource(view, url)
-                        val vid = YoutubeExtractor.pendingVideoId ?: return
-                        view.evaluateJavascript(makeExtractJs(vid), null)
-                    }
-                    override fun onPageFinished(view: WebView, url: String) {
-                        super.onPageFinished(view, url)
-                        val vid = YoutubeExtractor.pendingVideoId ?: return
-                        if (url.contains("youtube.com/embed")) {
-                            view.evaluateJavascript(makeExtractJs(vid), null)
-                        }
-                    }
-                    override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
-                        super.onReceivedError(v, req, err)
-                        if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
-                    }
-                }
+                webViewClient = extractorWebViewClient()
                 YoutubeExtractor.webView = this
             }
         },
@@ -319,22 +326,14 @@ fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
     )
 }
 
-// ─── Safe programmatic initializer (outside Compose) ──────────────────────────
-/**
- * Initializes both YouTube WebViews in a hidden 0×0 [FrameLayout] added via
- * [android.app.Activity.addContentView]. This avoids Compose compositing
- * bugs caused by negative-offset [AndroidView] mounts.
- *
- * Call from [androidx.activity.ComponentActivity.onCreate] **before** [setContent].
- * Invoke the returned cleanup lambda from [onDestroy].
- */
+// ─── Programmatic initializer ─────────────────────────────────────────────────
 @SuppressLint("SetJavaScriptEnabled")
 fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
     val container = android.widget.FrameLayout(activity).apply {
         visibility = android.view.View.GONE
     }
 
-    // IFrame player
+    // IFrame player WebView
     val playerWv = WebView(activity).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
@@ -346,45 +345,26 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
         }
-        val bridge = object {
-            @JavascriptInterface
-            fun onMessage(json: String) = YoutubePlayerService.handleMessage(json)
-        }
-        addJavascriptInterface(bridge, "AndroidBridge")
+        addJavascriptInterface(object {
+            @JavascriptInterface fun onMessage(json: String) = YoutubePlayerService.handleMessage(json)
+        }, "AndroidBridge")
         YoutubePlayerService.webView = this
         loadDataWithBaseURL("https://www.youtube.com", YT_IFRAME_HTML, "text/html", "UTF-8", null)
     }
     container.addView(playerWv, android.view.ViewGroup.LayoutParams(1, 1))
 
-    // Stream extractor
+    // Stream extractor WebView
     val extractWv = WebView(activity).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        settings.mediaPlaybackRequiresUserGesture = true
+        // false = autoplay=1 works, triggering CDN requests we intercept
+        settings.mediaPlaybackRequiresUserGesture = false
         settings.userAgentString = CHROME_UA
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         settings.cacheMode = WebSettings.LOAD_DEFAULT
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
-        webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
-            override fun onLoadResource(view: WebView, url: String) {
-                super.onLoadResource(view, url)
-                val vid = YoutubeExtractor.pendingVideoId ?: return
-                view.evaluateJavascript(makeExtractJs(vid), null)
-            }
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                val vid = YoutubeExtractor.pendingVideoId ?: return
-                if (url.contains("youtube.com/embed")) {
-                    view.evaluateJavascript(makeExtractJs(vid), null)
-                }
-            }
-            override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
-                super.onReceivedError(v, req, err)
-                if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
-            }
-        }
+        webViewClient = extractorWebViewClient()
         YoutubeExtractor.webView = this
     }
     container.addView(extractWv, android.view.ViewGroup.LayoutParams(1, 1))

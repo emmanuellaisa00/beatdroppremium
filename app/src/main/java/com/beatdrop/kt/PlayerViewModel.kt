@@ -222,6 +222,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     fun connect() {
         observePrefs()
+        observeDownloadCompletions()
         val token = SessionToken(getApplication(), ComponentName(getApplication(), PlaybackService::class.java))
         val future = MediaController.Builder(getApplication(), token).buildAsync()
         future.addListener({
@@ -522,45 +523,35 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ── Downloads ─────────────────────────────────────────────────────────────
-    private val _downloadJobs = MutableStateFlow<Map<String, DownloadJob>>(emptyMap())
-    val downloadJobs: StateFlow<Map<String, DownloadJob>> = _downloadJobs.asStateFlow()
+    // Delegate to DownloadManager — its CoroutineScope outlives this ViewModel
+    // so downloads survive configuration changes and app backgrounding.
+    // DownloadService (foreground) keeps the process alive for the full transfer.
 
-    fun downloadJobFor(videoId: String): DownloadJob? = _downloadJobs.value[videoId]
+    val downloadJobs: StateFlow<Map<String, DownloadJob>> = DownloadManager.jobs
 
-    private fun updateJob(job: DownloadJob) {
-        _downloadJobs.value = _downloadJobs.value + (job.videoId to job)
-    }
+    fun downloadJobFor(videoId: String): DownloadJob? = DownloadManager.jobs.value[videoId]
 
     fun downloadOnline(result: OnlineResult) {
-        val existing = _downloadJobs.value[result.videoId]
-        if (existing != null && existing.status in listOf(DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING)) return
-
-        updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.QUEUED))
-        viewModelScope.launch(Dispatchers.IO) {
-            updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.DOWNLOADING))
-            runCatching {
-                downloadYoutubeTrack(result) { progress ->
-                    updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.DOWNLOADING, progress.percent))
-                }
-            }.onSuccess { track ->
-                // Add downloaded track to library
-                _tracks.value = _tracks.value + track
-                updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.COMPLETED, 100, track))
-            }.onFailure { err ->
-                updateJob(DownloadJob(result.videoId, result.title, DownloadStatus.FAILED, 0, null, err.message))
-                _onlineMessage.value = "Couldn't save to library: ${err.message}"
-            }
-        }
+        DownloadManager.enqueue(result, getApplication())
     }
 
     fun cancelDownload(videoId: String) {
-        // Mark as cancelled — OkHttp will clean up on next use
-        _downloadJobs.value = _downloadJobs.value - videoId
+        DownloadManager.cancel(videoId, getApplication())
     }
 
     fun retryDownload(result: OnlineResult) {
-        _downloadJobs.value = _downloadJobs.value - result.videoId
-        downloadOnline(result)
+        DownloadManager.retry(result, getApplication())
+    }
+
+    // Observe completed downloads → add track to the local library immediately
+    private fun observeDownloadCompletions() {
+        DownloadManager.trackReady
+            .onEach { track ->
+                if (_tracks.value.none { it.id == track.id }) {
+                    _tracks.value = _tracks.value + track
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
