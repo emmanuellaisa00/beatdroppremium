@@ -261,7 +261,8 @@ private fun TabItem2(tab: TabSpec2, active: Boolean, modifier: Modifier, onClick
                     .width(4.dp)
                     .height(dotHeight)
                     .clip(CircleShape)
-                    .background(if (active) C.accent else Color.Transparent)),
+                    .background(if (active) C.accent else Color.Transparent)
+            )
             Spacer(Modifier.height(2.dp))
         }
     }

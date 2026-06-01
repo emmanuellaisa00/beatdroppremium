@@ -25,8 +25,14 @@ import androidx.compose.material.icons.outlined.GraphicEq as OutlinedGraphicEq
 import androidx.compose.material.icons.outlined.LibraryMusic as OutlinedLibraryMusic
 import androidx.compose.material.icons.outlined.Radio as OutlinedRadio
 import androidx.compose.material.icons.outlined.Settings as OutlinedSettings
-import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.filled.Explore as FilledExplore
+import androidx.compose.material.icons.outlined.Explore as OutlinedExplore
+import androidx.compose.material.icons.filled.Settings as FilledSettings
+import androidx.compose.material.icons.outlined.Settings as OutlinedSettings
+import androidx.compose.material.icons.filled.LibraryMusic as FilledLibraryMusic
+import androidx.compose.material.icons.outlined.LibraryMusic as OutlinedLibraryMusic
+import androidx.compose.material.icons.filled.Radio as FilledRadio
+import androidx.compose.material.icons.outlined.Radio as OutlinedRadio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -114,10 +120,10 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 }
 
 private val TABS = listOf(
-    TabSpec2("library",  "Library",  Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
+    TabSpec2("library",  "Library",  Icons.Filled.Collections, Icons.Outlined.Collections),
     TabSpec2("discover", "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
-    TabSpec2("radio",    "Radio",    Icons.Filled.Radio, Icons.Outlined.Radio),
-    TabSpec2("activity", "Activity", Icons.Filled.Settings, Icons.Outlined.Settings),
+    TabSpec2("radio",    "Radio",    Icons.Filled.Podcasts, Icons.Outlined.Podcasts),
+    TabSpec2("activity", "Activity", Icons.Filled.SettingsSuggest, Icons.Outlined.SettingsSuggest),
 )
 
 private sealed interface Dest {
