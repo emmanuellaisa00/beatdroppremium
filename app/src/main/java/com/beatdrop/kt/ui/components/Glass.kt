@@ -1,5 +1,6 @@
 package com.beatdrop.kt.ui.components
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.RenderEffect
 import android.graphics.Shader
@@ -74,17 +75,16 @@ fun rememberDeviceTilt(): State<Offset> {
  * On API 31+ uses RenderEffect with blur + saturation for that "thick glass"
  * look. On older devices degrades to a heavier opaque scrim.
  */
+@SuppressLint("NewApi")
 fun Modifier.glassBlur(radiusPx: Float = 40f): Modifier =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         this.graphicsLayer {
             renderEffect = RenderEffect.createChainEffect(
-                // Saturation boost — makes colors behind glass richer (like real thick glass)
                 RenderEffect.createColorFilterEffect(
                     android.graphics.ColorMatrixColorFilter(
                         android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
                     )
                 ),
-                // Gaussian blur
                 RenderEffect.createBlurEffect(radiusPx, radiusPx, Shader.TileMode.CLAMP),
             ).asComposeRenderEffect()
         }
