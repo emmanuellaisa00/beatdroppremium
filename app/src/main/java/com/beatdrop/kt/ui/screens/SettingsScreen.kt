@@ -62,8 +62,8 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     val liked by vm.liked.collectAsState()
 
     LazyColumn(
-        Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(horizontal = 16.dp, bottom = 160.dp),
+        Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(bottom = 160.dp),
     ) {
         // ── Header ──────────────────────────────────────────────────────────
         item {

@@ -84,7 +84,7 @@ private fun LegacyTabItem(tab: TabSpec, active: Boolean, modifier: Modifier, onC
     val C = LocalAppColors.current
     val scale by animateFloatAsState(
         if (active) 1.08f else 1f,
-        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium), "tabScale",
+        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium), label = "tabScale",
     )
     Box(
         modifier
