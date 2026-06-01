@@ -230,10 +230,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }, ContextCompat.getMainExecutor(getApplication()))
     }
 
+    @Volatile private var onlineTransitionInProgress = false
+
     private fun attach() {
         controller?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(p: Boolean) { _isPlaying.value = p }
-            override fun onMediaItemTransition(item: MediaItem?, reason: Int) { syncCurrent() }
+            override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                // Don't let ExoPlayer callbacks clobber an in-flight online track switch.
+                // When prepareAndPlayOnline sets a temp track then calls setMediaItem,
+                // ExoPlayer can fire this with the OLD item during the transition.
+                if (onlineTransitionInProgress) return
+                syncCurrent()
+            }
             override fun onTimelineChanged(t: Timeline, reason: Int) { refreshQueueFromController() }
             override fun onPlaybackStateChanged(state: Int) {
                 _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
@@ -474,15 +482,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         )
         _current.value = tempTrack
         _fetchingVideoId.value = result.videoId
+        onlineTransitionInProgress = true
 
         viewModelScope.launch {
             val track = runCatching { youtubeResultToTrack(result) }.getOrElse {
                 _onlineMessage.value = "Couldn't stream this song: ${it.message}"
-                _fetchingVideoId.value = null; return@launch
+                _fetchingVideoId.value = null
+                onlineTransitionInProgress = false
+                return@launch
             }
             _ytTrackCache[track.id] = track
-            val c = controller ?: run { _fetchingVideoId.value = null; return@launch }
+            val c = controller ?: run {
+                _fetchingVideoId.value = null
+                onlineTransitionInProgress = false
+                return@launch
+            }
             c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
+            // Allow syncCurrent to run again — the new item is now active in ExoPlayer
+            onlineTransitionInProgress = false
             _current.value = track; _duration.value = track.durationMs
             loadLyrics(track)
             _fetchingVideoId.value = null
@@ -498,15 +515,38 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 val cleanMatch = if (bestMatch.thumbnailUrl.isNullOrBlank()) {
                     bestMatch.copy(thumbnailUrl = coverUrl)
                 } else bestMatch
-                
+
+                // Set temp track immediately so Now Playing shows the right info
+                val tempTrack = Track(
+                    id = "yt_${cleanMatch.videoId}",
+                    uri = Uri.EMPTY,
+                    title = title,
+                    artist = artist,
+                    album = artist,
+                    albumId = 0L,
+                    durationMs = 0L,
+                    data = null,
+                    dateAdded = System.currentTimeMillis(),
+                    artworkOverride = coverUrl,
+                )
+                _current.value = tempTrack
                 _fetchingVideoId.value = cleanMatch.videoId
+                onlineTransitionInProgress = true
+                
                 val track = runCatching { youtubeResultToTrack(cleanMatch) }.getOrElse {
                     _onlineMessage.value = "Couldn't stream this song: ${it.message}"
-                    _fetchingVideoId.value = null; return@launch
+                    _fetchingVideoId.value = null
+                    onlineTransitionInProgress = false
+                    return@launch
                 }
                 _ytTrackCache[track.id] = track
-                val c = controller ?: run { _fetchingVideoId.value = null; return@launch }
+                val c = controller ?: run {
+                    _fetchingVideoId.value = null
+                    onlineTransitionInProgress = false
+                    return@launch
+                }
                 c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
+                onlineTransitionInProgress = false
                 _current.value = track; _duration.value = track.durationMs
                 loadLyrics(track)
                 _fetchingVideoId.value = null
