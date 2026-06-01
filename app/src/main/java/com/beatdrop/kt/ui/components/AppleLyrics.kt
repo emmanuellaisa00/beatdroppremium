@@ -4,9 +4,7 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -22,15 +20,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.lyrics.LyricLine
-import com.beatdrop.kt.ui.theme.LocalAppColors
 import kotlin.math.abs
 
 /**
- * Apple-Music-style synced lyrics:
- *  - Active line: largest, bold, full white, sharp focus
- *  - Adjacent lines: progressively dimmer, smaller, blurred (API 31+)
- *  - Fading gradient mask at top and bottom edges
- *  - Auto-scrolls to keep active line centred
+ * Apple Music-style synced lyrics (matches Image 1):
+ *
+ *  ACTIVE line  — 34 sp ExtraBold, full white, zero blur, max alpha
+ *  ± 1 line     — 24 sp SemiBold, 65% alpha, slight scale-down
+ *  ± 2 lines    — 20 sp Medium, 38% alpha, blur 3px
+ *  ± 3 lines    — 18 sp, 24% alpha, blur 6px
+ *  further      — 17 sp, 14% alpha, blur 10px
+ *
+ *  - Top & bottom gradient fade so text dissolves into the background
+ *  - Auto-scrolls to keep the active line vertically centred
  *  - Tap any line to seek to it
  *  - Pulsing dot placeholder for instrumental gaps
  */
@@ -41,19 +43,18 @@ fun AppleLyrics(
     modifier: Modifier = Modifier,
     onSeek: (Long) -> Unit = {},
 ) {
-    val C = LocalAppColors.current
     val state = rememberLazyListState()
 
+    // Smooth-scroll the active line to roughly 1/3 from the top
     LaunchedEffect(activeIndex) {
         if (activeIndex >= 0) {
             state.animateScrollToItem(
                 index = activeIndex.coerceAtLeast(0),
-                scrollOffset = -300,
+                scrollOffset = -340,
             )
         }
     }
 
-    // ── Fading-edge gradient mask (top + bottom fade out) ─────────────────
     LazyColumn(
         state = state,
         modifier = modifier
@@ -61,62 +62,76 @@ fun AppleLyrics(
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .drawWithContent {
                 drawContent()
-                val fadeH = 96.dp.toPx()
-                // Single mask rect: transparent at both edges, opaque in centre
+                // Top + bottom fade so lyrics dissolve into the blurred backdrop
                 drawRect(
                     brush = Brush.verticalGradient(
                         0.00f to Color.Transparent,
-                        0.13f to Color.Black,
-                        0.87f to Color.Black,
+                        0.10f to Color.Black,
+                        0.88f to Color.Black,
                         1.00f to Color.Transparent,
                     ),
                     blendMode = BlendMode.DstIn,
                 )
             },
-        contentPadding = PaddingValues(top = 80.dp, bottom = 220.dp),
+        contentPadding = PaddingValues(top = 100.dp, bottom = 240.dp),
         horizontalAlignment = Alignment.Start,
     ) {
         itemsIndexed(lines, key = { i, _ -> i }) { i, line ->
-            val isActive  = i == activeIndex
-            val distance  = abs(i - activeIndex)
+            val distance = abs(i - activeIndex)
+            val isActive = distance == 0
 
-            // ── Per-line visual properties ────────────────────────────────
-            val targetAlpha = when (distance) {
-                0    -> 1.00f
-                1    -> 0.65f
-                2    -> 0.42f
-                3    -> 0.28f
-                else -> 0.18f
-            }
+            // ── Animated scale ────────────────────────────────────────────────
             val scale by animateFloatAsState(
                 targetValue = when (distance) {
-                    0 -> 1.00f
-                    1 -> 0.93f
-                    else -> 0.88f
+                    0    -> 1.00f
+                    1    -> 0.90f
+                    else -> 0.85f
                 },
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness    = Spring.StiffnessLow,
                 ),
-                label = "lyricScale",
-            )
-            val color by animateColorAsState(
-                targetValue = when {
-                    isActive       -> Color.White
-                    distance == 1  -> Color.White.copy(alpha = 0.65f)
-                    distance == 2  -> Color.White.copy(alpha = 0.42f)
-                    distance == 3  -> Color.White.copy(alpha = 0.28f)
-                    else           -> Color.White.copy(alpha = 0.18f)
-                },
-                label = "lyricColor",
+                label = "lyricScale$i",
             )
 
-            // Blur radius: real RenderEffect on API 31+; pure alpha fallback below
+            // ── Animated colour (alpha encodes distance) ──────────────────────
+            val color by animateColorAsState(
+                targetValue = when (distance) {
+                    0    -> Color.White
+                    1    -> Color.White.copy(alpha = 0.65f)
+                    2    -> Color.White.copy(alpha = 0.38f)
+                    3    -> Color.White.copy(alpha = 0.24f)
+                    else -> Color.White.copy(alpha = 0.14f)
+                },
+                animationSpec = tween(300),
+                label = "lyricColor$i",
+            )
+
+            // ── Font size based on distance ───────────────────────────────────
+            val fontSize = when (distance) {
+                0    -> 34.sp   // Active: large and bold — matches Apple Music / Image 1
+                1    -> 24.sp
+                2    -> 20.sp
+                3    -> 18.sp
+                else -> 17.sp
+            }
+            val fontWeight = when (distance) {
+                0    -> FontWeight.ExtraBold
+                1    -> FontWeight.SemiBold
+                else -> FontWeight.Medium
+            }
+            val lineH = when (distance) {
+                0 -> 42.sp
+                1 -> 30.sp
+                else -> 24.sp
+            }
+
+            // ── Blur: real RenderEffect on API 31+, pure alpha fallback below ──
             val blurPx = when (distance) {
                 0, 1 -> 0f
                 2    -> 3f
                 3    -> 6f
-                else -> 9f
+                else -> 10f
             }
             val blurMod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurPx > 0f) {
                 Modifier.graphicsLayer {
@@ -132,39 +147,55 @@ fun AppleLyrics(
                 Text(
                     text       = line.text,
                     color      = color,
-                    fontSize   = if (isActive) 30.sp else if (distance == 1) 24.sp else 21.sp,
-                    fontWeight = if (isActive) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    fontSize   = fontSize,
+                    fontWeight = fontWeight,
                     textAlign  = TextAlign.Start,
-                    lineHeight = if (isActive) 36.sp else 28.sp,
+                    lineHeight = lineH,
                     modifier   = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 28.dp, vertical = 9.dp)
+                        .padding(horizontal = 20.dp, vertical = if (isActive) 10.dp else 6.dp)
                         .graphicsLayer {
                             scaleX          = scale
                             scaleY          = scale
                             transformOrigin = TransformOrigin(0f, 0.5f)
-                            alpha           = targetAlpha
                         }
                         .then(blurMod)
-                        .pressableScale(onClick = { onSeek(line.timeMs) }, scaleTo = 0.97f, haptic = false),
+                        .pressableScale(
+                            onClick  = { onSeek(line.timeMs) },
+                            scaleTo  = 0.97f,
+                            haptic   = false,
+                        ),
                 )
             }
         }
     }
 }
 
+// ── Instrumental gap dots ─────────────────────────────────────────────────────
 @Composable
 private fun GapDots(active: Boolean) {
-    val alpha by animateFloatAsState(if (active) 1f else 0.3f, label = "gap")
+    val infinite = rememberInfiniteTransition(label = "dots")
+    val bounce by infinite.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(600, easing = EaseInOutSine),
+            RepeatMode.Reverse,
+        ),
+        label = "dotBounce",
+    )
+    val baseAlpha = if (active) 0.90f else 0.28f
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        repeat(3) {
+        listOf(0, 1, 2).forEachIndexed { idx, _ ->
+            val offset = idx * 0.33f
+            val a = (baseAlpha * (0.6f + 0.4f * ((bounce + offset) % 1f))).coerceIn(0f, 1f)
             Text(
                 "●",
-                color    = Color.White.copy(alpha = alpha),
-                fontSize = if (active) 14.sp else 10.sp,
+                color    = Color.White.copy(alpha = a),
+                fontSize = if (active) 16.sp else 11.sp,
             )
         }
     }
