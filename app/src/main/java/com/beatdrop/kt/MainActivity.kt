@@ -138,7 +138,6 @@ fun Root(vm: PlayerViewModel = viewModel()) {
         OnboardingScreen(onGetStarted = { onboarded = true; perm.launchPermissionRequest() }); return
     }
     if (!perm.status.isGranted) { PermissionPrompt(onRequest = { perm.launchPermissionRequest() }); return }
-    MainScaffold(vm)
 
     // Clipboard URL detection — show dialog when user has a video URL copied
     var clipUrl by rememberSaveable { mutableStateOf<String?>(null) }
@@ -152,16 +151,18 @@ fun Root(vm: PlayerViewModel = viewModel()) {
             title = { Text("Video Link Detected") },
             text = { Text("A video URL was found on your clipboard. Do you want to play or download it?\n\n$url") },
             confirmButton = {
-                TextButton(onClick = {
-                    vm.playOnlineByUrl(url)
-                    clipUrl = null
-                    com.beatdrop.kt.util.ClipboardWatcher.reset()
-                }) { Text("Play") }
-                TextButton(onClick = {
-                    vm.downloadOnlineByUrl(url)
-                    clipUrl = null
-                    com.beatdrop.kt.util.ClipboardWatcher.reset()
-                }) { Text("Download") }
+                Row {
+                    TextButton(onClick = {
+                        vm.playOnlineByUrl(url)
+                        clipUrl = null
+                        com.beatdrop.kt.util.ClipboardWatcher.reset()
+                    }) { Text("Play") }
+                    TextButton(onClick = {
+                        vm.downloadOnlineByUrl(url)
+                        clipUrl = null
+                        com.beatdrop.kt.util.ClipboardWatcher.reset()
+                    }) { Text("Download") }
+                }
             },
             dismissButton = {
                 TextButton(onClick = {
@@ -171,6 +172,8 @@ fun Root(vm: PlayerViewModel = viewModel()) {
             }
         )
     }
+
+    MainScaffold(vm)
 }
 
 private val TABS = listOf(
