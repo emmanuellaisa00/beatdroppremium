@@ -31,6 +31,13 @@ class Prefs(private val context: Context) {
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
         // Cached on-device audio features: JSON {trackId: {"bpm":128,"key":"8A"}}
         val TRACK_FEATURES = stringPreferencesKey("track_features")
+        // ── New keys for SnapTube features ──
+        val WIFI_ONLY_DOWNLOADS = booleanPreferencesKey("wifi_only_downloads")
+        val DOWNLOAD_SPEED_LIMIT = intPreferencesKey("download_speed_limit") // KB/s, 0 = unlimited
+        val MAX_CONCURRENT_DOWNLOADS = intPreferencesKey("max_concurrent_downloads")
+        val DOWNLOAD_DIR_PATH = stringPreferencesKey("download_dir_path")
+        val PRIVATE_PIN = stringPreferencesKey("private_pin")  // hashed PIN
+        val SEARCH_PLATFORM = stringPreferencesKey("search_platform") // "YouTube", "SoundCloud", "All"
     }
 
     // ── liked ──
@@ -156,6 +163,26 @@ class Prefs(private val context: Context) {
             prefs[Keys.SEARCH_HISTORY] = JSONArray(list).toString()
         }
     }
+
+    // ── New SnapTube-style settings ──────────────────────────────────────────
+
+    val wifiOnlyFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.WIFI_ONLY_DOWNLOADS] ?: false }
+    suspend fun setWifiOnly(v: Boolean) { context.dataStore.edit { it[Keys.WIFI_ONLY_DOWNLOADS] = v } }
+
+    val downloadSpeedLimitFlow: Flow<Int> = context.dataStore.data.map { it[Keys.DOWNLOAD_SPEED_LIMIT] ?: 0 }
+    suspend fun setDownloadSpeedLimit(v: Int) { context.dataStore.edit { it[Keys.DOWNLOAD_SPEED_LIMIT] = v.coerceAtLeast(0) } }
+
+    val maxConcurrentDownloadsFlow: Flow<Int> = context.dataStore.data.map { it[Keys.MAX_CONCURRENT_DOWNLOADS] ?: 3 }
+    suspend fun setMaxConcurrentDownloads(v: Int) { context.dataStore.edit { it[Keys.MAX_CONCURRENT_DOWNLOADS] = v.coerceIn(1, 5) } }
+
+    val downloadDirPathFlow: Flow<String> = context.dataStore.data.map { it[Keys.DOWNLOAD_DIR_PATH] ?: "" }
+    suspend fun setDownloadDirPath(v: String) { context.dataStore.edit { it[Keys.DOWNLOAD_DIR_PATH] = v } }
+
+    val privatePinFlow: Flow<String?> = context.dataStore.data.map { it[Keys.PRIVATE_PIN] }
+    suspend fun setPrivatePin(v: String) { context.dataStore.edit { it[Keys.PRIVATE_PIN] = v } }
+
+    val searchPlatformFlow: Flow<String> = context.dataStore.data.map { it[Keys.SEARCH_PLATFORM] ?: "YouTube" }
+    suspend fun setSearchPlatform(v: String) { context.dataStore.edit { it[Keys.SEARCH_PLATFORM] = v } }
 
     // ── helpers ──
     private fun jsonArrayToList(s: String?): List<String> {

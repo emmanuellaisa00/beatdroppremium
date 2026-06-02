@@ -12,6 +12,8 @@ data class OnlineResult(
     val durationText: String,
     val durationSecs: Int = 0,
     val isLive: Boolean = false,
+    val sourcePlatform: String = "YouTube",   // "YouTube", "SoundCloud", etc.
+    val sourceUrl: String? = null,             // Original platform URL
 )
 
 /** Pluggable search backend — the UI only talks to this interface. */
@@ -51,9 +53,58 @@ class InnertubeSearchProvider : SearchProvider {
 /** Injection point. Set in BeatDropApp.onCreate(). */
 object OnlineSearch {
     @Volatile var provider: SearchProvider = NotConfiguredProvider
+    @Volatile var secondaryProvider: SearchProvider? = null  // Multi-platform (SoundCloud, etc.)
     /** When true, search uses YouTube Music (curated songs only). */
     @Volatile var musicMode: Boolean = true
+    /** Active search platform: "YouTube", "SoundCloud", "All" */
+    @Volatile var searchPlatform: String = "YouTube"
     val isConfigured: Boolean get() = provider !== NotConfiguredProvider
+}
+
+/**
+ * Search filters — duration, date, quality, type.
+ */
+data class SearchFilter(
+    val duration: DurationFilter = DurationFilter.ANY,
+    val type: TypeFilter = TypeFilter.ANY,
+    val sortBy: SortFilter = SortFilter.RELEVANCE,
+)
+
+enum class DurationFilter(val label: String) {
+    ANY("Any duration"),
+    SHORT("Under 4 min"),
+    MEDIUM("4–20 min"),
+    LONG("Over 20 min"),
+}
+
+enum class TypeFilter(val label: String) {
+    ANY("Any type"),
+    SONG("Songs"),
+    VIDEO("Videos"),
+    LIVE("Live"),
+}
+
+enum class SortFilter(val label: String) {
+    RELEVANCE("Relevance"),
+    DATE("Upload date"),
+    VIEWS("View count"),
+}
+
+/** Filter a list of OnlineResult by the given SearchFilter. */
+fun applySearchFilter(results: List<OnlineResult>, filter: SearchFilter): List<OnlineResult> {
+    var filtered = results
+    filtered = when (filter.duration) {
+        DurationFilter.SHORT -> filtered.filter { it.durationSecs in 1..240 }
+        DurationFilter.MEDIUM -> filtered.filter { it.durationSecs in 240..1200 }
+        DurationFilter.LONG -> filtered.filter { it.durationSecs > 1200 }
+        else -> filtered
+    }
+    filtered = when (filter.type) {
+        TypeFilter.LIVE -> filtered.filter { it.isLive }
+        TypeFilter.SONG -> filtered.filter { !it.isLive && it.durationSecs in 60..600 }
+        else -> filtered
+    }
+    return filtered
 }
 
 /**

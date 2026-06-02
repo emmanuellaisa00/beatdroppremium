@@ -4,6 +4,7 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.devtools.ksp") version("1.9.24-1.0.20") apply(false)
 }
 
 val keystorePropsFile = rootProject.file("keystore.properties")
@@ -119,6 +120,17 @@ dependencies {
     // Mozilla Rhino — evaluates YouTube's base.js signature + n-throttle JS
     // (the same approach NewPipe/yt-dlp use to decipher protected stream URLs)
     implementation("org.mozilla:rhino:1.7.14")
+
+    // Room database — download history, subscriptions
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    annotationProcessor("androidx.room:room-compiler:2.6.1")
+
+    // AndroidX Activity results API (for share handling)
+    implementation("androidx.activity:activity-ktx:1.9.0")
+
+    // Gson for JSON serialization (download history, metadata)
+    implementation("com.google.code.gson:gson:2.11.0")
 
     // Unit tests
     testImplementation("junit:junit:4.13.2")

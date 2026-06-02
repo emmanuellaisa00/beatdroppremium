@@ -224,6 +224,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }.launchIn(viewModelScope)
         prefs.trackFeaturesFlow.onEach { _trackFeatures.value = it }.launchIn(viewModelScope)
         prefs.searchHistoryFlow.onEach { _searchHistory.value = it }.launchIn(viewModelScope)
+        prefs.wifiOnlyFlow.onEach { com.beatdrop.kt.youtube.DownloadManagerV2.wifiOnly = it }.launchIn(viewModelScope)
+        prefs.downloadSpeedLimitFlow.onEach { com.beatdrop.kt.youtube.DownloadManagerV2.speedLimitKBps = it }.launchIn(viewModelScope)
+        prefs.maxConcurrentDownloadsFlow.onEach { com.beatdrop.kt.youtube.DownloadManagerV2.maxConcurrentDownloads = it }.launchIn(viewModelScope)
+        prefs.downloadDirPathFlow.onEach { com.beatdrop.kt.youtube.DownloadManagerV2.downloadDirPath = it.ifBlank { null } }.launchIn(viewModelScope)
+        prefs.privatePinFlow.onEach { _privatePin.value = it }.launchIn(viewModelScope)
+        prefs.searchPlatformFlow.onEach { com.beatdrop.kt.youtube.OnlineSearch.searchPlatform = it }.launchIn(viewModelScope)
     }
 
     // ── Queue / shuffle / repeat ──────────────────────────────────────────────
@@ -986,6 +992,54 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             .launchIn(viewModelScope)
+    }
+
+    // ── Private Folder PIN ──────────────────────────────────────────────────────
+    private val _privatePin = MutableStateFlow<String?>(null)
+    val privatePin: StateFlow<String?> = _privatePin.asStateFlow()
+    fun setPrivatePin(pin: String) {
+        _privatePin.value = pin
+        viewModelScope.launch { prefs.setPrivatePin(pin) }
+    }
+
+    // ── URL-based play/download (from clipboard, share menu, deep links) ───────
+    /**
+     * Play a video from a URL (YouTube, SoundCloud, etc.).
+     * Extracts the video ID and delegates to playOnline.
+     */
+    fun playOnlineByUrl(url: String) {
+        val detected = com.beatdrop.kt.util.ClipboardWatcher.parseUrl(url) ?: return
+        if (detected.isPlaylist) return // Use PlaylistDownloadScreen for playlists
+        val videoId = detected.videoId ?: return
+        val result = com.beatdrop.kt.youtube.OnlineResult(
+            videoId = videoId,
+            title = "Loading…",
+            author = detected.platform,
+            thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+            durationText = "",
+            durationSecs = 0,
+            sourcePlatform = detected.platform,
+        )
+        playOnline(result)
+    }
+
+    /**
+     * Download a video from a URL.
+     */
+    fun downloadOnlineByUrl(url: String) {
+        val detected = com.beatdrop.kt.util.ClipboardWatcher.parseUrl(url) ?: return
+        if (detected.isPlaylist) return
+        val videoId = detected.videoId ?: return
+        val result = com.beatdrop.kt.youtube.OnlineResult(
+            videoId = videoId,
+            title = "Downloading…",
+            author = detected.platform,
+            thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+            durationText = "",
+            durationSecs = 0,
+            sourcePlatform = detected.platform,
+        )
+        downloadOnline(result)
     }
 
     // ── Debug log (on-screen diagnostics) ──────────────────────────────────────

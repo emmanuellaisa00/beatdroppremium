@@ -5,9 +5,12 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.beatdrop.kt.data.DownloadHistory
+import com.beatdrop.kt.data.Subscriptions
 import com.beatdrop.kt.youtube.InnertubeSearchProvider
 import com.beatdrop.kt.youtube.OnlineSearch
 import com.beatdrop.kt.youtube.PipedResolver
+import com.beatdrop.kt.youtube.SoundCloudProvider
 import com.beatdrop.kt.youtube.YoutubeService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,20 +31,33 @@ class BeatDropApp : Application(), ImageLoaderFactory {
 
         // Wire online search to the real Innertube backend (no API key required)
         OnlineSearch.provider = InnertubeSearchProvider()
+        // Wire SoundCloud as secondary search provider (multi-platform)
+        OnlineSearch.secondaryProvider = SoundCloudProvider()
 
         // Give YoutubeService a context for the download directory
         YoutubeService.init(this)
 
-        // Refresh the public Piped instance list in the background — keeps our
-        // resolver pool current as instances come and go (best-effort, no
-        // blocking on startup).
+        // Initialize download history
+        DownloadHistory.init(this)
+
+        // Initialize subscriptions
+        Subscriptions.init(this)
+
+        // Refresh the public Piped instance list in the background
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             runCatching { PipedResolver.refreshInstanceList() }
                 .onSuccess { DebugLog.i("piped", "instance list refreshed") }
                 .onFailure { DebugLog.w("piped", "instance list refresh failed: ${it.message}") }
         }
 
-        DebugLog.i("app", "BeatDrop started — online search provider wired, YoutubeService ready")
+        // Discover SoundCloud client_id in background
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            runCatching { SoundCloudProvider.discoverClientId() }
+                .onSuccess { DebugLog.i("soundcloud", "client_id discovered") }
+                .onFailure { DebugLog.w("soundcloud", "client_id discovery failed: ${it.message}") }
+        }
+
+        DebugLog.i("app", "BeatDrop started — online search + SoundCloud wired, YoutubeService ready")
     }
 
     override fun newImageLoader(): ImageLoader =

@@ -72,6 +72,31 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // Handle incoming share intent or deep link
+        handleIncomingIntent(intent)
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    /**
+     * Handle URLs shared from other apps (YouTube, TikTok, etc.) or opened via deep link.
+     */
+    private fun handleIncomingIntent(intent: android.content.Intent?) {
+        when (intent?.action) {
+            android.content.Intent.ACTION_SEND -> {
+                val sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT) ?: return
+                val url = sharedText.trim()
+                // The clipboard watcher will detect this URL and show the dialog
+            }
+            android.content.Intent.ACTION_VIEW -> {
+                val data = intent.data ?: return
+                val url = data.toString()
+                // Will be handled by clipboard detection in Root composable
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -88,6 +113,7 @@ private val audioPermission: String
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun Root(vm: PlayerViewModel = viewModel()) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val perm = rememberPermissionState(audioPermission)
     // POST_NOTIFICATIONS (Android 13+) — needed for the media-playback notification
     // with transport controls. Playback works without it, but the notification is
@@ -113,6 +139,38 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     }
     if (!perm.status.isGranted) { PermissionPrompt(onRequest = { perm.launchPermissionRequest() }); return }
     MainScaffold(vm)
+
+    // Clipboard URL detection — show dialog when user has a video URL copied
+    var clipUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    if (perm.status.isGranted) {
+        val detected = com.beatdrop.kt.util.ClipboardWatcher.checkClipboard(context)
+        LaunchedEffect(detected) { clipUrl = detected?.url }
+    }
+    clipUrl?.let { url ->
+        AlertDialog(
+            onDismissRequest = { clipUrl = null; com.beatdrop.kt.util.ClipboardWatcher.reset() },
+            title = { Text("Video Link Detected") },
+            text = { Text("A video URL was found on your clipboard. Do you want to play or download it?\n\n$url") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.playOnlineByUrl(url)
+                    clipUrl = null
+                    com.beatdrop.kt.util.ClipboardWatcher.reset()
+                }) { Text("Play") }
+                TextButton(onClick = {
+                    vm.downloadOnlineByUrl(url)
+                    clipUrl = null
+                    com.beatdrop.kt.util.ClipboardWatcher.reset()
+                }) { Text("Download") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    clipUrl = null
+                    com.beatdrop.kt.util.ClipboardWatcher.reset()
+                }) { Text("Dismiss") }
+            }
+        )
+    }
 }
 
 private val TABS = listOf(
@@ -136,6 +194,16 @@ private sealed interface Dest {
     data object Search : Dest
     data object NowPlaying : Dest
     data object Queue : Dest
+    // New SnapTube-style screens
+    data object Downloads : Dest
+    data object Trending : Dest
+    data object Browser : Dest
+    data object Storage : Dest
+    data object PrivateFolder : Dest
+    data class VideoPlayer(val path: String, val title: String) : Dest
+    data class Channel(val channelId: String, val name: String, val thumb: String?) : Dest
+    data class ClipUrl(val url: String) : Dest
+    data class PlaylistDownload(val playlistId: String) : Dest
 }
 
 @Composable
@@ -195,6 +263,11 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onExpandPlayer      = { push(Dest.NowPlaying) },
                             onOpenEq            = { push(Dest.Eq) },
                             onOpenDebug         = { push(Dest.DebugLog) },
+                            onOpenDownloads     = { push(Dest.Downloads) },
+                            onOpenTrending      = { push(Dest.Trending) },
+                            onOpenBrowser       = { push(Dest.Browser) },
+                            onOpenStorage       = { push(Dest.Storage) },
+                            onOpenPrivateFolder = { push(Dest.PrivateFolder) },
                         )
                         is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
                         is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
@@ -208,6 +281,35 @@ fun MainScaffold(vm: PlayerViewModel) {
                         Dest.Search          -> SearchScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) })
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
+                        // New screens
+                        Dest.Downloads       -> com.beatdrop.kt.ui.screens.DownloadsScreen(vm, onBack = { pop() })
+                        Dest.Trending        -> com.beatdrop.kt.ui.screens.TrendingScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) }, onBack = { pop() })
+                        Dest.Browser         -> com.beatdrop.kt.ui.screens.BrowserScreen(
+                            onVideoDetected = { url, title ->
+                                vm.playOnlineByUrl(url)
+                                push(Dest.NowPlaying)
+                            },
+                            onBack = { pop() },
+                        )
+                        Dest.Storage         -> com.beatdrop.kt.ui.screens.StorageScreen(onBack = { pop() })
+                        Dest.PrivateFolder   -> com.beatdrop.kt.ui.screens.PrivateFolderScreen(
+                            savedPin = vm.privatePin.collectAsState().value,
+                            onSetPin = { vm.setPrivatePin(it) },
+                            onBack = { pop() },
+                        )
+                        is Dest.VideoPlayer  -> com.beatdrop.kt.ui.screens.VideoPlayerScreen(
+                            vm = vm, videoPath = dest.path, title = dest.title, onBack = { pop() },
+                        )
+                        is Dest.Channel      -> com.beatdrop.kt.ui.screens.ChannelScreen(
+                            vm = vm, channelId = dest.channelId, channelName = dest.name,
+                            channelThumb = dest.thumb, onExpandPlayer = { push(Dest.NowPlaying) }, onBack = { pop() },
+                        )
+                        is Dest.ClipUrl      -> com.beatdrop.kt.ui.screens.ClipUrlScreen(
+                            vm = vm, url = dest.url, onExpandPlayer = { push(Dest.NowPlaying) }, onBack = { pop() },
+                        )
+                        is Dest.PlaylistDownload -> com.beatdrop.kt.ui.screens.PlaylistDownloadScreen(
+                            vm = vm, playlistId = dest.playlistId, onBack = { pop() },
+                        )
                     }
                 }
             }
@@ -223,6 +325,8 @@ private fun TabsHost(
     onOpenLocalDiscover: () -> Unit, onOpenPlaylists: () -> Unit,
     onOpenStats: () -> Unit, onOpenSearch: () -> Unit, onExpandPlayer: () -> Unit,
     onOpenEq: () -> Unit, onOpenDebug: () -> Unit,
+    onOpenDownloads: () -> Unit, onOpenTrending: () -> Unit,
+    onOpenBrowser: () -> Unit, onOpenStorage: () -> Unit, onOpenPrivateFolder: () -> Unit,
 ) {
     val C = LocalAppColors.current
     Box(Modifier.fillMaxSize().background(Color.Transparent)) {
