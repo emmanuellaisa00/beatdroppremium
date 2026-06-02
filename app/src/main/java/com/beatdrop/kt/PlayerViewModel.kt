@@ -122,7 +122,37 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _autoDjEnabled = MutableStateFlow(false)
     val autoDjEnabled: StateFlow<Boolean> = _autoDjEnabled.asStateFlow()
     fun setAutoDjEnabled(v: Boolean) { _autoDjEnabled.value = v; viewModelScope.launch { prefs.setAutoDj(v) } }
+
+    // ── Auto-DJ: user-tunable crossfade length (4..12 s, default 8 s) ────────
+    private val _crossfadeMs = MutableStateFlow(8_000)
+    val crossfadeMs: StateFlow<Int> = _crossfadeMs.asStateFlow()
+    fun setCrossfadeMs(v: Int) {
+        val clamped = v.coerceIn(4_000, 12_000)
+        _crossfadeMs.value = clamped
+        viewModelScope.launch { prefs.setCrossfadeMs(clamped) }
+    }
+
+    // ── Auto-DJ runtime state ────────────────────────────────────────────────
     @Volatile private var isCrossfading = false
+    @Volatile private var crossfadeJob: kotlinx.coroutines.Job? = null
+    // Repeat mode to restore after the fade (we force REPEAT_MODE_ONE during it).
+    @Volatile private var savedRepeatMode: Int = Player.REPEAT_MODE_OFF
+    // The next track Auto-Mix has chosen, exposed so Now Playing can show a
+    // "Mixing in: <title>" badge during the fade.
+    private val _mixingNext = MutableStateFlow<Track?>(null)
+    val mixingNext: StateFlow<Track?> = _mixingNext.asStateFlow()
+    // Ring buffer of last N played track ids — used to avoid immediate repeats.
+    private val recentlyPlayedIds = ArrayDeque<String>(8)
+    private fun pushRecent(id: String) {
+        if (recentlyPlayedIds.lastOrNull() == id) return
+        recentlyPlayedIds.addLast(id)
+        while (recentlyPlayedIds.size > 6) recentlyPlayedIds.removeFirst()
+    }
+    // Cached per-track features (BPM, key) populated by the analyzer.
+    private val _trackFeatures = MutableStateFlow<Map<String, com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures>>(emptyMap())
+    val trackFeatures: StateFlow<Map<String, com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures>> = _trackFeatures.asStateFlow()
+    // Per-track analyzer scheduling: don't re-analyze in flight or already-cached tracks.
+    private val analyzingIds = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
@@ -136,6 +166,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.themeFlow.onEach { _theme.value = it }.launchIn(viewModelScope)
         prefs.defaultShuffleFlow.onEach { _defaultShuffle.value = it }.launchIn(viewModelScope)
         prefs.autoDjFlow.onEach { _autoDjEnabled.value = it }.launchIn(viewModelScope)
+        prefs.crossfadeMsFlow.onEach { _crossfadeMs.value = it }.launchIn(viewModelScope)
+        prefs.trackFeaturesFlow.onEach { _trackFeatures.value = it }.launchIn(viewModelScope)
         prefs.searchHistoryFlow.onEach { _searchHistory.value = it }.launchIn(viewModelScope)
     }
 
@@ -337,14 +369,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Playback ──────────────────────────────────────────────────────────────
     fun play(track: Track) {
+        cancelAutoMix()
         val c = controller ?: return
         val list = filteredSorted()
         val startIndex = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         c.setMediaItems(list.map { it.toMediaItem() }, startIndex, 0L)
         c.prepare(); c.play()
         _current.value = track; _duration.value = track.durationMs
+        pushRecent(track.id)
         loadLyrics(track); refreshQueueFromController()
         viewModelScope.launch { prefs.incrementPlayCount(track.id) }
+        scheduleAnalysis(track)
     }
 
     fun playList(tracks: List<Track>, startId: String) {
@@ -388,10 +423,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun togglePlay() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
-    fun next() { controller?.seekToNextMediaItem() }
-    fun prev() { controller?.seekToPreviousMediaItem() }
-    fun seekTo(ms: Long) { controller?.seekTo(ms); _position.value = ms }
+    fun togglePlay() {
+        cancelAutoMix()
+        controller?.let { if (it.isPlaying) it.pause() else it.play() }
+    }
+    fun next() { cancelAutoMix(); controller?.seekToNextMediaItem() }
+    fun prev() { cancelAutoMix(); controller?.seekToPreviousMediaItem() }
+    fun seekTo(ms: Long) { cancelAutoMix(); controller?.seekTo(ms); _position.value = ms }
 
     private fun loadLyrics(track: Track) {
         viewModelScope.launch {
@@ -413,8 +451,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     _position.value = pos
                     if (dur > 0) {
                         _duration.value = dur
-                        if (_autoDjEnabled.value && (dur - pos) <= 5000L && (dur - pos) > 1000L && !isCrossfading) {
-                            triggerAutoDjTransition()
+                        // Auto-Mix trigger: start crossfading exactly `crossfadeMs`
+                        // before the track's natural end. Tight 350 ms guard band
+                        // absorbs ticker jitter without firing twice.
+                        if (_autoDjEnabled.value && !isCrossfading) {
+                            val tail = dur - pos
+                            val fadeMs = _crossfadeMs.value.toLong()
+                            if (tail in (fadeMs - 350L)..(fadeMs + 350L)) {
+                                triggerAutoMix(fadeMs)
+                            }
                         }
                     }
                     if (_lyrics.value.isNotEmpty())
@@ -425,74 +470,154 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun triggerAutoDjTransition() {
+    /**
+     * The Auto-Mix transition — the heart of the SnapTube-style auto-DJ.
+     *
+     * KEY DESIGN POINTS (and the bugs they fix from the previous version):
+     *
+     * 1. **No restart of the next track at the end of the fade.** The previous
+     *    code did `controller.setMediaItem(Y); prepare(); play()` after the fade,
+     *    which started Y from position 0 — so the user heard Y's first 4 s once
+     *    on Deck B, then again on the main player. The new version captures
+     *    Deck B's `currentPosition` at the moment of swap and seeks the main
+     *    player to that position. **Audio is continuous; the intro plays once.**
+     *
+     * 2. **Equal-power curve** (`cos²θ + sin²θ = 1`) instead of linear, so total
+     *    perceived loudness stays constant through the blend — no centre dip.
+     *
+     * 3. **The current track is held in `REPEAT_MODE_ONE` during the fade** so
+     *    when X reaches its natural end mid-crossfade, ExoPlayer doesn't
+     *    auto-advance into a random next library track and race with us.
+     *
+     * 4. **User actions abort the fade cleanly.** A skip/back/seek/pause cancels
+     *    `crossfadeJob`, restores main-player volume to 1.0, stops Deck B, and
+     *    clears `isCrossfading` so a later Auto-Mix can re-arm.
+     */
+    private fun triggerAutoMix(fadeMs: Long) {
         if (isCrossfading) return
+        val cur = _current.value ?: return
+        val library = _tracks.value
+        if (library.isEmpty()) return
+        // Don't auto-mix online (streaming/YouTube) tracks — the second player
+        // doesn't have our ResolvingDataSource and can 403 unpredictably.
+        if (cur.isStreaming) return
+
+        // Pick the next track with the full Tier-2 scorer.
+        val recent = (recentlyPlayedIds + cur.id).toSet()
+        val next = com.beatdrop.kt.playback.AutoMixEngine.pickNext(
+            current = cur, library = library, likedIds = _liked.value,
+            playCounts = _playCounts.value, recentlyPlayedIds = recent,
+            featuresById = _trackFeatures.value,
+        ) ?: return
+        // Skip online or unsupported items the picker might let through.
+        if (next.isStreaming) return
+
         isCrossfading = true
-        viewModelScope.launch {
-            val cur = _current.value ?: run { isCrossfading = false; return@launch }
-            val list = _tracks.value
-            if (list.isEmpty()) { isCrossfading = false; return@launch }
-            val candidates = list.filter { it.id != cur.id }
-            val nextTrack = candidates.firstOrNull { it.artist.equals(cur.artist, ignoreCase = true) }
-                ?: candidates.firstOrNull { it.album.equals(cur.album, ignoreCase = true) }
-                ?: candidates.randomOrNull()
-                ?: cur
-            loadDeckB(nextTrack)
-            val steps = 40
-            val delayMs = 100L // 4 seconds crossfade
-            for (i in 0..steps) {
-                val ratio = i.toFloat() / steps
-                controller?.volume = 1f - ratio
-                deckB?.volume = ratio
-                delay(delayMs)
+        _mixingNext.value = next
+        val mainPlayer = controller ?: run { isCrossfading = false; _mixingNext.value = null; return }
+        savedRepeatMode = mainPlayer.repeatMode
+        mainPlayer.repeatMode = Player.REPEAT_MODE_ONE   // pin X in place
+
+        val deck = ensureDeckB()
+
+        crossfadeJob = viewModelScope.launch {
+            try {
+                // Start the next track silently on Deck B.
+                deck.volume = 0f
+                deck.setMediaItem(MediaItem.Builder().setMediaId(next.id).setUri(next.uri).build())
+                deck.prepare()
+                deck.playWhenReady = true
+
+                // Equal-power crossfade — 60 ticks regardless of duration → ~17ms cadence.
+                val ticks = 60
+                val stepMs = (fadeMs / ticks).coerceAtLeast(8L)
+                for (i in 0..ticks) {
+                    val t = i.toFloat() / ticks                       // 0..1
+                    val theta = (t * Math.PI / 2.0).toFloat()         // 0..π/2
+                    mainPlayer.volume = kotlin.math.cos(theta)        // 1 → 0
+                    deck.volume       = kotlin.math.sin(theta)        // 0 → 1
+                    delay(stepMs)
+                }
+                // Hand off Deck B → main player at exactly Deck B's current position.
+                val handoffPos = deck.currentPosition.coerceAtLeast(0L)
+                deck.playWhenReady = false
+                deck.volume = 0f
+                mainPlayer.repeatMode = savedRepeatMode
+                mainPlayer.setMediaItem(next.toMediaItem())
+                mainPlayer.prepare()
+                mainPlayer.volume = 1f
+                mainPlayer.seekTo(handoffPos)
+                mainPlayer.play()
+                // Update UI / lyrics / play count exactly like a normal track change.
+                _current.value = next
+                _duration.value = next.durationMs
+                pushRecent(next.id)
+                loadLyrics(next)
+                prefs.incrementPlayCount(next.id)
+                // Opportunistically analyze the new track for next time.
+                scheduleAnalysis(next)
+                DebugLog.i("automix", "✅ ${cur.title} → ${next.title}  (handoff @${handoffPos}ms)")
+            } catch (e: Exception) {
+                DebugLog.e("automix", "crossfade failed", e)
+                // Roll back to a clean state.
+                runCatching { mainPlayer.volume = 1f }
+                runCatching { mainPlayer.repeatMode = savedRepeatMode }
+                runCatching { deck.playWhenReady = false }
+            } finally {
+                isCrossfading = false
+                _mixingNext.value = null
+                crossfadeJob = null
             }
-            val c = controller
-            if (c != null) {
-                c.setMediaItem(nextTrack.toMediaItem())
-                c.prepare()
-                c.volume = 1f
-                c.play()
-                _current.value = nextTrack
-                _duration.value = nextTrack.durationMs
-                loadLyrics(nextTrack)
-            }
-            deckB?.pause()
-            deckB?.volume = 0f
-            isCrossfading = false
         }
     }
 
-    // ── DJ Mode ───────────────────────────────────────────────────────────────
+    /** Cancel a fade-in-progress (called when the user skips, seeks, or pauses). */
+    private fun cancelAutoMix() {
+        val job = crossfadeJob ?: return
+        crossfadeJob = null
+        job.cancel()
+        runCatching { controller?.volume = 1f }
+        runCatching { controller?.repeatMode = savedRepeatMode }
+        runCatching { deckB?.playWhenReady = false }
+        runCatching { deckB?.volume = 0f }
+        isCrossfading = false
+        _mixingNext.value = null
+    }
+
+    // ── Auto-DJ secondary player (used only for the crossfade buffer) ────────
+    // This player is NEVER user-facing. The DJ Mode UI was removed; only
+    // Auto-Mix uses it, and only during the brief crossfade window.
     private var deckB: ExoPlayer? = null
-    private val _deckATrack   = MutableStateFlow<Track?>(null)
-    val deckATrack: StateFlow<Track?> = _deckATrack.asStateFlow()
-    private val _deckBTrack   = MutableStateFlow<Track?>(null)
-    val deckBTrack: StateFlow<Track?> = _deckBTrack.asStateFlow()
-    private val _deckAPlaying = MutableStateFlow(false)
-    val deckAPlaying: StateFlow<Boolean> = _deckAPlaying.asStateFlow()
-    private val _deckBPlaying = MutableStateFlow(false)
-    val deckBPlaying: StateFlow<Boolean> = _deckBPlaying.asStateFlow()
-    private val _crossfade    = MutableStateFlow(0f)
-    val crossfade: StateFlow<Float> = _crossfade.asStateFlow()
-
     private fun ensureDeckB(): ExoPlayer {
-        return deckB ?: ExoPlayer.Builder(getApplication()).build().also { p ->
-            p.addListener(object : Player.Listener {
-                override fun onIsPlayingChanged(playing: Boolean) { _deckBPlaying.value = playing }
-            })
-            deckB = p
+        return deckB ?: ExoPlayer.Builder(getApplication()).build().also { deckB = it }
+    }
+
+    // ── On-device track analyzer scheduler ───────────────────────────────────
+    /**
+     * Analyze a track for BPM + key on a background thread and cache the result.
+     * Idempotent: skips tracks already in the cache or currently being analyzed.
+     * Called opportunistically as you play things — by the time Auto-Mix wants
+     * to score candidates, the tracks you actually listen to are already cached.
+     */
+    private fun scheduleAnalysis(track: Track) {
+        if (track.isStreaming) return                         // local files only
+        val path = track.data ?: return
+        if (_trackFeatures.value.containsKey(track.id)) return
+        if (!analyzingIds.add(track.id)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val feat = com.beatdrop.kt.playback.TrackAnalyzer.estimate(path, track.durationMs)
+                if (feat != null) {
+                    prefs.putTrackFeatures(track.id, feat)
+                    DebugLog.d("analyzer", "${track.title} → ${feat.bpm} BPM, ${feat.keyCamelot}")
+                }
+            } catch (e: Exception) {
+                DebugLog.w("analyzer", "${track.title}: ${e.message}")
+            } finally {
+                analyzingIds.remove(track.id)
+            }
         }
     }
-    fun loadDeckA(track: Track) { play(track); _deckATrack.value = track; _deckAPlaying.value = true; applyCrossfade(_crossfade.value) }
-    fun loadDeckB(track: Track) {
-        val p = ensureDeckB()
-        p.setMediaItem(MediaItem.Builder().setMediaId(track.id).setUri(track.uri).build())
-        p.prepare(); p.playWhenReady = true; _deckBTrack.value = track; applyCrossfade(_crossfade.value)
-    }
-    fun toggleDeckA() { val c = controller ?: return; if (c.isPlaying) c.pause() else c.play(); _deckAPlaying.value = c.isPlaying }
-    fun toggleDeckB() { val p = deckB ?: return; p.playWhenReady = !p.isPlaying }
-    fun setCrossfade(v: Float) { val x = v.coerceIn(0f, 1f); _crossfade.value = x; applyCrossfade(x) }
-    private fun applyCrossfade(x: Float) { controller?.volume = (1f - x); deckB?.volume = x }
 
     // ── Online Search ─────────────────────────────────────────────────────────
     private val _onlineQuery   = MutableStateFlow("")

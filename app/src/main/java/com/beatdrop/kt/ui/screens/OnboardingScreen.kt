@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.MusicNote
@@ -111,7 +112,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             Spacer(Modifier.height(10.dp))
             FeatureCard(Icons.Filled.QueueMusic, "Playlists & Queue", "Create playlists, reorder your queue, and manage your music.", Color(0xFF30D158), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Filled.GraphicEq, "DJ Mode", "Two decks with a working crossfader — mix tracks live.", Color(0xFFFF9F0A), C.isDark)
+            FeatureCard(Icons.Filled.AutoAwesome, "Auto-Mix", "Smart crossfade between tracks — matches BPM, key, and your taste.", Color(0xFFFF9F0A), C.isDark)
 
             Spacer(Modifier.weight(1f))
 

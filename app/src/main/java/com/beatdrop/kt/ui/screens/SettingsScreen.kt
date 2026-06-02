@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ColorLens
@@ -53,12 +51,13 @@ import com.beatdrop.kt.ui.theme.Radius
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}, onOpenDJ: () -> Unit = {}, onOpenDebug: () -> Unit = {}) {
+fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}, onOpenDebug: () -> Unit = {}) {
     val C = LocalAppColors.current
     val theme by vm.theme.collectAsState()
     val haptics by vm.haptics.collectAsState()
     val defaultShuffle by vm.defaultShuffle.collectAsState()
     val autoDj by vm.autoDjEnabled.collectAsState()
+    val crossfadeMs by vm.crossfadeMs.collectAsState()
     val sleepLeft by vm.sleepMinutesLeft.collectAsState()
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
@@ -103,18 +102,39 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 GlassDivider()
                 ToggleRow("Shuffle by default", Icons.Filled.Shuffle, defaultShuffle) { vm.setDefaultShuffle(it) }
                 GlassDivider()
-                ToggleRow("Auto DJ crossfade", Icons.Filled.AutoAwesome, autoDj) { vm.setAutoDjEnabled(it) }
+                ToggleRow("Auto-Mix (smart crossfade)", Icons.Filled.AutoAwesome, autoDj) { vm.setAutoDjEnabled(it) }
+                if (autoDj) {
+                    GlassDivider()
+                    // Crossfade duration slider — appears only when Auto-Mix is on.
+                    // 4..12 s in 1-second steps; 8 s is the DJ-software standard.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Crossfade length", color = C.text, modifier = Modifier.weight(1f))
+                        Text("${crossfadeMs / 1000}s", color = C.accent, fontWeight = FontWeight.Bold)
+                    }
+                    Slider(
+                        value = (crossfadeMs / 1000).toFloat(),
+                        onValueChange = { vm.setCrossfadeMs((it.toInt()) * 1000) },
+                        valueRange = 4f..12f,
+                        steps = 7,
+                        colors = SliderDefaults.colors(
+                            thumbColor = C.accent,
+                            activeTrackColor = C.accent,
+                            inactiveTrackColor = C.accent.copy(alpha = 0.25f),
+                        ),
+                    )
+                    Text(
+                        "Auto-Mix picks the next track using artist, album, your play history, BPM, and key — and blends them seamlessly.",
+                        color = C.textTertiary, fontSize = 12.sp,
+                    )
+                }
             }
         }
 
         item {
             GlassCard {
                 NavRow("Equalizer", Icons.Filled.GraphicEq, onOpenEq)
-            }
-        }
-        item {
-            GlassCard {
-                NavRow("DJ Mode", Icons.Filled.Album, onOpenDJ)
             }
         }
         item {

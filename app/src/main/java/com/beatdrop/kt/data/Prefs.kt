@@ -24,7 +24,10 @@ class Prefs(private val context: Context) {
         val HAPTICS = booleanPreferencesKey("haptics")
         val DEFAULT_SHUFFLE = booleanPreferencesKey("default_shuffle")
         val AUTO_DJ = booleanPreferencesKey("auto_dj")
+        val CROSSFADE_MS = intPreferencesKey("crossfade_ms")
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
+        // Cached on-device audio features: JSON {trackId: {"bpm":128,"key":"8A"}}
+        val TRACK_FEATURES = stringPreferencesKey("track_features")
     }
 
     // ── liked ──
@@ -70,6 +73,43 @@ class Prefs(private val context: Context) {
 
     val autoDjFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_DJ] ?: false }
     suspend fun setAutoDj(v: Boolean) { context.dataStore.edit { it[Keys.AUTO_DJ] = v } }
+
+    // Crossfade duration in milliseconds (default 8 s). UI slider exposes 4..12 s.
+    val crossfadeMsFlow: Flow<Int> = context.dataStore.data.map { it[Keys.CROSSFADE_MS] ?: 8_000 }
+    suspend fun setCrossfadeMs(v: Int) { context.dataStore.edit { it[Keys.CROSSFADE_MS] = v.coerceIn(4_000, 12_000) } }
+
+    // ── Cached per-track audio features (BPM + Camelot key) ────────────────────
+    // Stored as JSON {trackId: {"bpm":<int>, "key":"<camelot>"}}. Analyzed once
+    // per track by TrackAnalyzer and looked up by AutoMixEngine.
+    val trackFeaturesFlow: Flow<Map<String, com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures>> =
+        context.dataStore.data.map { p -> jsonToFeatures(p[Keys.TRACK_FEATURES]) }
+
+    suspend fun putTrackFeatures(id: String, feat: com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures) {
+        context.dataStore.edit { prefs ->
+            val map = jsonToFeatures(prefs[Keys.TRACK_FEATURES]).toMutableMap()
+            map[id] = feat
+            val obj = JSONObject()
+            map.forEach { (k, v) ->
+                obj.put(k, JSONObject().put("bpm", v.bpm).put("key", v.keyCamelot))
+            }
+            prefs[Keys.TRACK_FEATURES] = obj.toString()
+        }
+    }
+
+    private fun jsonToFeatures(s: String?): Map<String, com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures> {
+        if (s.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val o = JSONObject(s); val out = HashMap<String, com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures>()
+            o.keys().forEach { k ->
+                val f = o.optJSONObject(k) ?: return@forEach
+                out[k] = com.beatdrop.kt.playback.TrackAnalyzer.TrackFeatures(
+                    bpm = f.optInt("bpm", 0),
+                    keyCamelot = f.optString("key", "")
+                )
+            }
+            out
+        }.getOrDefault(emptyMap())
+    }
 
     // ── search history ──
     val searchHistoryFlow: Flow<List<String>> = context.dataStore.data.map { p ->

@@ -56,6 +56,7 @@ fun NowPlayingScreen(
     val activeLyric   by vm.activeLyric.collectAsState()
     val liked         by vm.liked.collectAsState()
     val volume        by vm.volume.collectAsState()
+    val mixingNext    by vm.mixingNext.collectAsState()
     var showLyrics    by remember { mutableStateOf(false) }
 
     val t = track ?: run {
@@ -136,6 +137,34 @@ fun NowPlayingScreen(
                         .background(Color.White.copy(alpha = 0.28f))
                         .pressableScale(onClick = onCollapse)
                 )
+            }
+
+            // ── Auto-Mix "next up" pill ────────────────────────────────────────
+            // Shown only during a crossfade. The icon + title give immediate
+            // feedback that the seamless blend is happening.
+            mixingNext?.let { upNext ->
+                Row(
+                    modifier = Modifier
+                        .padding(top = 6.dp, bottom = 2.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.AutoAwesome,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Mixing in: ${upNext.title}",
+                        color = Color.White, fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                    )
+                }
             }
 
             // ── Art / Lyrics toggle pane ──────────────────────────────────────
