@@ -194,6 +194,38 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // and warms its features cache + (for online tracks) its resolved URL via
     // the playback cache. By the time the fade fires at 8s remaining, B's
     // first range request is already buffered → no audible gap on slow nets.
+    // ── Discover screen cache (prevents re-fetch on every tab switch) ────
+    private val _cachedTrending = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlineResult>>(emptyList())
+    val cachedTrending: StateFlow<List<com.beatdrop.kt.youtube.OnlineResult>> = _cachedTrending.asStateFlow()
+    private val _cachedPopHits = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlineResult>>(emptyList())
+    val cachedPopHits: StateFlow<List<com.beatdrop.kt.youtube.OnlineResult>> = _cachedPopHits.asStateFlow()
+    private val _cachedHiphop = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlineResult>>(emptyList())
+    val cachedHiphop: StateFlow<List<com.beatdrop.kt.youtube.OnlineResult>> = _cachedHiphop.asStateFlow()
+    private val _discoverLoading = MutableStateFlow(false)
+    val discoverLoading: StateFlow<Boolean> = _discoverLoading.asStateFlow()
+    private val _discoverLastFetch = MutableStateFlow(0L)
+    val discoverLastFetch: StateFlow<Long> = _discoverLastFetch.asStateFlow()
+
+    /** Fetch or return cached discover data (re-fetches every 5 minutes) */
+    fun getDiscoverData(forceRefresh: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && now - _discoverLastFetch.value < 300_000L && _cachedTrending.value.isNotEmpty()) return
+        if (_discoverLoading.value) return
+        _discoverLoading.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val trending = com.beatdrop.kt.youtube.searchYoutube("trending music hits", 15)
+                val pop = com.beatdrop.kt.youtube.searchYoutube("popular pop songs hits", 10)
+                val hiphop = com.beatdrop.kt.youtube.searchYoutube("latest rap hiphop hits", 10)
+                _cachedTrending.value = trending
+                _cachedPopHits.value = pop
+                _cachedHiphop.value = hiphop
+                _discoverLastFetch.value = System.currentTimeMillis()
+            }
+            _discoverLoading.value = false
+        }
+    }
+
     @Volatile private var prefetchedNextId: String? = null      // current track id we've prefetched for
     @Volatile private var prefetchInFlight: Boolean = false
 
@@ -315,6 +347,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     fun connect() {
+        com.beatdrop.kt.util.NetworkMonitor.init(getApplication())
         observePrefs()
         observeDownloadCompletions()
         val token = SessionToken(getApplication(), ComponentName(getApplication(), PlaybackService::class.java))

@@ -55,21 +55,25 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                // Fetch directly from YouTube using our fast, anti-blocking search engine!
-                val trendingResults = runCatching { searchYoutube("trending music hits", 15) }.getOrNull() ?: emptyList()
-                val popResults = runCatching { searchYoutube("popular pop songs hits", 10) }.getOrNull() ?: emptyList()
-                val hiphopResults = runCatching { searchYoutube("latest rap hiphop hits", 10) }.getOrNull() ?: emptyList()
+        // Use cached discover data from ViewModel (auto-refreshes every 5 min)
+        vm.getDiscoverData()
+        // Observe the cached state
+    }
 
-                trending = trendingResults
-                popHits = popResults
-                hiphopHits = hiphopResults
-            } catch (e: Exception) {
-                // Ignore
-            } finally {
-                loading = false
-            }
+    // Observe cached data from ViewModel
+    val cachedTrending by vm.cachedTrending.collectAsState()
+    val cachedPopHits by vm.cachedPopHits.collectAsState()
+    val cachedHiphop by vm.cachedHiphop.collectAsState()
+    val discoverLoading by vm.discoverLoading.collectAsState()
+
+    LaunchedEffect(cachedTrending, cachedPopHits, cachedHiphop) {
+        if (cachedTrending.isNotEmpty()) {
+            trending = cachedTrending
+            popHits = cachedPopHits
+            hiphopHits = cachedHiphop
+            loading = false
+        } else if (!discoverLoading) {
+            loading = false
         }
     }
 

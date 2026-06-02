@@ -139,7 +139,13 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     if (!onboarded && !perm.status.isGranted) {
         OnboardingScreen(onGetStarted = { onboarded = true; perm.launchPermissionRequest() }); return
     }
-    if (!perm.status.isGranted) { PermissionPrompt(onRequest = { perm.launchPermissionRequest() }); return }
+    if (!perm.status.isGranted) {
+        PermissionPrompt(
+            onRequest = { perm.launchPermissionRequest() },
+            onGoBack = { onboarded = false }
+        )
+        return
+    }
 
     // Clipboard URL detection — show dialog when user has a video URL copied
     var clipUrl by rememberSaveable { mutableStateOf<String?>(null) }

@@ -58,12 +58,17 @@ fun NowPlayingScreen(
     val volume        by vm.volume.collectAsState()
     val mixingNext    by vm.mixingNext.collectAsState()
     var showLyrics    by remember { mutableStateOf(false) }
+    var showActions   by remember { mutableStateOf(false) }
 
     val t = track ?: run {
         Box(Modifier.fillMaxSize(), Alignment.Center) {
             Text("Nothing playing", color = C.textSecondary)
         }
         return
+    }
+
+    if (showActions) {
+        com.beatdrop.kt.ui.components.TrackActionsSheet(vm, t, onDismiss = { showActions = false })
     }
 
     // ── Art pulse animation ───────────────────────────────────────────────────
@@ -162,7 +167,8 @@ fun NowPlayingScreen(
                         "Mixing in: ${upNext.title}",
                         color = Color.White, fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 200.dp),
                     )
                 }
             }
@@ -333,8 +339,8 @@ fun NowPlayingScreen(
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    // More — clearly visible
-                    IconButton(onClick = { }) {
+                    // More — opens track actions sheet
+                    IconButton(onClick = { showActions = true }) {
                         Icon(
                             Icons.Filled.MoreHoriz, "More",
                             tint     = Color.White.copy(alpha = 0.85f),
@@ -355,7 +361,14 @@ fun NowPlayingScreen(
                     inactiveTrackColor = Color.White.copy(alpha = 0.22f),
                     thumbColor         = Color.White,
                 ),
-                modifier = Modifier.fillMaxWidth().height(28.dp),
+                modifier = Modifier.fillMaxWidth().height(40.dp),
+                thumb = {
+                    // Larger thumb for one-handed use
+                    Box(
+                        Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(Color.White)
+                    )
+                },
             )
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 6.dp),

@@ -210,8 +210,12 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                     Modifier.padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    GlassChip("Save", backendText != resolverBackend) {
-                        vm.setResolverBackend(backendText)
+                    val isValidUrl = backendText.isBlank() || backendText.matches(Regex("https?://.*"))
+                    if (!isValidUrl && backendText.isNotBlank()) {
+                        Text("URL must start with http:// or https://", color = androidx.compose.ui.graphics.Color(0xFFE53935), fontSize = 11.sp)
+                    }
+                    GlassChip("Save", isValidUrl && backendText != resolverBackend) {
+                        if (isValidUrl) vm.setResolverBackend(backendText)
                     }
                     if (resolverBackend.isNotBlank()) {
                         GlassChip("Clear", false) {

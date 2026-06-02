@@ -120,7 +120,13 @@ fun BrowserScreen(
                             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                                 val u = r.url.toString()
                                 // Block ads and tracking
-                                return u.contains("doubleclick.net") || u.contains("googleads")
+                                return u.contains("doubleclick.net") || u.contains("googleads") ||
+                    u.contains("googlesyndication.com") || u.contains("adservice.google") ||
+                    u.contains("pagead2") || u.contains("youtube.com/pagead") ||
+                    u.contains("adserver") || u.contains("adnxs.com") ||
+                    u.contains("rubiconproject.com") || u.contains("criteo.com") ||
+                    u.contains("outbrain.com") || u.contains("taboola.com") ||
+                    u.contains("scorecardresearch.com") || u.contains("amazon-adsystem.com") || u.contains("adsafeprotected.com")
                             }
 
                             override fun onPageStarted(v: WebView, u: String?, favicon: Bitmap?) {

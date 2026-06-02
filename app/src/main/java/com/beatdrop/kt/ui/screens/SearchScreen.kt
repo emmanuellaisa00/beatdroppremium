@@ -46,6 +46,13 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
     val suggestions by vm.suggestions.collectAsState()
     val history by vm.searchHistory.collectAsState()
     val jobs by vm.downloadJobs.collectAsState()
+    var snackbar by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(snackbar) {
+        snackbar?.let {
+            snackbar.showSnackbar(it)
+            snackbar = null
+        }
+    }
     val snackbar = remember { SnackbarHostState() }
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -60,11 +67,11 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
     val lastFailed by vm.lastFailedOnline.collectAsState()
 
     LaunchedEffect(message) {
-        message?.let {
+        message?.let { msg ->
             val result = if (lastFailed != null) {
-                snackbar.showSnackbar(it, actionLabel = "Retry")
+                snackbar.showSnackbar(msg, actionLabel = "Retry")
             } else {
-                snackbar.showSnackbar(it)
+                snackbar.showSnackbar(msg)
             }
             if (result == SnackbarResult.ActionPerformed) {
                 vm.retryOnlinePlay()
@@ -81,6 +88,20 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                 "Browse", color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.padding(vertical = 10.dp),
             )
+
+            // ── Offline banner ──────────────────────────────────────────────
+            val isOnline = com.beatdrop.kt.util.NetworkMonitor.isOnline.value
+            if (!isOnline) {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                        .background(androidx.compose.ui.graphics.Color(0xFFFFF3CD)).padding(10.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.WifiOff, null, tint = androidx.compose.ui.graphics.Color(0xFF856404), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("You're offline. Search results won't load.", color = androidx.compose.ui.graphics.Color(0xFF856404), fontSize = 12.sp)
+                }
+            }
 
             // ── Search field ──────────────────────────────────────────────────
             OutlinedTextField(
@@ -140,7 +161,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                                 Text(query, color = C.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                                 IconButton(
                                     onClick = { vm.deleteHistoryQuery(query) },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(Icons.Filled.Close, "Delete", tint = C.textTertiary, modifier = Modifier.size(16.dp))
                                 }

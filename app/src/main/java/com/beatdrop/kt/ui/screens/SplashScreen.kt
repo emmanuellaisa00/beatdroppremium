@@ -53,6 +53,7 @@ fun SplashScreen(onDone: () -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
+            .pressableScale(onClick = { onDone() })
             .background(
                 Brush.verticalGradient(
                     listOf(Color(0xFF1A1020), Color(0xFF151025), Color(0xFF12121A))

@@ -36,20 +36,14 @@ object PipedResolver {
     private const val UA =
         "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
-    // Static seed list — confirmed alive as of May/June 2026.
-    // Order matters: try the most reliable first.
-    @Volatile private var instances: List<String> = listOf(
+    // Static seed list — verified working as of June 2026.
+    // Most public Piped instances are now dead or rate-limiting.
+    // Auto-refresh from the public registry on each resolve() call.
+    @Volatile private var instances: MutableList<String> = mutableListOf(
         "https://api.piped.private.coffee",
-        "https://pipedapi.kavin.rocks",
-        "https://pipedapi.adminforge.de",
-        "https://pipedapi.reallyaweso.me",
-        "https://piapi.ggtyler.dev",
-        "https://pipedapi.darkness.services",
-        "https://pipedapi.r4fo.com",
         "https://pipedapi.smnz.de",
-        "https://pipedapi.drgns.space",
-        "https://api-piped.mha.fi",
     )
+    @Volatile private var lastRefresh: Long = 0L
 
     /**
      * Resolve a videoId to a directly-playable URL via any Piped instance.
@@ -60,6 +54,12 @@ object PipedResolver {
      * that happens to be at the end of the list.
      */
     suspend fun resolve(videoId: String): ResolvedStream? = coroutineScope {
+        // Auto-refresh instance list every 10 minutes
+        val now = System.currentTimeMillis()
+        if (now - lastRefresh > 600_000L) {
+            kotlinx.coroutines.launch { runCatching { refreshInstanceList() } }
+            lastRefresh = now
+        }
         val list = instances
         // Probe ALL instances in parallel — first non-null wins.
         val deferreds = list.map { base ->

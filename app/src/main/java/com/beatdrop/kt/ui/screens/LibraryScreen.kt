@@ -275,10 +275,17 @@ private fun EmptyLibrary() {
 
 @Composable
 private fun BasicSearchField(value: String, onChange: (String) -> Unit, color: Color) {
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     androidx.compose.foundation.text.BasicTextField(
         value = value, onValueChange = onChange, singleLine = true,
         textStyle = Type.body.copy(color = color),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(LocalAppColors.current.accent),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            imeAction = androidx.compose.ui.text.input.ImeAction.Search
+        ),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onSearch = { keyboardController?.hide() }
+        ),
         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
     )
 }

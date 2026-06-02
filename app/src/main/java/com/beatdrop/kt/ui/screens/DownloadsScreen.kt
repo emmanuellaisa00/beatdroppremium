@@ -16,6 +16,8 @@ import com.beatdrop.kt.data.DownloadHistory
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.util.ShareHelper
 import com.beatdrop.kt.util.StorageHelper
+import com.beatdrop.kt.youtube.DownloadJobV2
+import com.beatdrop.kt.youtube.DownloadStatusV2
 import com.beatdrop.kt.youtube.DownloadManagerV2
 import java.io.File
 
@@ -153,7 +155,8 @@ private fun ActiveDownloadRow(job: com.beatdrop.kt.youtube.DownloadJobV2) {
                     }
                     com.beatdrop.kt.youtube.DownloadStatusV2.PAUSED -> {
                         IconButton(onClick = {
-                            // Resume handled by ViewModel
+                            val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+                            DownloadManagerV2.resume(job.videoId, app)
                         }) {
                             Icon(Icons.Filled.PlayArrow, "Resume", tint = C.accent, modifier = Modifier.size(20.dp))
                         }
@@ -172,7 +175,7 @@ private fun ActiveDownloadRow(job: com.beatdrop.kt.youtube.DownloadJobV2) {
                     job.status == com.beatdrop.kt.youtube.DownloadStatusV2.QUEUED ||
                     job.status == com.beatdrop.kt.youtube.DownloadStatusV2.PAUSED) {
                     IconButton(onClick = {
-                        // Cancel handled by ViewModel
+                        DownloadManagerV2.cancel(job.videoId)
                     }) {
                         Icon(Icons.Filled.Close, "Cancel", tint = C.textTertiary, modifier = Modifier.size(18.dp))
                     }
@@ -215,9 +218,10 @@ private fun HistoryRow(record: DownloadHistory.DownloadRecord) {
         // Share button
         if (record.status == "completed" && record.filePath != null) {
             IconButton(onClick = {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
                 val file = File(record.filePath)
                 if (file.exists()) {
-                    // ShareHelper needs context — handled at ViewModel level
+                    ShareHelper.shareFile(ctx, file)
                 }
             }) {
                 Icon(Icons.Filled.Share, "Share", tint = C.textTertiary, modifier = Modifier.size(18.dp))
@@ -225,7 +229,10 @@ private fun HistoryRow(record: DownloadHistory.DownloadRecord) {
         }
         // Re-download button for deleted items
         if (record.status == "deleted") {
-            IconButton(onClick = { /* Re-download handled by ViewModel */ }) {
+            IconButton(onClick = {
+                val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
+                DownloadManagerV2.redownload(record, app)
+            }) {
                 Icon(Icons.Filled.Refresh, "Re-download", tint = C.accent, modifier = Modifier.size(18.dp))
             }
         }

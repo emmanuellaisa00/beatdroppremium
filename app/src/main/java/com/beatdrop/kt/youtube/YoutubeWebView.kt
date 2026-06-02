@@ -370,10 +370,12 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
     // Seed consent cookies BEFORE we create the WebView so the first page load
     // already carries them (Cookie store is process-wide, set once is enough).
     seedYoutubeConsentCookies()
-    // INVISIBLE (not GONE) + a real 1x1 size: a GONE / 0x0 WebView is not laid out,
-    // and many WebView implementations suspend JS/media loading when the host isn't
-    // drawn — which would stop the embed player from ever firing the CDN request we
-    // intercept. INVISIBLE keeps it in the layout/draw pass while staying off-screen.
+    // Use a real viewport size (320x568 minimum). YouTube's embed player JS
+    // refuses to load/render in a 1x1 or 0x0 WebView — it checks
+    // window.innerWidth and bails if the viewport is too small for autoplay.
+    // 320x568 is the iPhone SE viewport — YouTube treats it as a real device.
+    val wvWidth = 320
+    val wvHeight = 568
     val container = android.widget.FrameLayout(activity).apply {
         visibility = android.view.View.VISIBLE
         alpha = 0.01f
@@ -397,7 +399,7 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         YoutubePlayerService.webView = this
         loadDataWithBaseURL("https://www.youtube.com", YT_IFRAME_HTML, "text/html", "UTF-8", null)
     }
-    container.addView(playerWv, android.view.ViewGroup.LayoutParams(1, 1))
+    container.addView(playerWv, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
 
     // Stream extractor WebView
     val extractWv = WebView(activity).apply {
@@ -413,10 +415,10 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         webViewClient = extractorWebViewClient()
         YoutubeExtractor.webView = this
     }
-    container.addView(extractWv, android.view.ViewGroup.LayoutParams(1, 1))
+    container.addView(extractWv, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
 
-    // 1x1 (not 0x0) so the inner WebViews get a real measure/layout pass.
-    activity.addContentView(container, android.view.ViewGroup.LayoutParams(1, 1))
+    // 320x568 so YouTube's embed player loads its JS engine and fires CDN requests.
+    activity.addContentView(container, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
 
     return {
         container.removeAllViews()
