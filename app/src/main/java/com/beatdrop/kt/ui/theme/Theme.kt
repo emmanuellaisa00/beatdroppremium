@@ -96,7 +96,6 @@ val LightColors = AppColors(
 /** Concentric radius system: inner = outer - padding */
 object Radius {
     val xs = 4.dp; val sm = 8.dp; val md = 12.dp; val lg = 16.dp; val xl = 22.dp; val xxl = 28.dp
-    /** Calculate concentric inner radius */
     /** Concentric inner radius = outer - padding (per Liquid Glass HIG). */
     fun inner(outer: Dp, padding: Dp): Dp = (outer - padding).coerceAtLeast(0.dp)
 }
