@@ -1,11 +1,8 @@
 package com.beatdrop.kt.playback
 
-import android.net.Uri
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -15,68 +12,39 @@ import androidx.media3.session.MediaSessionService
  * Media3 MediaSessionService — replaces react-native-track-player.
  * Provides background playback + the system media notification automatically.
  *
- * googlevideo CDN URLs are bound to the client (User-Agent / Origin / Referer)
- * that resolved them; replaying a mismatched UA causes a 403. The ViewModel
- * encodes the resolving client's UA + headers into the stream URI's fragment
- * (#bdua=...&bdh_Referer=...). A [ResolvingDataSource] here parses that fragment,
- * strips it from the URL, and re-applies the values as HTTP request headers.
+ * NOTE on headers: earlier versions smuggled per-stream UA/headers through the
+ * MediaItem URI fragment and re-applied them via a ResolvingDataSource. That was
+ * the source of a universal "Stream unavailable (HTTP 403)" because the fragment
+ * round-trip through MediaController→MediaSession is fragile and corrupted the
+ * request. Testing shows googlevideo CDN URLs return 206 regardless of UA, so we
+ * simply use a fixed, sane User-Agent and DO NOT mutate the resolved URL at all.
  */
 @UnstableApi
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
 
-    private val fallbackUa =
-        "com.google.android.apps.youtube.vr.oculus/1.57.29 (Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip"
+    // A normal mobile-browser UA. googlevideo accepts range requests with this.
+    private val streamUa =
+        "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
     override fun onCreate() {
         super.onCreate()
 
         val httpFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent(fallbackUa)
+            .setUserAgent(streamUa)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(30_000)
             .setAllowCrossProtocolRedirects(true)
 
-        val baseFactory = DefaultDataSource.Factory(this, httpFactory)
-
-        val resolvingFactory = ResolvingDataSource.Factory(baseFactory) { dataSpec ->
-            applyStreamHeaders(dataSpec)
-        }
+        val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
 
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(resolvingFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
             .setHandleAudioBecomingNoisy(true)
             .build()
 
         EqEngine.attach(player.audioSessionId)
         session = MediaSession.Builder(this, player).build()
-    }
-
-    /**
-     * Reads our Base64url fragment from the URI (see [StreamHeaderCodec]), removes
-     * it, and applies the encoded key/values as request headers (incl. a User-Agent
-     * override) on the DataSpec. No-op for local files or any non-BeatDrop fragment.
-     */
-    private fun applyStreamHeaders(spec: DataSpec): DataSpec {
-        val decoded = StreamHeaderCodec.decode(spec.uri.fragment)
-        if (decoded == null) {
-            com.beatdrop.kt.DebugLog.d("http", "GET ${spec.uri.host ?: spec.uri.scheme} (no custom headers)")
-            return spec
-        }
-
-        val headers = HashMap<String, String>(spec.httpRequestHeaders)
-        decoded.forEach { (k, v) ->
-            if (k == StreamHeaderCodec.userAgentKey()) headers["User-Agent"] = v
-            else headers[k] = v
-        }
-
-        // Strip our fragment so the CDN sees a clean URL.
-        val cleanUri: Uri = spec.uri.buildUpon().fragment(null).build()
-        com.beatdrop.kt.DebugLog.i("http", "GET ${cleanUri.host} with replayed UA + ${headers.keys.size} hdrs")
-        return spec.buildUpon()
-            .setUri(cleanUri)
-            .setHttpRequestHeaders(headers)
-            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

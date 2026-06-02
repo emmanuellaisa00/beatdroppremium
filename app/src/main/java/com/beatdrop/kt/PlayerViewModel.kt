@@ -18,7 +18,6 @@ import com.beatdrop.kt.lyrics.LrcParser
 import com.beatdrop.kt.lyrics.LyricLine
 import com.beatdrop.kt.lyrics.LyricsEngine
 import com.beatdrop.kt.playback.PlaybackService
-import com.beatdrop.kt.playback.StreamHeaderCodec
 import com.beatdrop.kt.youtube.*
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -731,24 +730,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private fun Track.toMediaItem(): MediaItem {
-    // For streamed tracks, encode the resolving client's UA/headers into the URI
-    // fragment so PlaybackService's ResolvingDataSource can replay them on the HTTP
-    // request (googlevideo URLs can 403 if fetched with a mismatched client identity).
-    //
-    // Encoding is padding-free URL-safe Base64 of a "key\u001fvalue\u001e..." blob,
-    // prefixed with StreamHeaderCodec.PREFIX. Base64url (A–Z a–z 0–9 - _) is never
-    // re-encoded by android.net.Uri in a fragment, so the round-trip is exact —
-    // avoiding the %-encode / & / = ambiguities of a naive query-style fragment.
-    val playUri: Uri = if (!streamUserAgent.isNullOrBlank() || streamHeaders.isNotEmpty()) {
-        val map = LinkedHashMap<String, String>()
-        streamUserAgent?.takeIf { it.isNotBlank() }?.let { map[StreamHeaderCodec.userAgentKey()] = it }
-        streamHeaders.forEach { (k, v) -> map[k] = v }
-        uri.buildUpon().fragment(StreamHeaderCodec.encode(map)).build()
-    } else uri
-
+    // Plain URI — no fragment smuggling. (See PlaybackService note: the old
+    // fragment/header scheme caused a universal 403 and is removed.)
     return MediaItem.Builder()
         .setMediaId(id)
-        .setUri(playUri)
+        .setUri(uri)
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title).setArtist(artist).setAlbumTitle(album)
