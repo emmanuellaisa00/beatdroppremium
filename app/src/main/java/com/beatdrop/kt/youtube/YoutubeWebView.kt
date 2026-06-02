@@ -329,8 +329,12 @@ fun YoutubeStreamExtractorHost(modifier: Modifier = Modifier) {
 // ─── Programmatic initializer ─────────────────────────────────────────────────
 @SuppressLint("SetJavaScriptEnabled")
 fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
+    // INVISIBLE (not GONE) + a real 1x1 size: a GONE / 0x0 WebView is not laid out,
+    // and many WebView implementations suspend JS/media loading when the host isn't
+    // drawn — which would stop the embed player from ever firing the CDN request we
+    // intercept. INVISIBLE keeps it in the layout/draw pass while staying off-screen.
     val container = android.widget.FrameLayout(activity).apply {
-        visibility = android.view.View.GONE
+        visibility = android.view.View.INVISIBLE
     }
 
     // IFrame player WebView
@@ -369,7 +373,8 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
     }
     container.addView(extractWv, android.view.ViewGroup.LayoutParams(1, 1))
 
-    activity.addContentView(container, android.view.ViewGroup.LayoutParams(0, 0))
+    // 1x1 (not 0x0) so the inner WebViews get a real measure/layout pass.
+    activity.addContentView(container, android.view.ViewGroup.LayoutParams(1, 1))
 
     return {
         container.removeAllViews()

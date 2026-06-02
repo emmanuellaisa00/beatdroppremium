@@ -381,26 +381,14 @@ suspend fun getStreamUrl(videoId: String): String = getStream(videoId).url
 suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers.IO) {
     getCachedStream(videoId)?.let { return@withContext it }
 
-    // Strategy 1 — WebView extractor (Chrome's V8 deciphers everything natively)
-    if (YoutubeExtractor.isConfigured) {
-        try {
-            val url = YoutubeExtractor.extractStreamUrl(videoId, 15_000)
-            if (!url.isNullOrBlank()) {
-                // The WebView fetched it as Chrome — replay that UA in ExoPlayer.
-                val s = ResolvedStream(url, SVC_CHROME_UA, mapOf(
-                    "Referer" to "https://www.youtube.com/",
-                    "Origin"  to "https://www.youtube.com",
-                ))
-                setCachedStream(videoId, s); return@withContext s
-            }
-        } catch (_: Exception) {}
-    }
-
     // Prime the cipher once (best-effort) so ciphered formats from the API resolve.
     val playerJsUrl = runCatching { YoutubeCipher.discoverPlayerJsUrl() }.getOrNull()
     if (playerJsUrl != null) runCatching { YoutubeCipher.ensurePlayer(playerJsUrl) }
 
-    // Strategy 2–6 — Innertube /player API clients (ordered by PO-token-free first)
+    // Strategy 1–5 — Innertube /player clients FIRST (fast: a single HTTPS round-trip,
+    // and ANDROID_VR/IOS return plain, ready-to-play URLs with no PO token in 2026).
+    // This is what makes the first tap feel instant (SnapTube-like); the WebView path
+    // is a slower fallback only used when the API can't resolve a given video.
     for (client in YT_CLIENTS) {
         try {
             val body = buildPlayerBody(videoId, client)
@@ -417,7 +405,6 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
             if (data.optJSONObject("playabilityStatus")?.optString("status") != "OK") continue
 
             val streamingData = data.optJSONObject("streamingData") ?: continue
-            // Try adaptiveFormats first, then fall back to regular formats.
             // resolveBestAudio handles BOTH plain `url` and `signatureCipher` formats.
             val url = resolveBestAudio(streamingData.optJSONArray("adaptiveFormats"))
                 ?: resolveBestAudio(streamingData.optJSONArray("formats"))
@@ -428,6 +415,22 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                     client.headers["Referer"]?.let { put("Referer", it) }
                 }
                 val s = ResolvedStream(url, ua, extra)
+                setCachedStream(videoId, s); return@withContext s
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Strategy 6 — WebView extractor (fallback). Chrome's V8 runs YouTube's real
+    // base.js, so this resolves videos the API path couldn't (e.g. when YouTube
+    // changes obfuscation). Slower (loads the embed page), so it's not run first.
+    if (YoutubeExtractor.isConfigured) {
+        try {
+            val url = YoutubeExtractor.extractStreamUrl(videoId, 9_000)
+            if (!url.isNullOrBlank()) {
+                val s = ResolvedStream(url, SVC_CHROME_UA, mapOf(
+                    "Referer" to "https://www.youtube.com/",
+                    "Origin"  to "https://www.youtube.com",
+                ))
                 setCachedStream(videoId, s); return@withContext s
             }
         } catch (_: Exception) {}
@@ -482,15 +485,8 @@ suspend fun downloadYoutubeTrack(
     val dlHeaders = stream.headers
 
     val safeTitle = result.title.replace(Regex("[^a-zA-Z0-9 \\-_]"), "").take(80).trim()
-    val fileExt = when {
-        streamUrl.contains("mime=audio%2Fwebm") ||
-        streamUrl.contains("mime=audio/webm")   -> "opus"
-        else                                     -> "m4a"
-    }
-    val fileName = "${safeTitle}_${result.videoId}.$fileExt"
-    val filePath = File(dir, fileName)
 
-    // HEAD probe: get content-length and check Range support
+    // HEAD probe: get content-length, Range support, AND the authoritative content-type
     val head = downloadHttp.newCall(
         Request.Builder().url(streamUrl).head()
             .header("User-Agent", dlUa)
@@ -500,6 +496,17 @@ suspend fun downloadYoutubeTrack(
     val contentLength  = head.header("Content-Length")?.toLongOrNull() ?: 0L
     val acceptsRanges  = head.header("Accept-Ranges")
         ?.equals("bytes", ignoreCase = true) == true
+    val ctype = (head.header("Content-Type") ?: "").lowercase()
+
+    // Pick the right container extension. Prefer the server's Content-Type, then the
+    // URL's mime= marker, then opus itags, defaulting to m4a (AAC).
+    val isWebmOpus = ctype.contains("webm") || ctype.contains("opus") ||
+        streamUrl.contains("mime=audio%2Fwebm") || streamUrl.contains("mime=audio/webm") ||
+        listOf("itag=251", "itag=250", "itag=249", "itag=171", "itag=600", "itag=599")
+            .any { streamUrl.contains(it) }
+    val fileExt = if (isWebmOpus) "opus" else "m4a"
+    val fileName = "${safeTitle}_${result.videoId}.$fileExt"
+    val filePath = File(dir, fileName)
 
     if (acceptsRanges && contentLength >= CHUNK_MIN_BYTES) {
         downloadChunked(streamUrl, filePath, contentLength, dlUa, dlHeaders, onProgress)
