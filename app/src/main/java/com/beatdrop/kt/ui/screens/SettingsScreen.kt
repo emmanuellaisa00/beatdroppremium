@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
+import com.beatdrop.kt.ui.components.GlassCard
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
@@ -191,33 +192,6 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
 // ─── Liquid Glass Card ───────────────────────────────────────────────────────
 
 @Composable
-private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
-    val C = LocalAppColors.current
-    val shape = RoundedCornerShape(Radius.lg)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clip(shape)
-            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.55f))
-            // Rim light for glass thickness
-            .drawWithContent {
-                drawContent()
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f),
-                            Color.Transparent,
-                        ),
-                        startY = 0f, endY = size.height * 0.3f,
-                    )
-                )
-            }
-            .border(0.8.dp, C.liquidGlassBorder, shape)
-            .padding(16.dp),
-        content = content,
-    )
-}
 
 @Composable
 private fun GlassDivider() {

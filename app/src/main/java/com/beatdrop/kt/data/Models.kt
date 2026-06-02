@@ -23,6 +23,8 @@ data class Track(
                 else Uri.parse("content://media/external/audio/albumart/$albumId")
 
     val isYoutube: Boolean get() = id.startsWith("yt_") || id.startsWith("dl_")
+    val isDownloaded: Boolean get() = id.startsWith("dl_")
+    val isStreaming: Boolean get() = id.startsWith("yt_")
 }
 
 data class AlbumGroup(val album: String, val artist: String, val artworkUri: Uri, val tracks: List<Track>)

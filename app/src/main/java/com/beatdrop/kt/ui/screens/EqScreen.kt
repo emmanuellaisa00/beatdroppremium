@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.playback.EqEngine
 import com.beatdrop.kt.ui.components.pressableScale
+import com.beatdrop.kt.ui.components.GlassCard
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
@@ -49,7 +50,7 @@ fun EqScreen(onBack: () -> Unit) {
 
         if (bands.isEmpty()) {
             item {
-                EqGlassCard {
+                GlassCard {
                     Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) {
                         Text(
                             "EQ initialises once playback starts.\nPlay a track, then return here.",
@@ -63,7 +64,7 @@ fun EqScreen(onBack: () -> Unit) {
 
         // Band sliders in a glass card
         item {
-            EqGlassCard {
+            GlassCard {
                 bands.forEach { band ->
                     val db = band.levelMb / 100f
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +85,7 @@ fun EqScreen(onBack: () -> Unit) {
 
         // Bass boost in a glass card
         item {
-            EqGlassCard {
+            GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Bass Boost", color = C.text, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     Text("${bass / 10}%", color = C.accent, fontWeight = FontWeight.Bold)
@@ -123,23 +124,5 @@ fun EqScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun EqGlassCard(content: @Composable ColumnScope.() -> Unit) {
-    val C = LocalAppColors.current
-    val shape = RoundedCornerShape(Radius.lg)
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            .clip(shape)
-            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.55f))
-            .drawWithContent {
-                drawContent()
-                drawRect(brush = Brush.verticalGradient(
-                    listOf(if (C.isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.12f), Color.Transparent),
-                    startY = 0f, endY = size.height * 0.3f))
-            }
-            .border(0.8.dp, C.liquidGlassBorder, shape)
-            .padding(16.dp),
-        content = content,
-    )
-}
 
 private fun freqLabel(hz: Int): String = if (hz >= 1000) "${hz / 1000}k" else "$hz"

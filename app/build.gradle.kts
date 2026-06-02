@@ -13,16 +13,15 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "com.beatdrop.kt"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.beatdrop.kt"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 2
         versionName = "1.1.0"
         vectorDrawables { useSupportLibrary = true }
-        buildConfigField("String", "YT_KEY", "\"AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8\"")
 
     }
 
@@ -61,7 +60,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true; buildConfig = true }
+    buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }

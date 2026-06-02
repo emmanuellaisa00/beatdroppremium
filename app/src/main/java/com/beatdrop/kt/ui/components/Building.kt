@@ -2,6 +2,7 @@ package com.beatdrop.kt.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -9,7 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -75,4 +78,25 @@ fun Shimmer(modifier: Modifier = Modifier, corner: Int = 12) {
 @Composable
 fun GradientScrim(modifier: Modifier = Modifier, color: Color = Color.Black) {
     Box(modifier.background(Brush.verticalGradient(listOf(Color.Transparent, color.copy(alpha = 0.85f)))))
+}
+
+/** Shared Liquid Glass card — translucent fill + rim light + hairline border. */
+@Composable
+fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(Radius.lg)
+    Column(
+        modifier.fillMaxWidth().padding(vertical = 4.dp)
+            .clip(shape)
+            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.55f))
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f), Color.Transparent),
+                    startY = 0f, endY = size.height * 0.3f))
+            }
+            .border(0.8.dp, C.liquidGlassBorder, shape)
+            .padding(16.dp),
+        content = content,
+    )
 }

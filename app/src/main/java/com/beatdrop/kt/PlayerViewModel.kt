@@ -322,6 +322,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         refreshQueueFromController()
     }
 
+    /** Queue an online result as "play next" — resolves stream URL in background */
+    fun playOnlineNext(result: OnlineResult) {
+        viewModelScope.launch {
+            val track = runCatching { youtubeResultToTrack(result) }.getOrNull() ?: return@launch
+            _ytTrackCache[track.id] = track
+            playNext(track)
+        }
+    }
+
+    /** Queue an online result at end of queue */
+    fun addOnlineToQueue(result: OnlineResult) {
+        viewModelScope.launch {
+            val track = runCatching { youtubeResultToTrack(result) }.getOrNull() ?: return@launch
+            _ytTrackCache[track.id] = track
+            addToQueueEnd(track)
+        }
+    }
+
     fun togglePlay() { controller?.let { if (it.isPlaying) it.pause() else it.play() } }
     fun next() { controller?.seekToNextMediaItem() }
     fun prev() { controller?.seekToPreviousMediaItem() }

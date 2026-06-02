@@ -40,7 +40,7 @@ private val downloadHttp = OkHttpClient.Builder()
     .build()
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-private val YT_KEY = com.beatdrop.kt.BuildConfig.YT_KEY
+
 private const val YT_PLAYER = "https://www.youtube.com/youtubei/v1/player"
 private const val YT_SEARCH = "https://www.youtube.com/youtubei/v1/search"
 private const val IOS_UA    = "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)"
@@ -185,7 +185,7 @@ suspend fun searchYoutube(query: String, maxResults: Int = 50): List<OnlineResul
             }.toString()
 
             val req = Request.Builder()
-                .url("$YT_SEARCH?key=$YT_KEY&prettyPrint=false")
+                .url("$YT_SEARCH?prettyPrint=false")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15")
                 .header("X-Youtube-Client-Name", "2")
@@ -214,7 +214,7 @@ suspend fun searchYoutube(query: String, maxResults: Int = 50): List<OnlineResul
             }.toString()
 
             val req = Request.Builder()
-                .url("$YT_SEARCH?key=$YT_KEY&prettyPrint=false")
+                .url("$YT_SEARCH?prettyPrint=false")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15")
                 .header("X-Youtube-Client-Name", "2")
@@ -367,7 +367,7 @@ suspend fun getStreamUrl(videoId: String): String {
         try {
             val body = buildPlayerBody(videoId, client)
             val req = Request.Builder()
-                .url("$YT_PLAYER?key=$YT_KEY&prettyPrint=false")
+                .url("$YT_PLAYER?prettyPrint=false")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .apply { client.headers.forEach { (k, v) -> header(k, v) } }
                 .header("Content-Type", "application/json")
