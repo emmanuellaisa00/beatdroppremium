@@ -132,6 +132,8 @@ private val YT_CLIENTS = listOf(
             "User-Agent"               to "com.google.ios.youtube/20.10.04 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)",
             "X-Youtube-Client-Name"    to "5",
             "X-Youtube-Client-Version" to "20.10.04",
+            "Origin"                   to "https://www.youtube.com",
+            "Referer"                  to "https://www.youtube.com/",
         ),
         extraContext = JSONObject().apply {
             put("osName", "iPhone"); put("osVersion", "18.2.1")
@@ -625,9 +627,14 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
             }
             if (!url.isNullOrBlank()) {
                 val ua = client.headers["User-Agent"] ?: IOS_UA
+                // Forward ALL client identity headers (not just Origin/Referer).
+                // googlevideo CDN URLs are bound to the full client identity that
+                // resolved them — missing X-Youtube-Client-Name or X-Youtube-Client-Version
+                // causes ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE (2004).
                 val extra = buildMap {
-                    client.headers["Origin"]?.let { put("Origin", it) }
-                    client.headers["Referer"]?.let { put("Referer", it) }
+                    client.headers.forEach { (k, v) ->
+                        if (k != "User-Agent") put(k, v)
+                    }
                 }
                 com.beatdrop.kt.DebugLog.i("resolve", "✅ ${client.name} resolved ($pickedKind) → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, ua, extra)

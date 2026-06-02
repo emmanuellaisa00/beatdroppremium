@@ -360,7 +360,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 // IP/client-bound. On a bad HTTP status for a streamed track, drop
                 // the cached URL and silently re-resolve + resume once.
                 val cur = _current.value
-                if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS &&
+                // Also recover from ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE (2004) —
+                // googlevideo CDN returns a wrong content type when client identity
+                // headers are missing/mismatched, not a 4xx status.
+                val recoverableError = error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ||
+                    error.errorCode == PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE
+                if (recoverableError &&
                     cur != null && cur.isStreaming && cur.sourceVideoId != null &&
                     cur.sourceVideoId != lastRecoveredVideoId
                 ) {
@@ -397,7 +402,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
                         "Network error. Check your connection."
-                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                    PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE ->
                         "Stream unavailable (HTTP error). Try another song."
                     PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
                         "Track not found. It may have been removed."
