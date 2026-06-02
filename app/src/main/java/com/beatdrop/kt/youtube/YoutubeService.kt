@@ -140,7 +140,7 @@ private data class CacheEntry(val stream: ResolvedStream, val cachedAt: Long)
 private val urlCache = ConcurrentHashMap<String, CacheEntry>()
 private const val URL_TTL_MS = 90 * 60 * 1000L
 
-private fun getCachedStream(videoId: String): ResolvedStream? {
+internal fun getCachedStream(videoId: String): ResolvedStream? {
     val e = urlCache[videoId] ?: return null
     if (System.currentTimeMillis() - e.cachedAt > URL_TTL_MS) { urlCache.remove(videoId); return null }
     return e.stream

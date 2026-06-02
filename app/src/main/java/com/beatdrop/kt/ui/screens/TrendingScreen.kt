@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.async
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
@@ -44,8 +45,8 @@ fun TrendingScreen(
 
     LaunchedEffect(Unit) {
         isLoading = true
-        val t = kotlinx.coroutines.async { YouTubeTrending.fetchTrending() }
-        val n = kotlinx.coroutines.async { YouTubeTrending.fetchNewReleases() }
+        val t = async { YouTubeTrending.fetchTrending() }
+        val n = async { YouTubeTrending.fetchNewReleases() }
         trending = t.await()
         newReleases = n.await()
         isLoading = false

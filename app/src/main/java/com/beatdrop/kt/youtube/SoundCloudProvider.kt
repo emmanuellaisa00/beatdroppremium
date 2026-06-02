@@ -36,12 +36,14 @@ class SoundCloudProvider : SearchProvider {
                         .map { it.value }.toList()
                     for (url in jsUrls.take(5)) {
                         try {
-                            val js = com.beatdrop.kt.youtube.okHttp.newCall(
+                            val response = com.beatdrop.kt.youtube.okHttp.newCall(
                                 Request.Builder().url(url).build()
-                            ).execute().use { resp ->
-                                if (!resp.isSuccessful) continue
-                                resp.body?.string() ?: continue
+                            ).execute()
+                            val js = response.use { resp ->
+                                if (!resp.isSuccessful) null
+                                else resp.body?.string()
                             }
+                            if (js == null) continue
                             // Search for client_id in the JS source
                             val match = Regex("""client_id\s*[:=]\s*"([a-zA-Z0-9]{32})"""").find(js)
                             if (match != null) {
