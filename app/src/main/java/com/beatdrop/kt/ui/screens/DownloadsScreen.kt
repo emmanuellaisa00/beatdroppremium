@@ -159,8 +159,9 @@ private fun ActiveDownloadRow(job: com.beatdrop.kt.youtube.DownloadJobV2) {
                         }
                     }
                     com.beatdrop.kt.youtube.DownloadStatusV2.FAILED -> {
+                        val app = androidx.compose.ui.platform.LocalContext.current.applicationContext as android.app.Application
                         IconButton(onClick = {
-                            job.result?.let { DownloadManagerV2.retry(it, /* context needed */) }
+                            job.result?.let { DownloadManagerV2.retry(it, app) }
                         }) {
                             Icon(Icons.Filled.Refresh, "Retry", tint = C.accent, modifier = Modifier.size(20.dp))
                         }

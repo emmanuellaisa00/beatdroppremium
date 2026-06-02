@@ -96,7 +96,7 @@ fun FormatPickerDialog(
 }
 
 @Composable
-private fun TabButton(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun RowScope.TabButton(label: String, selected: Boolean, onClick: () -> Unit) {
     val C = LocalAppColors.current
     Box(
         Modifier

@@ -16,8 +16,8 @@ object Subscriptions {
     data class Channel(
         val channelId: String,
         val name: String,
-        val thumbnailUrl: String?,
-        val subscriberCount: String?,
+        val thumbnailUrl: String? = null,
+        val subscriberCount: String? = null,
         val platform: String = "YouTube",
         val subscribedAt: Long = System.currentTimeMillis(),
         val lastCheckedAt: Long = 0,

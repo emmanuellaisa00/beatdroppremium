@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.animation.AnimatedVisibility
 import com.beatdrop.kt.ui.theme.LocalAppColors
 
 /**
@@ -91,7 +92,6 @@ fun BrowserScreen(
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                     colors = ButtonDefaults.outlinedButtonColors(containerColor = C.bg2),
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true),
                 ) {
                     Text(label, color = C.text, fontSize = 11.sp)
                 }
