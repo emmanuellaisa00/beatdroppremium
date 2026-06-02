@@ -162,6 +162,137 @@ object YoutubeService {
             ?.also { it.mkdirs() }
 }
 
+// ─── YouTube Music search (WEB_REMIX client) ─────────────────────────────────
+/**
+ * Curated-songs search via YouTube Music's Innertube endpoint.
+ *
+ * Why we prefer this over the generic /youtubei/v1/search:
+ *   • Returns SONGS, not videos — no reaction videos, no lyric channels,
+ *     no fan covers polluting the top results.
+ *   • Each result has the canonical album-art thumbnail (square), not the
+ *     16:9 video thumbnail.
+ *   • Duration is exact (from the master track), not the video length
+ *     (which can include 30 s of intro animation).
+ *
+ * Uses the WEB_REMIX client identity (X-Youtube-Client-Name: 67) and the
+ * `EgWKAQIIAWoQEAMQBBAJEAoQERAQEBUQHg==` params blob which means "filter:
+ * songs only". This is exactly what the YouTube Music web app sends.
+ *
+ * Falls back gracefully to plain youtube.com results if WEB_REMIX returns
+ * nothing (rare, but happens for very obscure tracks).
+ */
+private const val YT_MUSIC_SEARCH = "https://music.youtube.com/youtubei/v1/search"
+private const val YT_MUSIC_PARAMS_SONGS = "EgWKAQIIAWoQEAMQBBAJEAoQERAQEBUQHg=="
+
+suspend fun searchYoutubeMusic(query: String, maxResults: Int = 50): List<OnlineResult> =
+    withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isBlank()) return@withContext emptyList()
+        val body = JSONObject().apply {
+            put("query", q)
+            put("params", YT_MUSIC_PARAMS_SONGS)
+            put("context", JSONObject().put("client", JSONObject().apply {
+                put("clientName", "WEB_REMIX")
+                put("clientVersion", "1.20240501.01.00")
+                put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
+            }))
+        }.toString()
+        val req = Request.Builder()
+            .url("$YT_MUSIC_SEARCH?prettyPrint=false")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+            .header("X-Youtube-Client-Name", "67")
+            .header("X-Youtube-Client-Version", "1.20240501.01.00")
+            .header("Origin", "https://music.youtube.com")
+            .header("Referer", "https://music.youtube.com/")
+            .build()
+        val results = runCatching {
+            val json = okHttp.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching emptyList<OnlineResult>()
+                JSONObject(resp.body!!.string())
+            }
+            parseYouTubeMusicResults(json).take(maxResults)
+        }.getOrDefault(emptyList())
+
+        // Fallback: if YT-Music returned nothing, hand off to generic search.
+        if (results.isEmpty()) searchYoutube(q, maxResults) else results
+    }
+
+/**
+ * Parse YouTube Music's musicResponsiveListItemRenderer entries into
+ * OnlineResult. Different JSON shape from regular videoRenderer — it has
+ * `flexColumns` with text runs for title / artist / duration.
+ */
+private fun parseYouTubeMusicResults(root: JSONObject): List<OnlineResult> {
+    val out = ArrayList<OnlineResult>()
+    val items = mutableListOf<JSONObject>()
+    fun walk(o: Any?) {
+        when (o) {
+            is JSONObject -> {
+                if (o.has("musicResponsiveListItemRenderer")) {
+                    o.optJSONObject("musicResponsiveListItemRenderer")?.let { items.add(it) }
+                }
+                o.keys().forEach { walk(o.opt(it)) }
+            }
+            is JSONArray -> for (i in 0 until o.length()) walk(o.opt(i))
+        }
+    }
+    walk(root)
+    for (item in items) {
+        val videoId = item
+            .optJSONObject("overlay")?.optJSONObject("musicItemThumbnailOverlayRenderer")
+            ?.optJSONObject("content")?.optJSONObject("musicPlayButtonRenderer")
+            ?.optJSONObject("playNavigationEndpoint")?.optJSONObject("watchEndpoint")
+            ?.optString("videoId")
+            ?: item.optJSONObject("playlistItemData")?.optString("videoId")
+            ?: continue
+        if (videoId.isBlank()) continue
+
+        val flex = item.optJSONArray("flexColumns") ?: continue
+        // First flex column is the title; subsequent contain artist / album / duration.
+        val title = flex.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+            ?.optJSONObject(0)?.optString("text") ?: continue
+        val secondaryRuns = flex.optJSONObject(1)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+        var artist = ""
+        var durationText = ""
+        if (secondaryRuns != null) {
+            val parts = (0 until secondaryRuns.length()).mapNotNull { secondaryRuns.optJSONObject(it)?.optString("text") }
+            // YT Music returns "Artist • Album • 3:42" interleaved with " • " separators.
+            val cleaned = parts.filter { it.isNotBlank() && it != " • " }
+            if (cleaned.isNotEmpty()) artist = cleaned[0]
+            // Last numeric-looking item is duration.
+            cleaned.lastOrNull { it.matches(Regex("\\d+:\\d{2}(?::\\d{2})?")) }?.let { durationText = it }
+        }
+        val durationSecs = if (durationText.isNotBlank()) {
+            val p = durationText.split(":").mapNotNull { it.toIntOrNull() }
+            when (p.size) {
+                2 -> p[0] * 60 + p[1]
+                3 -> p[0] * 3600 + p[1] * 60 + p[2]
+                else -> 0
+            }
+        } else 0
+
+        val thumb = item.optJSONObject("thumbnail")
+            ?.optJSONObject("musicThumbnailRenderer")
+            ?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+            ?.let { thumbs ->
+                if (thumbs.length() > 0) thumbs.getJSONObject(thumbs.length() - 1).optString("url")
+                else "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+            } ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+
+        out.add(OnlineResult(
+            videoId = videoId, title = title, author = artist,
+            thumbnailUrl = thumb, durationText = durationText,
+            durationSecs = durationSecs, isLive = false,
+        ))
+    }
+    return out
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 suspend fun searchYoutube(query: String, maxResults: Int = 50): List<OnlineResult> =
     withContext(Dispatchers.IO) {
@@ -378,10 +509,21 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
         return@withContext it
     }
 
+    // ── STRATEGY 0 — User's self-hosted resolver backend (if configured) ────
+    // Optional. If ResolverBackend.baseUrl is set (e.g. user pasted a
+    // Cloudflare Worker URL in Settings), try it first. The backend runs an
+    // always-fresh yt-dlp + PO-Token provider, so it handles the residual
+    // 5% of videos that defeat every in-app strategy.
+    // No backend configured → returns null, fall through silently to Piped.
+    runCatching { ResolverBackend.resolve(videoId) }.getOrNull()?.let { s ->
+        com.beatdrop.kt.DebugLog.i("resolve", "✅ Backend resolved → ${com.beatdrop.kt.DebugLog.shortUrl(s.url)}")
+        setCachedStream(videoId, s); return@withContext s
+    }
+
     // ── STRATEGY 1 — Piped (parallel, ≥5 backends, first wins) ───────────────
-    // Most reliable in 2026: Piped's backend does PO Token / signatureCipher /
-    // SABR handshake server-side and proxies the CDN through pipedproxy-*.
-    // Median latency ~600 ms when at least one backend is healthy.
+    // Most reliable free path in 2026: Piped's backend does PO Token /
+    // signatureCipher / SABR handshake server-side and proxies the CDN
+    // through pipedproxy-*. Median latency ~600 ms when ≥1 backend healthy.
     com.beatdrop.kt.DebugLog.i("resolve", "→ Piped (parallel)")
     runCatching { PipedResolver.resolve(videoId) }.getOrNull()?.let { s ->
         com.beatdrop.kt.DebugLog.i("resolve", "✅ Piped resolved → ${com.beatdrop.kt.DebugLog.shortUrl(s.url)}")
@@ -747,22 +889,44 @@ private fun getBestAudioUrl(formats: JSONArray?): String? =
     }
 
 /**
- * Selects the highest-bitrate audio format and resolves it to a playable URL,
- * deciphering `signatureCipher` formats via YoutubeCipher when needed.
- * This is what lets us play the (now-common) protected formats SnapTube handles.
+ * Selects the best-fitting audio format under the user's quality cap, then
+ * resolves it to a playable URL (deciphering `signatureCipher` via YoutubeCipher
+ * when needed).
+ *
+ * Quality cap (from QualityPreference.maxBitrate()):
+ *   • "auto" → highest available (default, what SnapTube does)
+ *   • "high" → ≤ 256 kbps
+ *   • "medium" → ≤ 128 kbps
+ *   • "low" → ≤ 64 kbps
+ *
+ * If no format fits under the cap, falls back to the lowest available so we
+ * don't fail playback — capping is a preference, not a hard rule.
  */
 private suspend fun resolveBestAudio(formats: JSONArray?): String? {
     if (formats == null) return null
+    val cap = QualityPreference.maxBitrate()
     val audio = (0 until formats.length()).map { formats.getJSONObject(it) }
         .filter { f ->
             val mt = (f.optString("mimeType") + f.optString("type")).lowercase()
             mt.contains("audio/")
         }
         .sortedByDescending { f -> f.optLong("bitrate").coerceAtLeast(f.optLong("averageBitrate")) }
+    if (audio.isEmpty()) return null
 
-    // Try formats best-first; first one that resolves wins.
-    for (f in audio) {
-        // Plain URL? Still run it through the cipher so the n-throttle param is fixed.
+    // Build candidate list: first those under the cap (best→worst), then any
+    // remaining (worst→best) so we still play something if everything's huge.
+    val (underCap, overCap) = if (cap > 0) {
+        audio.partition { f ->
+            f.optLong("bitrate").coerceAtLeast(f.optLong("averageBitrate")) <= cap
+        }
+    } else {
+        audio to emptyList()
+    }
+    val candidates = underCap + overCap.sortedBy { f ->
+        f.optLong("bitrate").coerceAtLeast(f.optLong("averageBitrate"))
+    }
+
+    for (f in candidates) {
         val resolved = runCatching { YoutubeCipher.resolveFormatUrl(f) }.getOrNull()
         if (!resolved.isNullOrBlank()) return resolved
     }

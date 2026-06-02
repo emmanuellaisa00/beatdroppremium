@@ -132,6 +132,34 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { prefs.setCrossfadeMs(clamped) }
     }
 
+    // ── Resolver backend (optional self-hosted yt-dlp proxy) ─────────────────
+    private val _resolverBackend = MutableStateFlow("")
+    val resolverBackend: StateFlow<String> = _resolverBackend.asStateFlow()
+    fun setResolverBackend(v: String) {
+        val trimmed = v.trim()
+        _resolverBackend.value = trimmed
+        com.beatdrop.kt.youtube.ResolverBackend.baseUrl = trimmed.ifBlank { null }
+        viewModelScope.launch { prefs.setResolverBackend(trimmed) }
+    }
+
+    // ── Stream quality ("auto" | "high" | "medium" | "low") ──────────────────
+    private val _streamQuality = MutableStateFlow("auto")
+    val streamQuality: StateFlow<String> = _streamQuality.asStateFlow()
+    fun setStreamQuality(v: String) {
+        _streamQuality.value = v
+        com.beatdrop.kt.youtube.QualityPreference.preferred = v
+        viewModelScope.launch { prefs.setStreamQuality(v) }
+    }
+
+    // ── Music-mode search (WEB_REMIX vs generic YouTube) ─────────────────────
+    private val _musicSearchEnabled = MutableStateFlow(true)
+    val musicSearchEnabled: StateFlow<Boolean> = _musicSearchEnabled.asStateFlow()
+    fun setMusicSearchEnabled(v: Boolean) {
+        _musicSearchEnabled.value = v
+        com.beatdrop.kt.youtube.OnlineSearch.musicMode = v
+        viewModelScope.launch { prefs.setMusicSearchEnabled(v) }
+    }
+
     // ── Auto-DJ runtime state ────────────────────────────────────────────────
     @Volatile private var isCrossfading = false
     @Volatile private var crossfadeJob: kotlinx.coroutines.Job? = null
@@ -154,6 +182,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Per-track analyzer scheduling: don't re-analyze in flight or already-cached tracks.
     private val analyzingIds = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
+    // ── Loudness gain cache (per-track volume multiplier 0.5..1.0) ───────────
+    // Populated by LoudnessAnalyzer in the same background pass as the BPM/key
+    // analyzer. Auto-Mix uses these to balance Deck B against Deck A during
+    // the crossfade so a quiet track doesn't dip in the blend and a loud one
+    // doesn't overpower.  No entry = play at native 1.0.
+    private val loudnessGains = java.util.concurrent.ConcurrentHashMap<String, Float>()
+
+    // ── Predictive prefetch tracking ─────────────────────────────────────────
+    // Auto-Mix peeks at the next candidate ~30s before the current track ends
+    // and warms its features cache + (for online tracks) its resolved URL via
+    // the playback cache. By the time the fade fires at 8s remaining, B's
+    // first range request is already buffered → no audible gap on slow nets.
+    @Volatile private var prefetchedNextId: String? = null      // current track id we've prefetched for
+    @Volatile private var prefetchInFlight: Boolean = false
+
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
     fun deleteHistoryQuery(q: String) { viewModelScope.launch { prefs.deleteSearchQuery(q) } }
@@ -167,6 +210,18 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.defaultShuffleFlow.onEach { _defaultShuffle.value = it }.launchIn(viewModelScope)
         prefs.autoDjFlow.onEach { _autoDjEnabled.value = it }.launchIn(viewModelScope)
         prefs.crossfadeMsFlow.onEach { _crossfadeMs.value = it }.launchIn(viewModelScope)
+        prefs.resolverBackendFlow.onEach {
+            _resolverBackend.value = it
+            com.beatdrop.kt.youtube.ResolverBackend.baseUrl = it.ifBlank { null }
+        }.launchIn(viewModelScope)
+        prefs.streamQualityFlow.onEach {
+            _streamQuality.value = it
+            com.beatdrop.kt.youtube.QualityPreference.preferred = it
+        }.launchIn(viewModelScope)
+        prefs.musicSearchEnabledFlow.onEach {
+            _musicSearchEnabled.value = it
+            com.beatdrop.kt.youtube.OnlineSearch.musicMode = it
+        }.launchIn(viewModelScope)
         prefs.trackFeaturesFlow.onEach { _trackFeatures.value = it }.launchIn(viewModelScope)
         prefs.searchHistoryFlow.onEach { _searchHistory.value = it }.launchIn(viewModelScope)
     }
@@ -374,8 +429,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val list = filteredSorted()
         val startIndex = list.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
         c.setMediaItems(list.map { it.toMediaItem() }, startIndex, 0L)
-        c.prepare(); c.play()
+        c.prepare()
+        // Apply this track's loudness gain if we have it; default to 1.0.
+        c.volume = loudnessGains[track.id] ?: 1.0f
+        c.play()
         _current.value = track; _duration.value = track.durationMs
+        prefetchedNextId = null   // re-arm prefetch for the new current track
         pushRecent(track.id)
         loadLyrics(track); refreshQueueFromController()
         viewModelScope.launch { prefs.incrementPlayCount(track.id) }
@@ -451,12 +510,20 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     _position.value = pos
                     if (dur > 0) {
                         _duration.value = dur
-                        // Auto-Mix trigger: start crossfading exactly `crossfadeMs`
-                        // before the track's natural end. Tight 350 ms guard band
-                        // absorbs ticker jitter without firing twice.
                         if (_autoDjEnabled.value && !isCrossfading) {
                             val tail = dur - pos
                             val fadeMs = _crossfadeMs.value.toLong()
+                            // Predictive prefetch: ~30 s before end, peek at the
+                            // next track Auto-Mix is likely to pick, warm its
+                            // features cache + loudness probe + (for online
+                            // tracks) the playback cache via getStream(). Fires
+                            // once per current track (guarded by prefetchedNextId).
+                            if (tail in 28_000L..32_000L) {
+                                triggerPrefetch()
+                            }
+                            // Auto-Mix trigger: start crossfading exactly `crossfadeMs`
+                            // before the track's natural end. Tight 350 ms guard band
+                            // absorbs ticker jitter without firing twice.
                             if (tail in (fadeMs - 350L)..(fadeMs + 350L)) {
                                 triggerAutoMix(fadeMs)
                             }
@@ -520,22 +587,33 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         val deck = ensureDeckB()
 
+        // Loudness gains — apply per-track so a quiet track doesn't dip in
+        // the blend and a loud one doesn't overpower. Default to 1.0 (no
+        // change) when the analyzer hasn't run for a track yet.
+        val gainA = loudnessGains[cur.id] ?: 1.0f
+        val gainB = loudnessGains[next.id] ?: 1.0f
+
         crossfadeJob = viewModelScope.launch {
             try {
-                // Start the next track silently on Deck B.
-                deck.volume = 0f
-                deck.setMediaItem(MediaItem.Builder().setMediaId(next.id).setUri(next.uri).build())
-                deck.prepare()
+                // If prefetch already set the media item on Deck B, don't reset
+                // it — that would discard the warmed buffer.
+                val deckHasNext = deck.currentMediaItem?.mediaId == next.id
+                if (!deckHasNext) {
+                    deck.volume = 0f
+                    deck.setMediaItem(MediaItem.Builder().setMediaId(next.id).setUri(next.uri).build())
+                    deck.prepare()
+                }
                 deck.playWhenReady = true
 
                 // Equal-power crossfade — 60 ticks regardless of duration → ~17ms cadence.
+                // Each side scaled by its loudness gain (ReplayGain-style match).
                 val ticks = 60
                 val stepMs = (fadeMs / ticks).coerceAtLeast(8L)
                 for (i in 0..ticks) {
                     val t = i.toFloat() / ticks                       // 0..1
                     val theta = (t * Math.PI / 2.0).toFloat()         // 0..π/2
-                    mainPlayer.volume = kotlin.math.cos(theta)        // 1 → 0
-                    deck.volume       = kotlin.math.sin(theta)        // 0 → 1
+                    mainPlayer.volume = kotlin.math.cos(theta) * gainA  // 1·gA → 0
+                    deck.volume       = kotlin.math.sin(theta) * gainB  // 0 → 1·gB
                     delay(stepMs)
                 }
                 // Hand off Deck B → main player at exactly Deck B's current position.
@@ -545,12 +623,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 mainPlayer.repeatMode = savedRepeatMode
                 mainPlayer.setMediaItem(next.toMediaItem())
                 mainPlayer.prepare()
-                mainPlayer.volume = 1f
+                mainPlayer.volume = gainB                              // keep B's gain after handoff
                 mainPlayer.seekTo(handoffPos)
                 mainPlayer.play()
                 // Update UI / lyrics / play count exactly like a normal track change.
                 _current.value = next
                 _duration.value = next.durationMs
+                prefetchedNextId = null   // re-arm prefetch for the new current
                 pushRecent(next.id)
                 loadLyrics(next)
                 prefs.incrementPlayCount(next.id)
@@ -594,27 +673,91 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── On-device track analyzer scheduler ───────────────────────────────────
     /**
-     * Analyze a track for BPM + key on a background thread and cache the result.
-     * Idempotent: skips tracks already in the cache or currently being analyzed.
+     * Analyze a track for BPM + key + loudness on a background thread, cache
+     * the results. Idempotent: skips tracks already cached or being analyzed.
      * Called opportunistically as you play things — by the time Auto-Mix wants
      * to score candidates, the tracks you actually listen to are already cached.
      */
     private fun scheduleAnalysis(track: Track) {
         if (track.isStreaming) return                         // local files only
         val path = track.data ?: return
-        if (_trackFeatures.value.containsKey(track.id)) return
+        val haveFeat = _trackFeatures.value.containsKey(track.id)
+        val haveLoud = loudnessGains.containsKey(track.id)
+        if (haveFeat && haveLoud) return
         if (!analyzingIds.add(track.id)) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val feat = com.beatdrop.kt.playback.TrackAnalyzer.estimate(path, track.durationMs)
-                if (feat != null) {
-                    prefs.putTrackFeatures(track.id, feat)
-                    DebugLog.d("analyzer", "${track.title} → ${feat.bpm} BPM, ${feat.keyCamelot}")
+                if (!haveFeat) {
+                    val feat = com.beatdrop.kt.playback.TrackAnalyzer.estimate(path, track.durationMs)
+                    if (feat != null) {
+                        prefs.putTrackFeatures(track.id, feat)
+                        DebugLog.d("analyzer", "${track.title} → ${feat.bpm} BPM, ${feat.keyCamelot}")
+                    }
+                }
+                if (!haveLoud) {
+                    val gain = com.beatdrop.kt.playback.LoudnessAnalyzer.analyze(path)
+                    if (gain != null) {
+                        loudnessGains[track.id] = gain
+                        DebugLog.d("loudness", "${track.title} → gain=${"%.2f".format(gain)}")
+                    }
                 }
             } catch (e: Exception) {
                 DebugLog.w("analyzer", "${track.title}: ${e.message}")
             } finally {
                 analyzingIds.remove(track.id)
+            }
+        }
+    }
+
+    /**
+     * Predictive prefetch — fires ~30 s before the current track ends. Picks
+     * the candidate Auto-Mix is likely to choose, then warms:
+     *   • TrackAnalyzer features cache (so scoring is informed)
+     *   • LoudnessAnalyzer gain (so the fade is volume-matched)
+     *   • The playback cache via Deck B prepare (so the first range request
+     *     for the crossfade is already in flight when the fade triggers)
+     *
+     * Guard: only fires once per current track (prefetchedNextId). User skips
+     * reset this via cancelAutoMix → next current track gets a fresh prefetch.
+     */
+    private fun triggerPrefetch() {
+        val cur = _current.value ?: return
+        if (prefetchInFlight) return
+        if (prefetchedNextId == cur.id) return
+        val library = _tracks.value
+        if (library.isEmpty()) return
+        if (cur.isStreaming) return
+        prefetchInFlight = true
+        prefetchedNextId = cur.id
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val recent = (recentlyPlayedIds + cur.id).toSet()
+                val candidate = com.beatdrop.kt.playback.AutoMixEngine.pickNext(
+                    current = cur, library = library, likedIds = _liked.value,
+                    playCounts = _playCounts.value, recentlyPlayedIds = recent,
+                    featuresById = _trackFeatures.value,
+                ) ?: return@launch
+                if (candidate.isStreaming) return@launch
+                scheduleAnalysis(candidate)  // populates BPM+key+loudness if missing
+                // Warm the playback cache by asking the deck to prepare the URI
+                // briefly. The actual play happens at fade trigger; this just
+                // gets the first range request in flight + cached on disk.
+                val path = candidate.data
+                if (path != null) {
+                    runCatching {
+                        val deck = ensureDeckB()
+                        withContext(Dispatchers.Main) {
+                            deck.volume = 0f
+                            deck.setMediaItem(MediaItem.Builder().setMediaId(candidate.id).setUri(candidate.uri).build())
+                            deck.prepare()
+                            // Don't playWhenReady — we just want the buffer warmed.
+                            deck.playWhenReady = false
+                        }
+                    }
+                    DebugLog.i("prefetch", "warmed ${candidate.title}")
+                }
+            } finally {
+                prefetchInFlight = false
             }
         }
     }

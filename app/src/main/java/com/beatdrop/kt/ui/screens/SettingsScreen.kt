@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ColorLens
@@ -16,10 +18,11 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.PlayCircle
@@ -27,6 +30,7 @@ import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +63,9 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     val defaultShuffle by vm.defaultShuffle.collectAsState()
     val autoDj by vm.autoDjEnabled.collectAsState()
     val crossfadeMs by vm.crossfadeMs.collectAsState()
+    val resolverBackend by vm.resolverBackend.collectAsState()
+    val streamQuality by vm.streamQuality.collectAsState()
+    val musicSearch by vm.musicSearchEnabled.collectAsState()
     val sleepLeft by vm.sleepMinutesLeft.collectAsState()
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
@@ -130,6 +137,95 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                         color = C.textTertiary, fontSize = 12.sp,
                     )
                 }
+            }
+        }
+
+        // ── STREAMING ────────────────────────────────────────────────────────
+        item { SectionHeader("STREAMING", Icons.Filled.NetworkCheck) }
+        item {
+            GlassCard {
+                // Music-mode toggle. ON: searches YouTube Music (curated songs).
+                // OFF: generic YouTube search (videos, podcasts, mixes).
+                ToggleRow("Music-only search", Icons.Filled.MusicNote, musicSearch) {
+                    vm.setMusicSearchEnabled(it)
+                }
+                Text(
+                    if (musicSearch)
+                        "Searches YouTube Music — clean song results, no reaction videos or lyric channels."
+                    else "Searches all of YouTube — useful for podcasts, interviews, live sets.",
+                    color = C.textTertiary, fontSize = 12.sp,
+                )
+                GlassDivider()
+                // Stream-quality picker chips.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("Stream quality", color = C.text, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "auto" to "Auto",
+                        "high" to "High",
+                        "medium" to "Medium",
+                        "low" to "Low",
+                    ).forEach { (key, label) ->
+                        GlassChip(label, streamQuality == key) { vm.setStreamQuality(key) }
+                    }
+                }
+                Text(
+                    when (streamQuality) {
+                        "high"   -> "≈ 256 kbps. Best fidelity. Uses ~120 MB / hour."
+                        "medium" -> "≈ 128 kbps. Balanced. Uses ~60 MB / hour."
+                        "low"    -> "≈ 64 kbps. Data saver. Uses ~30 MB / hour."
+                        else     -> "Picks the highest bitrate available (default)."
+                    },
+                    color = C.textTertiary, fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+                GlassDivider()
+                // Optional self-hosted resolver backend URL.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Cloud, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("Resolver backend (optional)", color = C.text, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(6.dp))
+                var backendText by remember(resolverBackend) { mutableStateOf(resolverBackend) }
+                OutlinedTextField(
+                    value = backendText,
+                    onValueChange = { backendText = it },
+                    placeholder = { Text("https://my-resolver.workers.dev") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = C.accent,
+                        unfocusedBorderColor = C.textTertiary.copy(alpha = 0.4f),
+                        focusedTextColor = C.text,
+                        unfocusedTextColor = C.text,
+                    ),
+                )
+                Row(
+                    Modifier.padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    GlassChip("Save", backendText != resolverBackend) {
+                        vm.setResolverBackend(backendText)
+                    }
+                    if (resolverBackend.isNotBlank()) {
+                        GlassChip("Clear", false) {
+                            backendText = ""; vm.setResolverBackend("")
+                        }
+                    }
+                }
+                Text(
+                    "Optional. Deploy the included Cloudflare Worker (see docs) " +
+                        "and paste its URL here. When set, BeatDrop tries this " +
+                        "resolver FIRST — closes most remaining 'won't stream' gaps.",
+                    color = C.textTertiary, fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
 

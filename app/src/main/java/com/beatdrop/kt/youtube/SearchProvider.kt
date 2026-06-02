@@ -25,12 +25,24 @@ object NotConfiguredProvider : SearchProvider {
 }
 
 /**
- * Production search backend — queries a music catalog via Innertube.
- * No API key required. Results are cleaned to look like a native catalog.
+ * Production search backend — picks between two backends based on the
+ * `OnlineSearch.musicMode` switch:
+ *
+ *   musicMode = true  → YouTube Music's `music.youtube.com/youtubei/v1/search`
+ *                       (WEB_REMIX client). Returns curated SONG results
+ *                       only — no reaction videos, no lyric channels, no
+ *                       fan covers. This is what users want for a music app.
+ *
+ *   musicMode = false → Generic youtube.com/youtubei/v1/search (MWEB).
+ *                       Returns any video. Useful for podcasts, interviews,
+ *                       live sets, mixes.
+ *
+ * Suggestions always come from the public YouTube suggest endpoint —
+ * works identically for both modes.
  */
 class InnertubeSearchProvider : SearchProvider {
     override suspend fun search(query: String): List<OnlineResult> =
-        searchYoutube(query)
+        if (OnlineSearch.musicMode) searchYoutubeMusic(query) else searchYoutube(query)
 
     override suspend fun suggestions(query: String): List<String> =
         getSearchSuggestions(query)
@@ -39,5 +51,28 @@ class InnertubeSearchProvider : SearchProvider {
 /** Injection point. Set in BeatDropApp.onCreate(). */
 object OnlineSearch {
     @Volatile var provider: SearchProvider = NotConfiguredProvider
+    /** When true, search uses YouTube Music (curated songs only). */
+    @Volatile var musicMode: Boolean = true
     val isConfigured: Boolean get() = provider !== NotConfiguredProvider
+}
+
+/**
+ * Stream-quality preference. Read by `YoutubeService.resolveBestAudio()` and
+ * `resolveBestMuxed()` to cap bitrate. Persists in DataStore via Prefs.
+ *
+ *   "auto"   = pick the highest-bitrate audio available (default)
+ *   "high"   = cap at ~256 kbps (typical for music)
+ *   "medium" = cap at ~128 kbps (data saver)
+ *   "low"    = cap at ~64 kbps (emergency / very tight data)
+ */
+object QualityPreference {
+    @Volatile var preferred: String = "auto"
+
+    /** Returns max bitrate in bps for the current preference; 0 = unlimited. */
+    fun maxBitrate(): Long = when (preferred) {
+        "high"   -> 256_000L
+        "medium" -> 128_000L
+        "low"    -> 64_000L
+        else     -> 0L            // "auto" — no cap
+    }
 }

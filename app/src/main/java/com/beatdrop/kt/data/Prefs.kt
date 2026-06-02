@@ -25,6 +25,9 @@ class Prefs(private val context: Context) {
         val DEFAULT_SHUFFLE = booleanPreferencesKey("default_shuffle")
         val AUTO_DJ = booleanPreferencesKey("auto_dj")
         val CROSSFADE_MS = intPreferencesKey("crossfade_ms")
+        val RESOLVER_BACKEND_URL = stringPreferencesKey("resolver_backend_url")
+        val STREAM_QUALITY = stringPreferencesKey("stream_quality") // "auto" | "high" | "medium" | "low"
+        val MUSIC_SEARCH_ENABLED = booleanPreferencesKey("music_search_enabled")
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
         // Cached on-device audio features: JSON {trackId: {"bpm":128,"key":"8A"}}
         val TRACK_FEATURES = stringPreferencesKey("track_features")
@@ -77,6 +80,26 @@ class Prefs(private val context: Context) {
     // Crossfade duration in milliseconds (default 8 s). UI slider exposes 4..12 s.
     val crossfadeMsFlow: Flow<Int> = context.dataStore.data.map { it[Keys.CROSSFADE_MS] ?: 8_000 }
     suspend fun setCrossfadeMs(v: Int) { context.dataStore.edit { it[Keys.CROSSFADE_MS] = v.coerceIn(4_000, 12_000) } }
+
+    // Optional self-hosted resolver backend URL (Cloudflare Worker / Render etc.)
+    // Empty string = disabled. When set, used as Strategy 0 in the YouTube resolver.
+    val resolverBackendFlow: Flow<String> = context.dataStore.data.map { it[Keys.RESOLVER_BACKEND_URL] ?: "" }
+    suspend fun setResolverBackend(v: String) {
+        context.dataStore.edit { it[Keys.RESOLVER_BACKEND_URL] = v.trim() }
+    }
+
+    // Stream quality preference. "auto" picks the highest available; others cap.
+    val streamQualityFlow: Flow<String> = context.dataStore.data.map { it[Keys.STREAM_QUALITY] ?: "auto" }
+    suspend fun setStreamQuality(v: String) {
+        context.dataStore.edit { it[Keys.STREAM_QUALITY] = v }
+    }
+
+    // Use YouTube Music's curated music search (WEB_REMIX client) instead of
+    // generic YouTube search. Filters out reactions / lyric channels / fan covers.
+    val musicSearchEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.MUSIC_SEARCH_ENABLED] ?: true }
+    suspend fun setMusicSearchEnabled(v: Boolean) {
+        context.dataStore.edit { it[Keys.MUSIC_SEARCH_ENABLED] = v }
+    }
 
     // ── Cached per-track audio features (BPM + Camelot key) ────────────────────
     // Stored as JSON {trackId: {"bpm":<int>, "key":"<camelot>"}}. Analyzed once
