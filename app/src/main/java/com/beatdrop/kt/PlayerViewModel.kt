@@ -585,6 +585,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         savedRepeatMode = mainPlayer.repeatMode
         mainPlayer.repeatMode = Player.REPEAT_MODE_ONE   // pin X in place
 
+        // Surface the Auto-Mix pick in the MediaSession queue so lock-screen
+        // / Bluetooth controls show "Next: <Y>" and a working ⏭ button. If
+        // the user hits Bluetooth-next during the fade, vm.next() runs
+        // cancelAutoMix() → seekToNextMediaItem() lands on Y cleanly.
+        //
+        // We insert Y at (currentMediaItemIndex + 1) so seekToNextMediaItem()
+        // lands on it regardless of any existing playlist queue length.
+        // After handoff the queue gets replaced with [Y] anyway (see below)
+        // so we don't accumulate ghost entries across many transitions.
+        runCatching {
+            val curIdx = mainPlayer.currentMediaItemIndex
+            val insertAt = (curIdx + 1).coerceAtMost(mainPlayer.mediaItemCount)
+            // Avoid duplicate inserts if user re-triggers via skip → re-pick.
+            val alreadyNext = insertAt < mainPlayer.mediaItemCount &&
+                mainPlayer.getMediaItemAt(insertAt).mediaId == next.id
+            if (!alreadyNext) mainPlayer.addMediaItem(insertAt, next.toMediaItem())
+        }
+
         val deck = ensureDeckB()
 
         // Loudness gains — apply per-track so a quiet track doesn't dip in
