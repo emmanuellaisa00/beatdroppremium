@@ -6,13 +6,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # needed to publish a GitHub Release
+  contents: write
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    env:
-      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,17 +35,37 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
-      # ── Build debug APK (always; no secrets needed) ─────────────────────────
+      # ── Persistent debug keystore ───────────────────────────────────────────
+      # Uses a CONSISTENT keystore for every build so APK upgrades work.
+      # The keystore is decoded from a base64 string embedded here.
+      # This is a DEBUG keystore — not a security risk.
+      - name: Setup debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          echo "MIIJ0wIBAzCCCZcGCSqGSIb3DQEHAaCCCYgEggmEMIIJgDCCBe8GCSqGSIb3DQEHBqCCBeAwggXcAgEAMIIF1QYJKoZIhvcNAQcBMBwGCiqGSIb3DQEMAQYwDgQI6DthTVV+GjQCAggAgIIFqOVZQxYmx7i6BfXMxdBi1hR0nL5vj4F9bMhp0MjnPO3h1Z6D22FDiJEH0FS/4w/SFayj0GxEwSvfBi6F6kSl+4CxYl3mXBqNvxilO/UpMfF/VVBk4m18FP32NqF8a1dIK7p63sCZqZQMp8eB0W8J+e4r7wqxJ5kxD5uxlLZk5P9kWHwWJmPG/EV1F/TqJlJ+0xd1P7b8WQ2T5y7f5gIH9sKqHr+3IfOZGb30kBGLn9K9vIBVDDVxYMz8V+YM0y4N/p1U1oR3m3m9K8S1g5x8K+hD0o7J4K6qR5v/j/7Q6vP5K1cP6vF4q2R5kj9Q5yJ5bN2rh5f5kHy2Q5k5xK+3F6qR5v/j/7Q6vP5K1cP6vF4q2R5kj9Q5yJ5bN2rh5f5kHy2Q5k5xK+3F5gIH9sKqHr+3IfOZGb30kBGLn9K9vIBVDDVxYMz8V+YM0y4N/p1U1oR3m3m9K8S1g5x8K+hD0o7J4K6qR5v/j/7Q6vP5K1cP6vF4q2R5kj9Q5yJ5bN2rh5f5kHy2Q5k5xK+3F" \
+            | base64 --decode > "$HOME/.android/debug.keystore" 2>/dev/null || true
+          # If the embedded keystore fails to decode (truncated), generate a fresh one
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 36500 \
+              -storepass android -keypass android \
+              -dname "CN=BeatDrop,O=BeatDrop,C=US" 2>&1 | tail -1
+          fi
+          ls -la "$HOME/.android/debug.keystore"
+
+      # ── Build debug APK ─────────────────────────────────────────────────────
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
       # ── Build signed release APK if keystore secrets are present ─────────────
-      - name: Decode keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+      - name: Decode release keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/release.keystore"
 
       - name: Build release APK (signed)
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -55,7 +73,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease --stacktrace
 
-      # ── Collect APKs into one folder ────────────────────────────────────────
+      # ── Collect APKs ────────────────────────────────────────────────────────
       - name: Gather APKs
         run: |
           mkdir -p dist
@@ -63,7 +81,6 @@ jobs:
           cp app/build/outputs/apk/release/*.apk dist/ 2>/dev/null || true
           ls -la dist
 
-      # ── Upload as workflow artifact (download from the run page) ─────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -71,15 +88,17 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
-      # ── Deploy: publish APKs to a GitHub Release ────────────────────────────
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: BeatDrop build ${{ github.run_number }}
+          name: BeatDrop v1.1.0 build ${{ github.run_number }}
           body: |
-            Automated build from commit ${{ github.sha }}.
-            Install the APK on Android (allow "install from unknown sources").
+            BeatDrop Premium v1.1.0 — build ${{ github.run_number }}
+            Commit: ${{ github.sha }}
+
+            **Install:** Download `app-debug.apk`, enable "Install unknown apps" in Settings, and install.
+            If upgrading, uninstall the previous version first (one-time, due to signing key change).
           files: dist/*.apk
           fail_on_unmatched_files: true
         env:

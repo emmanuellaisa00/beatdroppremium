@@ -20,12 +20,12 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Podcasts
-import androidx.compose.material.icons.filled.SettingsSuggest
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Podcasts
-import androidx.compose.material.icons.outlined.SettingsSuggest
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,7 +45,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2
 import com.beatdrop.kt.ui.components.MiniPlayer
-import com.beatdrop.kt.ui.components.TabSpec
 import com.beatdrop.kt.ui.screens.*
 import com.beatdrop.kt.ui.theme.BeatDropTheme
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -108,7 +107,7 @@ private val TABS = listOf(
     TabSpec2("library",  "Library",  Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
     TabSpec2("discover", "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
     TabSpec2("radio",    "Radio",    Icons.Filled.Podcasts, Icons.Outlined.Podcasts),
-    TabSpec2("activity", "Activity", Icons.Filled.SettingsSuggest, Icons.Outlined.SettingsSuggest),
+    TabSpec2("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 
 private sealed interface Dest {
@@ -222,7 +221,7 @@ private fun TabsHost(
                         onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
                     "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch, onExpandPlayer = onExpandPlayer)
                     "radio"    -> RadioScreen(vm)
-                    "activity" -> ActivityScreen(vm, onOpenEq = onOpenEq, onOpenManualDJ = onOpenManualDJ)
+                    "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDJ = onOpenManualDJ)
                 }
             }
         }

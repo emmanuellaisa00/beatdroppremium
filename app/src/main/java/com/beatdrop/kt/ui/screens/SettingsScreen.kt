@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ColorLens
@@ -51,7 +52,7 @@ import com.beatdrop.kt.ui.theme.Radius
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}) {
+fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}, onOpenDJ: () -> Unit = {}) {
     val C = LocalAppColors.current
     val theme by vm.theme.collectAsState()
     val haptics by vm.haptics.collectAsState()
@@ -108,6 +109,11 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         item {
             GlassCard {
                 NavRow("Equalizer", Icons.Filled.GraphicEq, onOpenEq)
+            }
+        }
+        item {
+            GlassCard {
+                NavRow("DJ Mode", Icons.Filled.Album, onOpenDJ)
             }
         }
 

@@ -22,6 +22,8 @@ android {
         versionCode = 2
         versionName = "1.1.0"
         vectorDrawables { useSupportLibrary = true }
+        buildConfigField("String", "YT_KEY", "\"AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8\"")
+
     }
 
     signingConfigs {
@@ -59,7 +61,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
 }

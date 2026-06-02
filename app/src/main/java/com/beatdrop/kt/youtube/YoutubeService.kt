@@ -40,7 +40,7 @@ private val downloadHttp = OkHttpClient.Builder()
     .build()
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-private const val YT_KEY    = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+private val YT_KEY = com.beatdrop.kt.BuildConfig.YT_KEY
 private const val YT_PLAYER = "https://www.youtube.com/youtubei/v1/player"
 private const val YT_SEARCH = "https://www.youtube.com/youtubei/v1/search"
 private const val IOS_UA    = "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)"

@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
+import androidx.media3.common.PlaybackException
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.exoplayer.ExoPlayer
@@ -246,6 +247,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             override fun onPlaybackStateChanged(state: Int) {
                 _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
                 _volume.value = controller?.volume ?: 1f
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                val msg = when (error.errorCode) {
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                        "Network error. Check your connection."
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                        "Stream unavailable (HTTP error). Try another song."
+                    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
+                        "Track not found. It may have been removed."
+                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                    PlaybackException.ERROR_CODE_DECODING_FAILED ->
+                        "Cannot play this audio format."
+                    else -> "Playback error: ${error.message}"
+                }
+                _onlineMessage.value = msg
             }
         })
     }

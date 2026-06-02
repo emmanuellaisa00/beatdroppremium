@@ -37,77 +37,8 @@ import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
-data class TabSpec(val route: String, val label: String, val icon: ImageVector)
+
 data class TabSpec2(val route: String, val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector)
-
-/**
- * Floating liquid-glass pill tab bar (legacy — kept for backward compatibility).
- */
-@Composable
-fun GlassTabBar(tabs: List<TabSpec>, current: String, onSelect: (String) -> Unit) {
-    val C = LocalAppColors.current
-
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .then(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                    Modifier.graphicsLayer {
-                        renderEffect = RenderEffect
-                            .createBlurEffect(48f, 48f, Shader.TileMode.CLAMP)
-                            .asComposeRenderEffect()
-                        clip = true
-                    }
-                else Modifier
-            )
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(50.dp))
-                .background(if (C.isDark) Color(0xCC12101F) else Color(0xE6F2F2F7))
-                .border(0.8.dp, if (C.isDark) Color(0x2EFFFFFF) else Color(0x33000000), RoundedCornerShape(50.dp))
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            tabs.forEach { tab ->
-                LegacyTabItem(tab, tab.route == current, Modifier.weight(1f)) { onSelect(tab.route) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LegacyTabItem(tab: TabSpec, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val C = LocalAppColors.current
-    val scale by animateFloatAsState(
-        if (active) 1.08f else 1f,
-        spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium), label = "tabScale",
-    )
-    Box(
-        modifier
-            .clip(RoundedCornerShape(16.dp))
-            .then(
-                if (active) Modifier
-                    .background(if (C.isDark) Color(0x22FFFFFF) else Color(0x18000000))
-                    .border(0.6.dp, if (C.isDark) Color(0x2BFFFFFF) else Color(0x22000000), RoundedCornerShape(16.dp))
-                else Modifier
-            )
-            .pressableScale(onClick = onClick, scaleTo = 0.88f),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            Modifier.padding(horizontal = 4.dp, vertical = 8.dp).scale(scale),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(tab.icon, tab.label, tint = if (active) C.accent else C.textSecondary, modifier = Modifier.size(22.dp))
-            Text(tab.label, color = if (active) C.accent else C.textSecondary, fontSize = 10.sp,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(top = 3.dp))
-        }
-    }
-}
 
 // ─── iOS 26 Liquid Glass Tab Bar ─────────────────────────────────────────────
 
