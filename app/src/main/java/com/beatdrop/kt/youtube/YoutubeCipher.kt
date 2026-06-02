@@ -131,19 +131,31 @@ object YoutubeCipher {
     } catch (_: Exception) { null }
 
     /**
-     * Discover the player JS URL. Two strategies:
-     *   1. Scrape the embed/watch page for "/s/player/<hash>/.../base.js".
-     *   2. Fall back to a known-good recent player path.
+     * Discover the player JS URL. The previous strategy scraped `iframe_api` —
+     * which only references `www-widgetapi.js`, NOT `base.js` — so this used to
+     * return null on every call (the cipher was effectively a no-op).
+     *
+     * Correct strategy: scrape an embed page (e.g. /embed/dQw4w9WgXcQ). It always
+     * contains a reference to `/s/player/<hash>/player_embed.vflset/en_US/base.js`.
+     * We use a known-public videoId to keep this self-contained.
      */
     suspend fun discoverPlayerJsUrl(): String? = withContext(Dispatchers.Default) {
         runCatching {
-            val pageReq = Request.Builder()
-                .url("https://www.youtube.com/iframe_api")
+            val embedReq = Request.Builder()
+                .url("https://www.youtube.com/embed/dQw4w9WgXcQ")
+                .header("User-Agent",
+                    "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
                 .build()
-            val body = http.newCall(pageReq).execute().use { it.body?.string() } ?: return@runCatching null
-            val hash = Regex("player\\\\?/([0-9a-fA-F]{8,})\\\\?/").find(body)?.groupValues?.get(1)
-                ?: Regex("player/([0-9a-fA-F]{8,})/").find(body)?.groupValues?.get(1)
-            if (hash != null) "https://www.youtube.com/s/player/$hash/player_ias.vflset/en_US/base.js" else null
+            val body = http.newCall(embedReq).execute().use { it.body?.string() } ?: return@runCatching null
+            // Match either escaped JSON path or plain.
+            // Player paths now include _es6 / _es5 variants and various subtypes:
+            //   /s/player/<hash>/player_embed_es6.vflset/en_US/base.js
+            //   /s/player/<hash>/player_ias.vflset/en_US/base.js
+            //   /s/player/<hash>/player_main.vflset/en_US/base.js
+            // Pattern is intentionally loose to keep working across future renames.
+            val m = Regex("""(/s/player/[0-9a-fA-F]{6,}/player[a-zA-Z0-9_]*\.vflset/[a-zA-Z_]+/base\.js)""")
+                .find(body) ?: return@runCatching null
+            "https://www.youtube.com${m.groupValues[1]}"
         }.getOrNull()
     }
 
@@ -205,6 +217,9 @@ object YoutubeCipher {
                 .find(js)?.groupValues?.get(1)
             // ;NAME=function(a){...  preceded by enhanced_except marker nearby
             ?: Regex(""";\s*([a-zA-Z0-9_${'$'}]+)\s*=\s*function\([a-zA-Z0-9_${'$'}]+\)\s*\{[^{}]*enhanced_except""")
+                .find(js)?.groupValues?.get(1)
+            // 2026 pattern: function declaration after 'enhanced_except_<id>' label
+            ?: Regex("""function\s+([a-zA-Z0-9_${'$'}]+)\s*\([a-zA-Z0-9_${'$'}]+\)\s*\{[^{}]*enhanced_except""")
                 .find(js)?.groupValues?.get(1)
             ?: return null
 

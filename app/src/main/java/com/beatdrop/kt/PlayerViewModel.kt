@@ -730,11 +730,26 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 private fun Track.toMediaItem(): MediaItem {
-    // Plain URI — no fragment smuggling. (See PlaybackService note: the old
-    // fragment/header scheme caused a universal 403 and is removed.)
+    // For online streams (sourceVideoId != null) carry the resolving client's
+    // UA + headers in a Base64URL fragment. PlaybackService's ResolvingDataSource
+    // strips the fragment from the wire URI and re-applies the values as HTTP
+    // request headers — necessary because googlevideo CDN URLs are bound to the
+    // exact UA that resolved them (a mismatch is the classic 403 cause).
+    //
+    // Streams that don't need headers (local files, Piped proxies, Invidious
+    // direct URLs) pass an empty header map and get a plain URI.
+    val finalUri: android.net.Uri = run {
+        if (sourceVideoId == null) return@run uri
+        val hdrs = LinkedHashMap<String, String>()
+        if (!streamUserAgent.isNullOrBlank()) hdrs[com.beatdrop.kt.playback.StreamHeaderCodec.userAgentKey()] = streamUserAgent!!
+        hdrs.putAll(streamHeaders)
+        if (hdrs.isEmpty()) return@run uri
+        val frag = com.beatdrop.kt.playback.StreamHeaderCodec.encode(hdrs)
+        if (frag.isBlank()) uri else uri.buildUpon().fragment(frag).build()
+    }
     return MediaItem.Builder()
         .setMediaId(id)
-        .setUri(uri)
+        .setUri(finalUri)
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title).setArtist(artist).setAlbumTitle(album)

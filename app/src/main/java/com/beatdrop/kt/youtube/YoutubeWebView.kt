@@ -211,15 +211,24 @@ object YoutubeExtractor {
     }
 }
 
-// ─── Checks if a CDN URL is an audio-only stream ─────────────────────────────
+// ─── Checks if a CDN URL is a usable media stream ─────────────────────────────
+// Loosened to accept BOTH audio-only AND progressive muxed video+audio formats.
+// ExoPlayer can play the audio track out of a muxed mp4 without issue, and
+// progressive itags (18, 22, etc.) are far less likely to be PO-token-gated
+// than the audio-only adaptive formats in 2026 — so accepting them dramatically
+// raises the WebView extractor's hit rate.
 private fun isAudioStreamUrl(url: String): Boolean {
-    if (!url.contains("googlevideo.com")) return false
-    // Match by MIME type (URL-encoded or not) or well-known audio-only itags
-    return url.contains("mime=audio") ||
-           url.contains("mime%3Daudio") ||
-           listOf("itag=140", "itag=251", "itag=250", "itag=249",
-                  "itag=139", "itag=599", "itag=600", "itag=171")
-               .any { url.contains(it) }
+    if (!url.contains("googlevideo.com/videoplayback")) return false
+    // Skip ad pings, image previews, ranges that aren't actual media.
+    if (url.contains("&rn=") && url.contains("&range=") && url.contains("&dur=0")) return false
+    // Accept any audio mime, any known audio itag, OR any known muxed progressive itag.
+    val audioMatches = url.contains("mime=audio") || url.contains("mime%3Daudio") ||
+        listOf("itag=140", "itag=141", "itag=251", "itag=250", "itag=249",
+               "itag=139", "itag=599", "itag=600", "itag=171", "itag=258", "itag=327")
+            .any { url.contains(it) }
+    val muxedMatches = listOf("itag=18", "itag=22", "itag=59", "itag=37", "itag=43")
+        .any { url.contains(it) }
+    return audioMatches || muxedMatches
 }
 
 // ─── Shared WebViewClient factory for the extractor ──────────────────────────
