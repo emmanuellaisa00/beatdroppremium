@@ -270,7 +270,9 @@ private fun extractorWebViewClient() = object : WebViewClient() {
 
     override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
         super.onReceivedError(v, req, err)
-        if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
+        // Decoupled: do not abort extraction instantly on page load errors — allow the
+        // timeout to handle it, so minor resource/redirect blocks do not disrupt extraction.
+        // if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
     }
 }
 

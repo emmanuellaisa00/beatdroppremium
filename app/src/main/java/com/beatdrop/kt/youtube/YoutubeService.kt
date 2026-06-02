@@ -84,8 +84,8 @@ private data class YtClient(
 // any of these clients and play the result with any sensible UA.
 //
 // Order: ANDROID_VR first (most formats, no kid-content restriction in music
-// context). Note: Standard ANDROID/IOS clients are removed because they require
-// PO Tokens in 2026, causing HTTP 403 blocks at playback time.
+// context), then WEB_EMBEDDED_PLAYER as fallback (extremely lenient for age gates/gating).
+// Note: Standard ANDROID/IOS clients are removed because they require PO Tokens in 2026.
 private val YT_CLIENTS = listOf(
     YtClient(
         name = "ANDROID_VR", clientName = "ANDROID_VR", clientVersion = "1.65.10",
@@ -99,6 +99,16 @@ private val YT_CLIENTS = listOf(
             put("androidSdkVersion", 32)
             put("deviceMake", "Oculus"); put("deviceModel", "Quest 3")
         },
+    ),
+    YtClient(
+        name = "WEB_EMBEDDED_PLAYER", clientName = "WEB_EMBEDDED_PLAYER", clientVersion = "1.20240501.01.00",
+        headers = mapOf(
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "X-Youtube-Client-Name" to "56",
+            "X-Youtube-Client-Version" to "1.20240501.01.00",
+            "Origin" to "https://www.youtube.com",
+            "Referer" to "https://www.youtube.com/embed/",
+        )
     ),
 )
 
@@ -846,12 +856,17 @@ suspend fun youtubeResultToTrack(result: OnlineResult): Track {
 private fun buildPlayerBody(videoId: String, client: YtClient): String =
     JSONObject().apply {
         put("videoId", videoId)
-        put("context", JSONObject().put("client", JSONObject().apply {
-            put("clientName", client.clientName)
-            put("clientVersion", client.clientVersion)
-            put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
-            client.extraContext.keys().forEach { k -> put(k, client.extraContext.get(k)) }
-        }))
+        put("context", JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", client.clientName)
+                put("clientVersion", client.clientVersion)
+                put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
+                client.extraContext.keys().forEach { k -> put(k, client.extraContext.get(k)) }
+            })
+            if (client.clientName == "WEB_EMBEDDED_PLAYER") {
+                put("thirdParty", JSONObject().put("embedUrl", "https://www.youtube.com"))
+            }
+        })
         // html5Preference for web/TV clients only.
         if (client.clientName.startsWith("WEB") || client.clientName.startsWith("TV")) {
             put("playbackContext", JSONObject().put("contentPlaybackContext",
