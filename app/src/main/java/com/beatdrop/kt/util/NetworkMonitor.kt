@@ -5,12 +5,25 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Build
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Monitors network state — used for WiFi-only download guard and
  * connectivity checks before streaming/downloading.
  */
 object NetworkMonitor {
+
+    private val _isOnline = MutableStateFlow(true)
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+
+    private var contextRef: Context? = null
+
+    fun init(context: Context) {
+        contextRef = context.applicationContext
+        _isOnline.value = isConnected(context)
+    }
 
     fun isOnWifi(context: Context): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

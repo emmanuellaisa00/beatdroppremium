@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.R
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Type
+import com.beatdrop.kt.ui.components.pressableScale
 import kotlinx.coroutines.delay
 
 /**

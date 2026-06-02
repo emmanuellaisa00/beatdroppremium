@@ -141,6 +141,19 @@ object DownloadManagerV2 {
             }
     }
 
+    /** Re-download a previously completed/deleted download history record. */
+    fun redownload(record: com.beatdrop.kt.data.DownloadHistory.DownloadRecord, context: Application) {
+        val onlineResult = com.beatdrop.kt.youtube.OnlineResult(
+            videoId = record.videoId,
+            title = record.title,
+            author = record.artist,
+            thumbnailUrl = record.thumbnailUrl,
+            durationText = "",
+            durationSecs = record.durationSecs,
+        )
+        retry(onlineResult, context)
+    }
+
     /** Cancel all downloads. */
     fun cancelAll(context: Application) {
         activeJobs.forEach { (_, job) -> job.cancel() }
