@@ -26,6 +26,8 @@ class BeatDropApp : Application(), ImageLoaderFactory {
 
         // Give YoutubeService a context for the download directory
         YoutubeService.init(this)
+
+        DebugLog.i("app", "BeatDrop started — online search provider wired, YoutubeService ready")
     }
 
     override fun newImageLoader(): ImageLoader =

@@ -379,16 +379,23 @@ suspend fun getStreamUrl(videoId: String): String = getStream(videoId).url
  * yt-dlp / NewPipe use. This is the piece that makes playback reliable like SnapTube.
  */
 suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers.IO) {
-    getCachedStream(videoId)?.let { return@withContext it }
+    com.beatdrop.kt.DebugLog.i("resolve", "getStream($videoId) start")
+    getCachedStream(videoId)?.let {
+        com.beatdrop.kt.DebugLog.i("resolve", "cache hit → ${com.beatdrop.kt.DebugLog.shortUrl(it.url)}")
+        return@withContext it
+    }
 
     // Prime the cipher once (best-effort) so ciphered formats from the API resolve.
     val playerJsUrl = runCatching { YoutubeCipher.discoverPlayerJsUrl() }.getOrNull()
-    if (playerJsUrl != null) runCatching { YoutubeCipher.ensurePlayer(playerJsUrl) }
+    if (playerJsUrl != null) {
+        com.beatdrop.kt.DebugLog.d("cipher", "base.js = ${playerJsUrl.substringAfterLast('/')}")
+        runCatching { YoutubeCipher.ensurePlayer(playerJsUrl) }
+            .onFailure { com.beatdrop.kt.DebugLog.w("cipher", "ensurePlayer failed: ${it.message}") }
+    } else {
+        com.beatdrop.kt.DebugLog.w("cipher", "could not discover base.js (ciphered formats may be skipped)")
+    }
 
-    // Strategy 1–5 — Innertube /player clients FIRST (fast: a single HTTPS round-trip,
-    // and ANDROID_VR/IOS return plain, ready-to-play URLs with no PO token in 2026).
-    // This is what makes the first tap feel instant (SnapTube-like); the WebView path
-    // is a slower fallback only used when the API can't resolve a given video.
+    // Strategy 1–5 — Innertube /player clients FIRST (fast, instant, no PO token).
     for (client in YT_CLIENTS) {
         try {
             val body = buildPlayerBody(videoId, client)
@@ -399,13 +406,25 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                 .header("Content-Type", "application/json")
                 .build()
 
-            val data = okHttp.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) null else JSONObject(resp.body!!.string())
-            } ?: continue
-            if (data.optJSONObject("playabilityStatus")?.optString("status") != "OK") continue
+            val (code, data) = okHttp.newCall(req).execute().use { resp ->
+                resp.code to (if (!resp.isSuccessful) null else JSONObject(resp.body!!.string()))
+            }
+            if (data == null) {
+                com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: HTTP $code")
+                continue
+            }
+            val status = data.optJSONObject("playabilityStatus")?.optString("status")
+            if (status != "OK") {
+                val reason = data.optJSONObject("playabilityStatus")?.optString("reason")
+                com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: playability=$status ${reason ?: ""}".trim())
+                continue
+            }
 
-            val streamingData = data.optJSONObject("streamingData") ?: continue
-            // resolveBestAudio handles BOTH plain `url` and `signatureCipher` formats.
+            val streamingData = data.optJSONObject("streamingData")
+            if (streamingData == null) {
+                com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: OK but no streamingData")
+                continue
+            }
             val url = resolveBestAudio(streamingData.optJSONArray("adaptiveFormats"))
                 ?: resolveBestAudio(streamingData.optJSONArray("formats"))
             if (!url.isNullOrBlank()) {
@@ -414,29 +433,40 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                     client.headers["Origin"]?.let { put("Origin", it) }
                     client.headers["Referer"]?.let { put("Referer", it) }
                 }
+                com.beatdrop.kt.DebugLog.i("resolve", "✅ ${client.name} resolved → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, ua, extra)
                 setCachedStream(videoId, s); return@withContext s
+            } else {
+                com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: OK but no playable audio format (all ciphered & undecipherable?)")
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: ${e.javaClass.simpleName} ${e.message}")
+        }
     }
 
-    // Strategy 6 — WebView extractor (fallback). Chrome's V8 runs YouTube's real
-    // base.js, so this resolves videos the API path couldn't (e.g. when YouTube
-    // changes obfuscation). Slower (loads the embed page), so it's not run first.
+    // Strategy 6 — WebView extractor (fallback).
     if (YoutubeExtractor.isConfigured) {
+        com.beatdrop.kt.DebugLog.i("resolve", "trying WebView extractor (≤9s)…")
         try {
             val url = YoutubeExtractor.extractStreamUrl(videoId, 9_000)
             if (!url.isNullOrBlank()) {
+                com.beatdrop.kt.DebugLog.i("resolve", "✅ WebView resolved → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, SVC_CHROME_UA, mapOf(
                     "Referer" to "https://www.youtube.com/",
                     "Origin"  to "https://www.youtube.com",
                 ))
                 setCachedStream(videoId, s); return@withContext s
+            } else {
+                com.beatdrop.kt.DebugLog.w("resolve", "WebView returned no URL (timed out or no CDN request)")
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            com.beatdrop.kt.DebugLog.w("resolve", "WebView: ${e.message}")
+        }
+    } else {
+        com.beatdrop.kt.DebugLog.w("resolve", "WebView extractor not configured")
     }
 
-    // Strategy 7 — Invidious public instances (URLs are already deciphered)
+    // Strategy 7 — Invidious public instances.
     for (instance in INVIDIOUS_INSTANCES) {
         try {
             val data = okHttp.newCall(
@@ -445,18 +475,25 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                     .build()
             ).execute().use { resp ->
                 if (!resp.isSuccessful) null else JSONObject(resp.body!!.string())
-            } ?: continue
+            } ?: run {
+                com.beatdrop.kt.DebugLog.w("resolve", "invidious ${instance.removePrefix("https://")}: failed")
+                continue
+            }
             val url = getBestAudioUrl(data.optJSONArray("adaptiveFormats"))
                 ?: data.optJSONArray("formatStreams")?.let {
                     if (it.length() > 0) it.getJSONObject(0).optString("url") else null
                 }
             if (!url.isNullOrBlank()) {
+                com.beatdrop.kt.DebugLog.i("resolve", "✅ invidious resolved → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, IOS_UA)
                 setCachedStream(videoId, s); return@withContext s
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            com.beatdrop.kt.DebugLog.w("resolve", "invidious ${instance.removePrefix("https://")}: ${e.message}")
+        }
     }
 
+    com.beatdrop.kt.DebugLog.e("resolve", "❌ all strategies failed for $videoId")
     throw Exception("Could not load this track. Try a different song or check your connection.")
 }
 

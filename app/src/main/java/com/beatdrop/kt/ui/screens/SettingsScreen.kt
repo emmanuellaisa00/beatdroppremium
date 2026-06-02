@@ -53,7 +53,7 @@ import com.beatdrop.kt.ui.theme.Radius
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}, onOpenDJ: () -> Unit = {}) {
+fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit = {}, onOpenDJ: () -> Unit = {}, onOpenDebug: () -> Unit = {}) {
     val C = LocalAppColors.current
     val theme by vm.theme.collectAsState()
     val haptics by vm.haptics.collectAsState()
@@ -115,6 +115,11 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         item {
             GlassCard {
                 NavRow("DJ Mode", Icons.Filled.Album, onOpenDJ)
+            }
+        }
+        item {
+            GlassCard {
+                NavRow("Debug Log (diagnose playback)", Icons.Filled.Code, onOpenDebug)
             }
         }
 

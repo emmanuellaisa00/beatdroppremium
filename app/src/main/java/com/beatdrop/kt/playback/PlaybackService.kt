@@ -58,7 +58,11 @@ class PlaybackService : MediaSessionService() {
      * override) on the DataSpec. No-op for local files or any non-BeatDrop fragment.
      */
     private fun applyStreamHeaders(spec: DataSpec): DataSpec {
-        val decoded = StreamHeaderCodec.decode(spec.uri.fragment) ?: return spec
+        val decoded = StreamHeaderCodec.decode(spec.uri.fragment)
+        if (decoded == null) {
+            com.beatdrop.kt.DebugLog.d("http", "GET ${spec.uri.host ?: spec.uri.scheme} (no custom headers)")
+            return spec
+        }
 
         val headers = HashMap<String, String>(spec.httpRequestHeaders)
         decoded.forEach { (k, v) ->
@@ -68,6 +72,7 @@ class PlaybackService : MediaSessionService() {
 
         // Strip our fragment so the CDN sees a clean URL.
         val cleanUri: Uri = spec.uri.buildUpon().fragment(null).build()
+        com.beatdrop.kt.DebugLog.i("http", "GET ${cleanUri.host} with replayed UA + ${headers.keys.size} hdrs")
         return spec.buildUpon()
             .setUri(cleanUri)
             .setHttpRequestHeaders(headers)

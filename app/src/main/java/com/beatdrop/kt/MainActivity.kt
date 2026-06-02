@@ -133,6 +133,7 @@ private sealed interface Dest {
     data object LocalDiscover : Dest
     data object ManualDJ : Dest
     data object Eq : Dest
+    data object DebugLog : Dest
     data object Search : Dest
     data object NowPlaying : Dest
     data object Queue : Dest
@@ -195,16 +196,18 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onExpandPlayer      = { push(Dest.NowPlaying) },
                             onOpenEq            = { push(Dest.Eq) },
                             onOpenManualDJ      = { push(Dest.ManualDJ) },
+                            onOpenDebug         = { push(Dest.DebugLog) },
                         )
                         is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
                         is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
                         is Dest.Playlist     -> PlaylistDetailScreen(vm, dest.name, onBack = { pop() })
                         Dest.Playlists       -> PlaylistsScreenHosted(vm, onBack = { pop() }, onOpen = { push(Dest.Playlist(it)) })
                         Dest.Stats           -> StatsHosted(vm, onBack = { pop() })
-                        Dest.Settings        -> SettingsScreen(vm, onBack = { pop() }, onOpenEq = { push(Dest.Eq) })
+                        Dest.Settings        -> SettingsScreen(vm, onBack = { pop() }, onOpenEq = { push(Dest.Eq) }, onOpenDebug = { push(Dest.DebugLog) })
                         Dest.LocalDiscover   -> LocalDiscoverScreen(vm, onBack = { pop() }, onOpenSearch = { push(Dest.Search) })
                         Dest.ManualDJ        -> DJScreen(vm, onBack = { pop() })
                         Dest.Eq              -> EqScreen(onBack = { pop() })
+                        Dest.DebugLog        -> DebugLogScreen(vm, onBack = { pop() })
                         Dest.Search          -> SearchScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) })
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
@@ -222,7 +225,7 @@ private fun TabsHost(
     onOpenAlbum: (String, String) -> Unit, onOpenArtist: (String) -> Unit,
     onOpenLocalDiscover: () -> Unit, onOpenPlaylists: () -> Unit,
     onOpenStats: () -> Unit, onOpenSearch: () -> Unit, onExpandPlayer: () -> Unit,
-    onOpenEq: () -> Unit, onOpenManualDJ: () -> Unit,
+    onOpenEq: () -> Unit, onOpenManualDJ: () -> Unit, onOpenDebug: () -> Unit,
 ) {
     val C = LocalAppColors.current
     Box(Modifier.fillMaxSize().background(Color.Transparent)) {
@@ -233,7 +236,7 @@ private fun TabsHost(
                         onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
                     "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch, onExpandPlayer = onExpandPlayer)
                     "radio"    -> RadioScreen(vm)
-                    "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDJ = onOpenManualDJ)
+                    "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDJ = onOpenManualDJ, onOpenDebug = onOpenDebug)
                 }
             }
         }

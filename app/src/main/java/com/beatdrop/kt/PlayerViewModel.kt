@@ -238,7 +238,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun attach() {
         controller?.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(p: Boolean) { _isPlaying.value = p }
+            override fun onIsPlayingChanged(p: Boolean) {
+                _isPlaying.value = p
+                DebugLog.d("player", "isPlaying=$p")
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                val name = when (playbackState) {
+                    Player.STATE_IDLE -> "IDLE"; Player.STATE_BUFFERING -> "BUFFERING"
+                    Player.STATE_READY -> "READY"; Player.STATE_ENDED -> "ENDED"; else -> "$playbackState"
+                }
+                DebugLog.d("player", "state=$name")
+                _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
+                _volume.value = controller?.volume ?: 1f
+            }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 // Don't let ExoPlayer callbacks clobber an in-flight online track switch.
                 // When prepareAndPlayOnline sets a temp track then calls setMediaItem,
@@ -247,11 +259,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 syncCurrent()
             }
             override fun onTimelineChanged(t: Timeline, reason: Int) { refreshQueueFromController() }
-            override fun onPlaybackStateChanged(state: Int) {
-                _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
-                _volume.value = controller?.volume ?: 1f
-            }
             override fun onPlayerError(error: PlaybackException) {
+                DebugLog.e("player", "onPlayerError code=${error.errorCode} ${error.message}")
                 // 403 / expired-token recovery: googlevideo URLs expire and are
                 // IP/client-bound. On a bad HTTP status for a streamed track, drop
                 // the cached URL and silently re-resolve + resume once.
@@ -514,12 +523,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val q = _onlineQuery.value.trim()
         if (q.isBlank()) return
         _isSearching.value = true; _suggestions.value = emptyList()
+        DebugLog.i("search", "query=\"$q\" (provider configured=${OnlineSearch.isConfigured})")
         viewModelScope.launch {
             // Save search query in local history
             runCatching { prefs.addSearchQuery(q) }
             val res = runCatching { OnlineSearch.provider.search(q) }.getOrElse {
+                DebugLog.e("search", "failed", it)
                 _onlineMessage.value = "Couldn't search the catalog: ${it.message}"; emptyList()
             }
+            DebugLog.i("search", "${res.size} results")
             _onlineResults.value = res; _isSearching.value = false
         }
     }
@@ -553,6 +565,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun prepareAndPlayOnline(result: OnlineResult) {
+        DebugLog.i("play", "tap → \"${result.title}\" [${result.videoId}]")
         // Show track info in Now Playing instantly — no blocking overlay
         val tempTrack = Track(
             id = "yt_${result.videoId}",
@@ -584,6 +597,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                     else ->
                         "Couldn't stream this song: ${err.message}"
                 }
+                DebugLog.e("play", "resolve failed", err)
                 _onlineMessage.value = msg
                 _lastFailedOnline.value = result
                 _fetchingVideoId.value = null
@@ -592,10 +606,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             }
             _ytTrackCache[track.id] = track
             val c = controller ?: run {
+                DebugLog.e("play", "controller is null — MediaController not connected yet")
                 _fetchingVideoId.value = null
                 onlineTransitionInProgress = false
                 return@launch
             }
+            DebugLog.i("play", "handing to ExoPlayer (ua=${track.streamUserAgent?.take(24)}…, hdrs=${track.streamHeaders.keys})")
             c.setMediaItem(track.toMediaItem()); c.prepare(); c.play()
             // Allow syncCurrent to run again — the new item is now active in ExoPlayer
             onlineTransitionInProgress = false
@@ -686,6 +702,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             }
             .launchIn(viewModelScope)
     }
+
+    // ── Debug log (on-screen diagnostics) ──────────────────────────────────────
+    val debugLog: StateFlow<List<DebugLog.Entry>> = DebugLog.entries
+    fun clearDebugLog() = DebugLog.clear()
+    fun dumpDebugLog(): String = DebugLog.dump()
 
     // ── Sleep timer ───────────────────────────────────────────────────────────
     private val _sleepMinutesLeft = MutableStateFlow(0)
