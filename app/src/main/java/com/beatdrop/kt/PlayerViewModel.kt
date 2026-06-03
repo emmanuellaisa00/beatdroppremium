@@ -288,7 +288,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val out = ArrayList<Track>()
         for (i in 0 until c.mediaItemCount) {
             val id = c.getMediaItemAt(i).mediaId
-            _tracks.value.firstOrNull { it.id == id }?.let { out.add(it) }
+            val t = _tracks.value.firstOrNull { it.id == id } ?: _ytTrackCache[id]
+            t?.let { out.add(it) }
         }
         _queue.value = out
     }

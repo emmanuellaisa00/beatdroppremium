@@ -174,11 +174,10 @@ object YoutubeExtractor {
         pendingVideoId = videoId
 
         mainHandler.post {
-            // Silence the webview by muting any HTML5 media elements as soon as they are created
-            webView?.evaluateJavascript("setInterval(function(){ document.querySelectorAll('video, audio').forEach(function(v){ v.muted = true; v.volume = 0; }); }, 100);", null)
-            // Load music.youtube.com instead of embed to bypass "embed disabled" restrictions
+            // autoplay=1 triggers the player to start loading its stream immediately,
+            // which is what fires the googlevideo.com CDN requests we intercept
             webView?.loadUrl(
-                "https://music.youtube.com/watch?v=$videoId"
+                "https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&origin=https://www.youtube.com"
             )
         }
         return try {

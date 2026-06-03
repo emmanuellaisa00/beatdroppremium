@@ -702,15 +702,10 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
             val url = YoutubeExtractor.extractStreamUrl(videoId, 12_000)
             if (!url.isNullOrBlank()) {
                 com.beatdrop.kt.DebugLog.i("resolve", "✅ WebView resolved → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
-                val cookies = android.webkit.CookieManager.getInstance().getCookie("https://music.youtube.com")
-                val hdrs = mutableMapOf(
-                    "Referer" to "https://music.youtube.com/",
-                    "Origin"  to "https://music.youtube.com",
-                )
-                if (!cookies.isNullOrBlank()) {
-                    hdrs["Cookie"] = cookies
-                }
-                val s = ResolvedStream(url, CHROME_UA, hdrs)
+                val s = ResolvedStream(url, CHROME_UA, mapOf(
+                    "Referer" to "https://www.youtube.com/",
+                    "Origin"  to "https://www.youtube.com",
+                ))
                 setCachedStream(videoId, s); return@withContext s
             } else {
                 com.beatdrop.kt.DebugLog.w("resolve", "WebView returned no URL (timed out or no CDN request)")
