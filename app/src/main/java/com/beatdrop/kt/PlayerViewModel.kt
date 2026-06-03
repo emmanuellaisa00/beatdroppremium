@@ -678,7 +678,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 for (i in 0..ticks) {
                     val t = i.toFloat() / ticks                       // 0..1
                     val theta = (t * Math.PI / 2.0).toFloat()         // 0..π/2
-                    mainPlayer.volume = (kotlin.math.cos(theta) * gainA).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
+                    
+                    // If X finished and looped natively mid-fade, mute it to prevent the intro bleeding in.
+                    if (mainPlayer.currentPosition < 1000L && t > 0.1f) {
+                        mainPlayer.volume = 0f
+                    } else {
+                        mainPlayer.volume = (kotlin.math.cos(theta) * gainA).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
+                    }
+                    
                     deck.volume       = (kotlin.math.sin(theta) * gainB).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
                     delay(stepMs)
                 }
@@ -687,10 +694,15 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 deck.playWhenReady = false
                 deck.volume = 0f
                 mainPlayer.repeatMode = savedRepeatMode
-                mainPlayer.setMediaItem(next.toMediaItem())
+                val nextIdx = mainPlayer.currentMediaItemIndex + 1
+                if (nextIdx < mainPlayer.mediaItemCount && mainPlayer.getMediaItemAt(nextIdx).mediaId == next.id) {
+                    mainPlayer.seekTo(nextIdx, handoffPos)
+                } else {
+                    mainPlayer.setMediaItem(next.toMediaItem())
+                    mainPlayer.seekTo(handoffPos)
+                }
                 mainPlayer.prepare()
                 mainPlayer.volume = gainB.let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }                              // keep B's gain after handoff
-                mainPlayer.seekTo(handoffPos)
                 mainPlayer.play()
                 // Update UI / lyrics / play count exactly like a normal track change.
                 _current.value = next
