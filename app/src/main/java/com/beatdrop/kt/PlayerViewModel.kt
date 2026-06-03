@@ -698,12 +698,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 if (nextIdx < mainPlayer.mediaItemCount && mainPlayer.getMediaItemAt(nextIdx).mediaId == next.id) {
                     mainPlayer.seekTo(nextIdx, handoffPos)
                 } else {
-                    mainPlayer.setMediaItem(next.toMediaItem())
-                    mainPlayer.seekTo(handoffPos)
+                    mainPlayer.addMediaItem(nextIdx, next.toMediaItem())
+                    mainPlayer.seekTo(nextIdx, handoffPos)
                 }
                 mainPlayer.prepare()
-                mainPlayer.volume = gainB.let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }                              // keep B's gain after handoff
                 mainPlayer.play()
+                // Keep the B deck gain for the new track
+                mainPlayer.volume = gainB.let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
                 // Update UI / lyrics / play count exactly like a normal track change.
                 _current.value = next
                 _duration.value = next.durationMs

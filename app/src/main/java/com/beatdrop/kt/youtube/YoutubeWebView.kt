@@ -174,6 +174,8 @@ object YoutubeExtractor {
         pendingVideoId = videoId
 
         mainHandler.post {
+            // Silence the webview by muting any HTML5 media elements as soon as they are created
+            webView?.evaluateJavascript("setInterval(function(){ document.querySelectorAll('video, audio').forEach(function(v){ v.muted = true; v.volume = 0; }); }, 100);", null)
             // Load music.youtube.com instead of embed to bypass "embed disabled" restrictions
             webView?.loadUrl(
                 "https://music.youtube.com/watch?v=$videoId"
@@ -185,6 +187,7 @@ object YoutubeExtractor {
             // Only clear if it's still our deferred (not replaced by a newer call)
             pendingRef.compareAndSet(deferred, null)
             pendingVideoId = null
+            mainHandler.post { webView?.loadUrl("about:blank") }
             null
         }
     }
@@ -196,6 +199,7 @@ object YoutubeExtractor {
     fun onStreamResult(url: String) {
         val d = pendingRef.getAndSet(null) ?: return
         pendingVideoId = null
+        mainHandler.post { webView?.loadUrl("about:blank") }
         if (url.isNotBlank()) d.complete(url)
         else d.completeExceptionally(Exception("empty_url"))
     }
@@ -208,6 +212,7 @@ object YoutubeExtractor {
     fun onStreamError(error: String) {
         val d = pendingRef.getAndSet(null) ?: return
         pendingVideoId = null
+        mainHandler.post { webView?.loadUrl("about:blank") }
         d.completeExceptionally(Exception(error))
     }
 }
@@ -407,6 +412,8 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
         webViewClient = extractorWebViewClient()
+        // Mute the extractor WebView natively via WebChromeClient so it never plays an ad out loud
+        webChromeClient = object : android.webkit.WebChromeClient() {}
         YoutubeExtractor.webView = this
     }
     container.addView(extractWv, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
