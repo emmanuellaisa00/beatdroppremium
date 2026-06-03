@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -55,12 +56,9 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        // Use cached discover data from ViewModel (auto-refreshes every 5 min)
         vm.getDiscoverData()
-        // Observe the cached state
     }
 
-    // Observe cached data from ViewModel
     val cachedTrending by vm.cachedTrending.collectAsState()
     val cachedPopHits by vm.cachedPopHits.collectAsState()
     val cachedHiphop by vm.cachedHiphop.collectAsState()
@@ -89,8 +87,18 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
+                // Glass search button
                 Box(
-                    Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(C.bg2)
+                    Modifier.size(42.dp).clip(RoundedCornerShape(21.dp))
+                        .background(if (C.isDark) Color(0x20FFFFFF) else Color(0xCCFFFFFF))
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(brush = Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                                startY = 0f, endY = size.height * 0.4f,
+                            ))
+                        }
+                        .border(0.5.dp, if (C.isDark) Color(0x30FFFFFF) else Color(0x18000000), RoundedCornerShape(21.dp))
                         .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
                     Alignment.Center
                 ) {
@@ -161,7 +169,7 @@ private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
     val ctx = LocalContext.current
     Box(
         Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 4.dp)
-            .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)
+            .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.xl)).background(C.bg3)
             .pressableScale(onClick = onPlay, scaleTo = 0.98f),
     ) {
         if (track.thumbnailUrl != null) {
@@ -170,14 +178,28 @@ private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
             )
         }
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
-        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.80f)))))
+        Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
             Text("TRENDING #1", style = Type.overline, color = Color.White.copy(alpha = 0.8f))
             Spacer(Modifier.height(4.dp))
             Text(track.title, style = Type.title2, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(track.author, style = Type.callout, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Box(Modifier.align(Alignment.BottomEnd).padding(16.dp).size(48.dp).clip(RoundedCornerShape(24.dp)).background(C.accent), Alignment.Center) {
+        // Glass play button
+        Box(
+            Modifier.align(Alignment.BottomEnd).padding(18.dp).size(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(C.accent.copy(alpha = 0.85f))
+                .drawWithContent {
+                    drawContent()
+                    drawRect(brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
+                        startY = 0f, endY = size.height * 0.4f,
+                    ))
+                }
+                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+            Alignment.Center
+        ) {
             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
         }
     }
@@ -192,11 +214,21 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { t ->
                     Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(C.bg2)
+                        Modifier.weight(1f).clip(RoundedCornerShape(Radius.md))
+                            // Glass card fill
+                            .background(if (C.isDark) C.glassCardElevated else C.glassCardElevated)
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                                    startY = 0f, endY = size.height * 0.3f,
+                                ))
+                            }
+                            .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(Radius.md))
                             .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.97f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)).background(C.bg3)) {
+                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = Radius.md, bottomStart = Radius.md)).background(C.bg3)) {
                             if (t.thumbnailUrl != null) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(ctx).data(t.thumbnailUrl).crossfade(true).size(96).build(),
@@ -224,14 +256,29 @@ private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (Onl
         LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(list) { t ->
                 Column(Modifier.width(150.dp).pressableScale(onClick = { onPlay(t) }, scaleTo = 0.96f)) {
-                    Box(Modifier.size(150.dp).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
+                    Box(Modifier.size(150.dp).clip(RoundedCornerShape(Radius.lg))
+                        .background(C.bg3)
+                    ) {
                         if (t.thumbnailUrl != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(ctx).data(t.thumbnailUrl).crossfade(true).size(256).build(),
                                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
                             )
                         }
-                        Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp).clip(RoundedCornerShape(18.dp)).background(C.accent.copy(alpha = 0.95f)), Alignment.Center) {
+                        // Glass play button overlay
+                        Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(C.accent.copy(alpha = 0.90f))
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+                                    startY = 0f, endY = size.height * 0.4f,
+                                ))
+                            }
+                            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
+                            Alignment.Center
+                        ) {
                             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
@@ -274,8 +321,20 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                     Icon(Icons.Filled.ArrowBack, "Back", tint = C.text)
                 }
                 Text("Local Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
-                Box(Modifier.size(40.dp).clip(RoundedCornerShape(20.dp)).background(C.bg2)
-                    .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f), Alignment.Center) {
+                Box(
+                    Modifier.size(42.dp).clip(RoundedCornerShape(21.dp))
+                        .background(if (C.isDark) Color(0x20FFFFFF) else Color(0xCCFFFFFF))
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(brush = Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                                startY = 0f, endY = size.height * 0.4f,
+                            ))
+                        }
+                        .border(0.5.dp, if (C.isDark) Color(0x30FFFFFF) else Color(0x18000000), RoundedCornerShape(21.dp))
+                        .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
+                    Alignment.Center
+                ) {
                     Icon(Icons.Filled.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
                 }
             }
@@ -316,19 +375,32 @@ private fun LocalFeaturedHero(track: Track, onPlay: () -> Unit) {
     val ctx = LocalContext.current
     Box(
         Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 4.dp)
-            .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)
+            .aspectRatio(1.6f).clip(RoundedCornerShape(Radius.xl)).background(C.bg3)
             .pressableScale(onClick = onPlay, scaleTo = 0.98f),
     ) {
         AsyncImage(model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).size(512).build(),
             contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f)))))
-        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+        Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.80f)))))
+        Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
             Text("FEATURED", style = Type.overline, color = Color.White.copy(alpha = 0.8f))
             Spacer(Modifier.height(4.dp))
             Text(track.title, style = Type.title2, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(track.artist, style = Type.callout, color = Color.White.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Box(Modifier.align(Alignment.BottomEnd).padding(16.dp).size(48.dp).clip(RoundedCornerShape(24.dp)).background(C.accent), Alignment.Center) {
+        Box(
+            Modifier.align(Alignment.BottomEnd).padding(18.dp).size(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(C.accent.copy(alpha = 0.85f))
+                .drawWithContent {
+                    drawContent()
+                    drawRect(brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
+                        startY = 0f, endY = size.height * 0.4f,
+                    ))
+                }
+                .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
+            Alignment.Center
+        ) {
             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
         }
     }
@@ -343,11 +415,20 @@ private fun LocalQuickGrid(list: List<Track>, onPlay: (Track) -> Unit) {
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { t ->
                     Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(C.bg2)
+                        Modifier.weight(1f).clip(RoundedCornerShape(Radius.md))
+                            .background(C.glassCardElevated)
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                                    startY = 0f, endY = size.height * 0.3f,
+                                ))
+                            }
+                            .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(Radius.md))
                             .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.97f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = 10.dp, bottomStart = 10.dp)).background(C.bg3)) {
+                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(topStart = Radius.md, bottomStart = Radius.md)).background(C.bg3)) {
                             AsyncImage(model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).size(96).build(),
                                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         }
@@ -371,10 +452,22 @@ private fun LocalCarousel(title: String, list: List<Track>, vm: PlayerViewModel)
         LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             items(list, key = { it.id }) { t ->
                 Column(Modifier.width(150.dp).pressableScale(onClick = { vm.playList(list, t.id) }, scaleTo = 0.96f)) {
-                    Box(Modifier.size(150.dp).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
+                    Box(Modifier.size(150.dp).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)) {
                         AsyncImage(model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
                             contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                        Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp).clip(RoundedCornerShape(18.dp)).background(C.accent.copy(alpha = 0.95f)), Alignment.Center) {
+                        Box(Modifier.align(Alignment.BottomEnd).padding(8.dp).size(36.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(C.accent.copy(alpha = 0.90f))
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = 0.18f), Color.Transparent),
+                                    startY = 0f, endY = size.height * 0.4f,
+                                ))
+                            }
+                            .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
+                            Alignment.Center
+                        ) {
                             Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
@@ -421,7 +514,7 @@ fun DiscoverShimmerContent() {
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(1.6f)
-                .clip(RoundedCornerShape(Radius.lg))
+                .clip(RoundedCornerShape(Radius.xl))
                 .background(shimmerBrush)
         )
         Spacer(Modifier.height(32.dp))
@@ -437,13 +530,13 @@ fun DiscoverShimmerContent() {
 
         // Grid Shimmer (2 rows of 2 compact items)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
-            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.md)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.md)).background(shimmerBrush))
         }
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
-            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(10.dp)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.md)).background(shimmerBrush))
+            Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(Radius.md)).background(shimmerBrush))
         }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Type
 
 
 data class TabSpec2(val route: String, val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector)
@@ -43,7 +44,7 @@ data class TabSpec2(val route: String, val label: String, val iconFilled: ImageV
 // ─── iOS 26 Liquid Glass Tab Bar ─────────────────────────────────────────────
 
 /**
- * iOS 26-style Liquid Glass tab bar with:
+ * iOS 26-style Liquid Glass floating tab bar with:
  *
  *   ✅ Backdrop blur + saturation boost (API 31+)
  *   ✅ Specular highlights responding to device tilt
@@ -55,6 +56,9 @@ data class TabSpec2(val route: String, val label: String, val iconFilled: ImageV
  *   ✅ Graceful pre-API-31 fallback (heavier opaque fill)
  *   ✅ Hairline border + inner shadow for depth
  *   ✅ Haptic feedback on selection
+ *   ✅ Floating capsule with horizontal margin (iOS 26 style)
+ *   ✅ Active glass highlight pill behind active icon
+ *   ✅ Tiny labels below icons
  *
  * @param isScrolledDown pass true when the user is scrolling down content.
  *        The tab bar morphs smaller to focus on content.
@@ -72,34 +76,36 @@ fun GlassTabBar2(
 
     // ── Scroll-responsive morphing ───────────────────────────────────────────
     val barHeight by animateDpAsState(
-        targetValue = if (isScrolledDown) 42.dp else 54.dp,
+        targetValue = if (isScrolledDown) 48.dp else 64.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "barHeight",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (isScrolledDown) 20.dp else 26.dp,
+        targetValue = if (isScrolledDown) 20.dp else 24.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "iconSize",
     )
-    val dotScale by animateFloatAsState(
+    val labelAlpha by animateFloatAsState(
         targetValue = if (isScrolledDown) 0f else 1f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
-        label = "dotScale",
+        label = "labelAlpha",
     )
 
-    val outerRadius = 20.dp
+    val outerRadius = 28.dp
     val outerShape = RoundedCornerShape(outerRadius)
 
-    // ── Glass bar container ──────────────────────────────────────────────────
+    // ── Glass bar container — floating capsule ───────────────────────────────
     Box(
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 4.dp)
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
-                // Glass fill
+                // Glass fill — stronger for the floating capsule
                 .background(
-                    if (C.isDark) Color(0xCC0E0C1A) else Color(0xD9F4F4F8),
+                    if (C.isDark) Color(0xD90E0C1A) else Color(0xE8F4F4F8),
                     shape = outerShape,
                 )
                 // Rim light (top-edge glow for glass thickness)
@@ -108,7 +114,7 @@ fun GlassTabBar2(
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                C.glassRimLight.copy(alpha = if (C.isDark) 0.10f else 0.20f),
+                                C.glassRimLight.copy(alpha = if (C.isDark) 0.14f else 0.28f),
                                 Color.Transparent,
                             ),
                             startY = 0f,
@@ -116,14 +122,28 @@ fun GlassTabBar2(
                         ),
                     )
                 }
+                // Inner glow for depth
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                if (C.isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.08f),
+                            ),
+                            startY = size.height * 0.7f,
+                            endY = size.height,
+                        ),
+                    )
+                }
                 // Specular highlight (device tilt)
-                .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.05f, radius = 200f)
-                // Hairline border
+                .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.07f, radius = 220f)
+                // Hairline border — stronger for floating capsule
                 .border(
-                    width = if (C.isDark) 0.8.dp else 0.5.dp,
-                    color = if (C.isDark) Color(0x30FFFFFF) else Color(0x20000000),
+                    width = if (C.isDark) 1.dp else 0.7.dp,
+                    color = if (C.isDark) Color(0x40FFFFFF) else Color(0x28000000),
                     shape = outerShape,
-                )
+                ),
         ) {
             Row(
                 Modifier
@@ -139,7 +159,7 @@ fun GlassTabBar2(
                         tab = tab,
                         active = isActive,
                         iconSize = iconSize,
-                        dotScale = dotScale,
+                        labelAlpha = labelAlpha,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (isActive) return@LiquidTabItem
@@ -158,21 +178,19 @@ private fun LiquidTabItem(
     tab: TabSpec2,
     active: Boolean,
     iconSize: Dp,
-    dotScale: Float,
+    labelAlpha: Float,
     modifier: Modifier,
     onClick: () -> Unit,
 ) {
     val C = LocalAppColors.current
     val scale by animateFloatAsState(
-        targetValue = if (active) 1.08f else 1f,
+        targetValue = if (active) 1.06f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "tabScale2",
     )
-    val dotHeight by animateDpAsState(
-        targetValue = if (active) 4.dp else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-        label = "dotHeight",
-    )
+
+    // Glass highlight pill behind active icon
+    val pillShape = RoundedCornerShape(14.dp)
 
     Box(
         modifier
@@ -184,6 +202,24 @@ private fun LiquidTabItem(
             ),
         contentAlignment = Alignment.Center,
     ) {
+        // Active background pill
+        if (active) {
+            Box(
+                Modifier
+                    .width(52.dp)
+                    .height(32.dp)
+                    .clip(pillShape)
+                    .background(
+                        if (C.isDark) C.accent.copy(alpha = 0.25f)
+                        else C.accent.copy(alpha = 0.15f)
+                    )
+                    .border(
+                        0.5.dp,
+                        C.accent.copy(alpha = 0.30f),
+                        pillShape,
+                    )
+            )
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.scale(scale),
@@ -194,15 +230,16 @@ private fun LiquidTabItem(
                 tint = if (active) C.accent else C.textSecondary,
                 modifier = Modifier.size(iconSize),
             )
-            if (dotScale > 0.01f) {
-                Spacer(Modifier.height(3.dp))
-                Box(
-                    Modifier
-                        .width(4.dp)
-                        .height(dotHeight)
-                        .scale(dotScale)
-                        .clip(CircleShape)
-                        .background(if (active) C.accent else Color.Transparent)
+            // Label below icon (iOS 26 style)
+            if (labelAlpha > 0.01f) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    tab.label,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.1.sp,
+                    color = if (active) C.accent.copy(alpha = labelAlpha) else C.textTertiary.copy(alpha = labelAlpha * 0.7f),
+                    maxLines = 1,
                 )
             }
         }

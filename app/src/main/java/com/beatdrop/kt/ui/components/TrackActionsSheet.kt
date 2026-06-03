@@ -1,6 +1,7 @@
 package com.beatdrop.kt.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +32,7 @@ import com.beatdrop.kt.ui.theme.LocalAppColors
 /**
  * Spotify/Apple-Music-style long-press action sheet for a track:
  * Play next · Add to queue · Add to playlist · Like.
+ * Glass-styled bottom sheet.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +43,10 @@ fun TrackActionsSheet(vm: PlayerViewModel, track: Track, onDismiss: () -> Unit) 
     var showPlaylists by remember { mutableStateOf(false) }
     val isLiked = liked.contains(track.id)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = C.bg1) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = C.glassSheetBackground,
+    ) {
         // Header
         Row(Modifier.fillMaxWidth().padding(20.dp, 4.dp, 20.dp, 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -45,7 +54,7 @@ fun TrackActionsSheet(vm: PlayerViewModel, track: Track, onDismiss: () -> Unit) 
                 Text(track.artist, color = C.textSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Divider(color = C.separator)
+        HorizontalDivider(color = C.separator)
 
         if (!showPlaylists) {
             ActionItem(if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -75,7 +84,7 @@ fun TrackActionsSheet(vm: PlayerViewModel, track: Track, onDismiss: () -> Unit) 
 }
 
 @Composable
-private fun ActionItem(icon: ImageVector, label: String, tint: androidx.compose.ui.graphics.Color? = null, onClick: () -> Unit) {
+private fun ActionItem(icon: ImageVector, label: String, tint: Color? = null, onClick: () -> Unit) {
     val C = LocalAppColors.current
     Row(
         Modifier.fillMaxWidth().pressableScale(onClick = onClick, scaleTo = 0.98f).padding(horizontal = 20.dp, vertical = 14.dp),

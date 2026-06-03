@@ -81,23 +81,145 @@ fun GradientScrim(modifier: Modifier = Modifier, color: Color = Color.Black) {
     Box(modifier.background(Brush.verticalGradient(listOf(Color.Transparent, color.copy(alpha = 0.85f)))))
 }
 
-/** Shared Liquid Glass card — translucent fill + rim light + hairline border. */
+/**
+ * Shared Liquid Glass card — multi-layer translucent fill + rim light + inner glow + hairline border.
+ * Matches the iOS 26 floating glass panels from the Spotify concept.
+ */
 @Composable
 fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val C = LocalAppColors.current
-    val shape = RoundedCornerShape(Radius.lg)
+    val shape = RoundedCornerShape(Radius.xl)
     Column(
         modifier.fillMaxWidth().padding(vertical = 4.dp)
             .clip(shape)
-            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.55f))
+            // Base glass fill
+            .background(C.glassCardElevated)
+            // Top rim light for glass thickness
             .drawWithContent {
                 drawContent()
                 drawRect(brush = Brush.verticalGradient(
-                    listOf(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f), Color.Transparent),
+                    listOf(
+                        if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.18f),
+                        Color.Transparent
+                    ),
                     startY = 0f, endY = size.height * 0.3f))
+                // Bottom inner glow
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        if (C.isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f),
+                    ),
+                    startY = size.height * 0.7f,
+                    endY = size.height,
+                ))
             }
-            .border(0.8.dp, C.liquidGlassBorder, shape)
-            .padding(16.dp),
+            // Hairline border
+            .border(0.8.dp, C.glassCardElevatedBorder, shape)
+            .padding(18.dp),
         content = content,
     )
+}
+
+/**
+ * Liquid Glass pill — stadium-shaped glass chip for tags, filters, action buttons.
+ * Used throughout the iOS 26 Spotify concept for compact interactive elements.
+ */
+@Composable
+fun GlassPill(
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    onClick: () -> Unit = {},
+    content: @Composable RowScope.() -> Unit,
+) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier
+            .clip(shape)
+            .background(
+                when {
+                    active -> C.accent.copy(alpha = 0.55f)
+                    C.isDark -> C.glassFloating
+                    else -> C.glassFloating
+                }
+            )
+            .drawWithContent {
+                drawContent()
+                // Top rim light
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(
+                        if (active) C.accent.copy(alpha = 0.18f) else Color.White.copy(alpha = if (C.isDark) 0.08f else 0.15f),
+                        Color.Transparent
+                    ),
+                    startY = 0f, endY = size.height * 0.4f,
+                ))
+            }
+            .border(
+                0.5.dp,
+                if (active) C.accent.copy(alpha = 0.35f) else C.glassFloatingBorder,
+                shape,
+            )
+            .pressableScale(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/**
+ * Liquid Glass search bar — frosted stadium pill with magnifying glass icon.
+ * Matches the iOS 26 concept's translucent search fields.
+ */
+@Composable
+fun GlassSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    placeholder: String = "Search",
+    modifier: Modifier = Modifier,
+    leadingIcon: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(C.glassFloating)
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f),
+                        Color.Transparent
+                    ),
+                    startY = 0f, endY = size.height * 0.4f,
+                ))
+            }
+            .border(0.7.dp, C.glassFloatingBorder, shape)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(Modifier.width(10.dp))
+        }
+        Box(Modifier.weight(1f)) {
+            if (query.isEmpty()) {
+                Text(placeholder, style = Type.body, color = C.textTertiary)
+            }
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = Type.body.copy(color = C.text),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(C.accent),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (trailingIcon != null) {
+            Spacer(Modifier.width(8.dp))
+            trailingIcon()
+        }
+    }
 }

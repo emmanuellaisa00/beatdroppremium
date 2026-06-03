@@ -45,7 +45,7 @@ fun Modifier.pressableScale(
     )
     val C = LocalAppColors.current
     val glowAlpha by animateFloatAsState(
-        targetValue = if (pressed && enableGlow) 0.3f else 0f,
+        targetValue = if (pressed && enableGlow) 0.35f else 0f,
         animationSpec = if (pressed) spring(stiffness = 600f) else spring(stiffness = 200f),
         label = "pressGlow",
     )

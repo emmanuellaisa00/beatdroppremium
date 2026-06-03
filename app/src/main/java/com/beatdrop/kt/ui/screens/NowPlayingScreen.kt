@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.*
@@ -38,6 +39,7 @@ import com.beatdrop.kt.ui.components.glassBlur
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.rememberArtworkColor
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
 
 @kotlin.OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -94,7 +96,7 @@ fun NowPlayingScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(artColor.copy(alpha = 0.72f), Color(0xFF080810))
+                    listOf(artColor.copy(alpha = 0.78f), Color(0xFF06050B))
                 )
             )
             .pointerInput(Unit) {
@@ -116,10 +118,10 @@ fun NowPlayingScreen(
                             .createBlurEffect(80f, 80f, Shader.TileMode.CLAMP)
                             .asComposeRenderEffect()
                     }
-                    alpha = 0.38f
+                    alpha = 0.40f
                 },
         )
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
 
         // ── Content column ────────────────────────────────────────────────────
         Column(
@@ -131,7 +133,7 @@ fun NowPlayingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
 
-            // Drag pill
+            // Drag pill — glass style
             Box(
                 Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center,
@@ -140,21 +142,20 @@ fun NowPlayingScreen(
                     Modifier
                         .size(36.dp, 4.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.28f))
+                        .background(Color.White.copy(alpha = 0.35f))
                         .pressableScale(onClick = onCollapse)
                 )
             }
 
-            // ── Auto-Mix "next up" pill ────────────────────────────────────────
-            // Shown only during a crossfade. The icon + title give immediate
-            // feedback that the seamless blend is happening.
+            // ── Auto-Mix "next up" glass pill ─────────────────────────────────
             mixingNext?.let { upNext ->
                 Row(
                     modifier = Modifier
                         .padding(top = 6.dp, bottom = 2.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.16f))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(0.6.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -193,11 +194,11 @@ fun NowPlayingScreen(
                     ) {
                         Box(
                             Modifier
-                                .fillMaxWidth(0.90f)
+                                .fillMaxWidth(0.88f)
                                 .aspectRatio(1f)
                                 .scale(artScale)
-                                .shadow(32.dp, RoundedCornerShape(22.dp), clip = false)
-                                .clip(RoundedCornerShape(22.dp))
+                                .shadow(36.dp, RoundedCornerShape(Radius.xxl), clip = false)
+                                .clip(RoundedCornerShape(Radius.xxl))
                                 .background(Color.Black.copy(alpha = 0.15f)),
                             Alignment.Center,
                         ) {
@@ -212,7 +213,7 @@ fun NowPlayingScreen(
                 } else {
                     // ── LYRICS MODE ───────────────────────────────────────────
                     Column(Modifier.fillMaxSize()) {
-                        // Compact header: thumbnail + title + artist
+                        // Compact header: thumbnail + title + artist — glass strip
                         Row(
                             Modifier.fillMaxWidth().padding(vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -220,9 +221,9 @@ fun NowPlayingScreen(
                             Box(
                                 Modifier
                                     .size(48.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(Radius.md))
                                     .background(Color.White.copy(alpha = 0.12f))
-                                    .border(0.6.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(10.dp)),
+                                    .border(0.6.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(Radius.md)),
                             ) {
                                 AsyncImage(
                                     model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
@@ -249,7 +250,6 @@ fun NowPlayingScreen(
                                     overflow = TextOverflow.Ellipsis,
                                 )
                             }
-                            // Star icon in lyrics header
                             val isFav = liked.contains(t.id)
                             IconButton(onClick = { vm.toggleLike(t.id) }) {
                                 Icon(
@@ -331,7 +331,6 @@ fun NowPlayingScreen(
                     }
                     Spacer(Modifier.width(10.dp))
                     val isFav = liked.contains(t.id)
-                    // Star — filled gold when liked, bright white outline when not
                     IconButton(onClick = { vm.toggleLike(t.id) }) {
                         Icon(
                             if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
@@ -340,7 +339,6 @@ fun NowPlayingScreen(
                             modifier = Modifier.size(24.dp),
                         )
                     }
-                    // More — opens track actions sheet
                     IconButton(onClick = { showActions = true }) {
                         Icon(
                             Icons.Filled.MoreHoriz, "More",
@@ -351,7 +349,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            // ── Seek bar ──────────────────────────────────────────────────────
+            // ── Seek bar — glass track style ──────────────────────────────────
             val safeDur = dur.coerceAtLeast(1L)
             Slider(
                 value         = pos.coerceIn(0, safeDur).toFloat(),
@@ -364,10 +362,10 @@ fun NowPlayingScreen(
                 ),
                 modifier = Modifier.fillMaxWidth().height(40.dp),
                 thumb = {
-                    // Larger thumb for one-handed use
                     Box(
                         Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
                             .background(Color.White)
+                            .shadow(4.dp, CircleShape)
                     )
                 },
             )
@@ -381,22 +379,23 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(6.dp))
 
-            // ── Transport controls ────────────────────────────────────────────
+            // ── Transport controls — glass capsule row ────────────────────────
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
-                // Previous / seek-back
+                // Previous
                 IconButton(onClick = { vm.prev() }, modifier = Modifier.size(64.dp)) {
                     Icon(Icons.Filled.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
-                // Play / pause — large circle button
+                // Play / pause — glass circle button
                 Box(
                     Modifier
                         .size(76.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
+                        .background(Color.White.copy(alpha = 0.18f))
+                        .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
                         .pressableScale(onClick = { vm.togglePlay() }),
                     Alignment.Center,
                 ) {
@@ -407,7 +406,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.size(42.dp),
                     )
                 }
-                // Next / seek-forward
+                // Next
                 IconButton(onClick = { vm.next() }, modifier = Modifier.size(64.dp)) {
                     Icon(Icons.Filled.SkipNext, null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
@@ -415,7 +414,7 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(10.dp))
 
-            // ── Volume slider (SnapTube / Apple Music style) ──────────────────
+            // ── Volume slider (Apple Music style) ──────────────────────────────
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -445,15 +444,24 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // ── Bottom dock: Lyrics · AirPlay · Queue ─────────────────────────
-            // Frosted glass pill so icons are always legible on any background
+            // ── Bottom dock: Lyrics · AirPlay · Queue — glass pill ─────────────
             Row(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .border(0.8.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(32.dp))
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.14f))
+                    .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(50))
+                    // Top rim light on dock pill
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
+                                startY = 0f, endY = size.height * 0.4f,
+                            )
+                        )
+                    }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment     = Alignment.CenterVertically,

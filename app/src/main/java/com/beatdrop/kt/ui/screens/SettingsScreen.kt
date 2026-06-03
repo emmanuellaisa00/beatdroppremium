@@ -84,7 +84,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                     Icon(Icons.Filled.ArrowBack, "Back", tint = C.text)
                 }
                 Spacer(Modifier.width(4.dp))
-                Text("Settings", color = C.text, fontWeight = FontWeight.Black, fontSize = 26.sp)
+                Text("Settings", color = C.text, fontWeight = FontWeight.Black, fontSize = 28.sp)
             }
         }
 
@@ -113,8 +113,6 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 ToggleRow("Auto-Mix (smart crossfade)", Icons.Filled.AutoAwesome, autoDj) { vm.setAutoDjEnabled(it) }
                 if (autoDj) {
                     GlassDivider()
-                    // Crossfade duration slider — appears only when Auto-Mix is on.
-                    // 4..12 s in 1-second steps; 8 s is the DJ-software standard.
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
@@ -144,8 +142,6 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         item { SectionHeader("STREAMING", Icons.Filled.NetworkCheck) }
         item {
             GlassCard {
-                // Music-mode toggle. ON: searches YouTube Music (curated songs).
-                // OFF: generic YouTube search (videos, podcasts, mixes).
                 ToggleRow("Music-only search", Icons.Filled.MusicNote, musicSearch) {
                     vm.setMusicSearchEnabled(it)
                 }
@@ -156,7 +152,6 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                     color = C.textTertiary, fontSize = 12.sp,
                 )
                 GlassDivider()
-                // Stream-quality picker chips.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
@@ -184,7 +179,6 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                     modifier = Modifier.padding(top = 6.dp),
                 )
                 GlassDivider()
-                // Optional self-hosted resolver backend URL.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Filled.Cloud, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
@@ -212,7 +206,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 ) {
                     val isValidUrl = backendText.isBlank() || backendText.matches(Regex("https?://.*"))
                     if (!isValidUrl && backendText.isNotBlank()) {
-                        Text("URL must start with http:// or https://", color = androidx.compose.ui.graphics.Color(0xFFE53935), fontSize = 11.sp)
+                        Text("URL must start with http:// or https://", color = Color(0xFFE53935), fontSize = 11.sp)
                     }
                     GlassChip("Save", isValidUrl && backendText != resolverBackend) {
                         if (isValidUrl) vm.setResolverBackend(backendText)
@@ -319,7 +313,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
 @Composable
 private fun GlassDivider() {
     val C = LocalAppColors.current
-    Divider(
+    HorizontalDivider(
         color = if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f),
         thickness = 0.5.dp,
         modifier = Modifier.padding(vertical = 4.dp),
@@ -397,8 +391,18 @@ private fun GlassChip(label: String, active: Boolean, icon: ImageVector? = null,
                 if (active) C.accent.copy(alpha = 0.55f)
                 else if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f)
             )
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(
+                        if (active) C.accent.copy(alpha = 0.12f) else Color.White.copy(alpha = if (C.isDark) 0.06f else 0.10f),
+                        Color.Transparent
+                    ),
+                    startY = 0f, endY = size.height * 0.4f,
+                ))
+            }
             .then(
-                if (active) Modifier.border(0.5.dp, C.accent.copy(alpha = 0.3f), shape)
+                if (active) Modifier.border(0.5.dp, C.accent.copy(alpha = 0.35f), shape)
                 else Modifier.border(0.5.dp, C.liquidGlassBorder, shape)
             )
             .pressableScale(onClick = onClick)

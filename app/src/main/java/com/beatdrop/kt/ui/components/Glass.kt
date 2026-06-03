@@ -132,11 +132,35 @@ fun Modifier.rimLight(
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    C.glassRimLight.copy(alpha = if (C.isDark) 0.12f else 0.25f),
+                    C.glassRimLight.copy(alpha = if (C.isDark) 0.16f else 0.30f),
                     Color.Transparent,
                 ),
                 startY = 0f,
                 endY = size.height * 0.35f,
+            ),
+        )
+    }
+}
+
+// ─── Inner Glow (bottom-edge soft glow for depth) ────────────────────────────
+
+/**
+ * Draws a subtle bottom-edge inner glow for depth perception.
+ * Gives glass a sense of thickness and dimensionality.
+ */
+@Composable
+fun Modifier.innerGlow(): Modifier {
+    val C = LocalAppColors.current
+    return this.drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    C.glassInnerShadow.copy(alpha = if (C.isDark) 0.06f else 0.04f),
+                ),
+                startY = size.height * 0.7f,
+                endY = size.height,
             ),
         )
     }
@@ -163,12 +187,12 @@ fun TintedGlassButton(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.18f),
+                        Color.White.copy(alpha = 0.22f),
                         Color.Transparent,
                     )
                 )
             )
-            .border(0.6.dp, tintColor.copy(alpha = 0.35f), shape),
+            .border(0.6.dp, tintColor.copy(alpha = 0.40f), shape),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

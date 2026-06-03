@@ -18,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +87,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
             Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)
         ) {
             Text(
-                "Browse", color = C.text, fontSize = 26.sp, fontWeight = FontWeight.Black,
+                "Browse", color = C.text, fontSize = 28.sp, fontWeight = FontWeight.Black,
                 modifier = Modifier.padding(vertical = 10.dp),
             )
 
@@ -93,41 +95,61 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
             val isOnline = com.beatdrop.kt.util.NetworkMonitor.isOnline.value
             if (!isOnline) {
                 Row(
-                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                        .background(androidx.compose.ui.graphics.Color(0xFFFFF3CD)).padding(10.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp).clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFFFF3CD)).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.WifiOff, null, tint = androidx.compose.ui.graphics.Color(0xFF856404), modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.WifiOff, null, tint = Color(0xFF856404), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("You're offline. Search results won't load.", color = androidx.compose.ui.graphics.Color(0xFF856404), fontSize = 12.sp)
+                    Text("You're offline. Search results won't load.", color = Color(0xFF856404), fontSize = 12.sp)
                 }
             }
 
-            // ── Search field ──────────────────────────────────────────────────
-            OutlinedTextField(
-                value = q,
-                onValueChange = { vm.setOnlineQuery(it); if (it.length >= 2) vm.loadSuggestions() },
-                placeholder = { Text("Search songs, artists, albums…") },
-                leadingIcon = { Icon(Icons.Filled.Search, null, tint = C.textTertiary) },
-                trailingIcon = {
-                    if (q.isNotEmpty()) IconButton(onClick = { vm.setOnlineQuery("") }) {
-                        Icon(Icons.Filled.Close, "Clear", tint = C.textTertiary)
+            // ── Search field — glass style ─────────────────────────────────────
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50.dp))
+                    .background(C.glassFloating)
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(brush = Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                            startY = 0f, endY = size.height * 0.4f,
+                        ))
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = C.accent,
-                    unfocusedBorderColor = C.border,
-                    focusedContainerColor = C.bg2,
-                    unfocusedContainerColor = C.bg2,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { vm.runOnlineSearch() }),
-            )
+                    .border(0.7.dp, C.glassFloatingBorder, RoundedCornerShape(50.dp))
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = q,
+                    onValueChange = { vm.setOnlineQuery(it); if (it.length >= 2) vm.loadSuggestions() },
+                    placeholder = { Text("Search songs, artists, albums…", color = C.textTertiary) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null, tint = C.textTertiary) },
+                    trailingIcon = {
+                        if (q.isNotEmpty()) IconButton(onClick = { vm.setOnlineQuery("") }) {
+                            Icon(Icons.Filled.Close, "Clear", tint = C.textTertiary)
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(50.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = C.text,
+                        unfocusedTextColor = C.text,
+                        cursorColor = C.accent,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { vm.runOnlineSearch() }),
+                )
+            }
 
-            // ── Search history or autocomplete suggestions ─────────────────────────────────────────────
+            // ── Search history or autocomplete suggestions ─────────────────
             val showHistory = q.isEmpty() && history.isNotEmpty() && results.isEmpty()
             val showSuggestions = q.isNotEmpty() && suggestions.isNotEmpty() && results.isEmpty()
 
@@ -166,7 +188,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                                     Icon(Icons.Filled.Close, "Delete", tint = C.textTertiary, modifier = Modifier.size(16.dp))
                                 }
                             }
-                            Divider(color = C.bg3.copy(alpha = 0.5f), thickness = 0.5.dp)
+                            HorizontalDivider(color = C.separator, thickness = 0.5.dp)
                         }
                     } else if (showSuggestions) {
                         items(suggestions) { suggestion ->
@@ -183,7 +205,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                                 Spacer(Modifier.width(14.dp))
                                 Text(suggestion, color = C.text, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Divider(color = C.bg3.copy(alpha = 0.5f), thickness = 0.5.dp)
+                            HorizontalDivider(color = C.separator, thickness = 0.5.dp)
                         }
                     }
                 }
@@ -207,7 +229,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                             CatalogRow(
                                 result = r,
                                 isSaved = job?.status == DownloadStatus.COMPLETED,
-                                onPlay = { 
+                                onPlay = {
                                     vm.prepareAndPlayOnline(r)
                                     onExpandPlayer()
                                 },
@@ -272,9 +294,9 @@ private fun CatalogRow(
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Artwork with play overlay
+        // Artwork with play overlay — glass tint
         Box(
-            Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)).background(C.bg3),
+            Modifier.size(52.dp).clip(RoundedCornerShape(Radius.md)).background(C.bg3),
             Alignment.Center,
         ) {
             if (result.thumbnailUrl != null) {
@@ -326,7 +348,7 @@ private fun CatalogRow(
             modifier = Modifier.padding(horizontal = 8.dp),
         )
 
-        // Save action (rebranded from "Download")
+        // Save action
         IconButton(
             onClick = onSave,
             modifier = Modifier.size(36.dp),

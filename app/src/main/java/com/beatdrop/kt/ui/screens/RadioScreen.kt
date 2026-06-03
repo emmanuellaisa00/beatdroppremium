@@ -59,34 +59,43 @@ fun RadioScreen(vm: PlayerViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(MIXES) { mix ->
-                    val shape = RoundedCornerShape(Radius.lg)
+                    val shape = RoundedCornerShape(Radius.xl)
                     Box(
                         Modifier.fillMaxWidth().aspectRatio(1.1f)
                             .clip(shape)
                             .background(Brush.linearGradient(mix.gradient))
-                            // Glass overlay
-                            .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.15f))
+                            // Glass overlay — stronger
+                            .background(if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.18f))
                             .drawWithContent {
                                 drawContent()
+                                // Top rim light
                                 drawRect(
                                     brush = Brush.verticalGradient(
-                                        listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
+                                        listOf(Color.White.copy(alpha = 0.14f), Color.Transparent),
                                         startY = 0f, endY = size.height * 0.3f,
                                     )
                                 )
+                                // Bottom inner glow
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        listOf(Color.Transparent, Color.White.copy(alpha = 0.04f)),
+                                        startY = size.height * 0.7f,
+                                        endY = size.height,
+                                    )
+                                )
                             }
-                            .border(0.5.dp, Color.White.copy(alpha = 0.15f), shape)
+                            .border(0.6.dp, Color.White.copy(alpha = 0.20f), shape)
                             .pressableScale(onClick = {
                                 val shuffled = tracks.shuffled().take(20)
                                 if (shuffled.isNotEmpty()) vm.playList(shuffled, shuffled.first().id)
                             })
-                            .padding(14.dp),
+                            .padding(16.dp),
                     ) {
                         Column(Modifier.align(Alignment.BottomStart)) {
-                            Icon(Icons.Filled.Radio, null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(22.dp))
+                            Icon(Icons.Filled.Radio, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
                             Spacer(Modifier.height(6.dp))
                             Text(mix.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Text(mix.desc, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, maxLines = 2)
+                            Text(mix.desc, color = Color.White.copy(alpha = 0.80f), fontSize = 11.sp, maxLines = 2)
                         }
                     }
                 }

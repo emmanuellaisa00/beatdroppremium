@@ -48,7 +48,7 @@ import kotlin.math.abs
  *  - Specular rim light (top-edge glow)
  *  - Context-aware drop shadow
  *  - Tinted glass play button (not flat solid)
- *  - Concentric corner radii (outer = 24dp, artwork = 16dp = 24-8 padding)
+ *  - Concentric corner radii (outer = 28dp, artwork = 20dp = 28-8 padding)
  *  - tap → expand to Now Playing
  *  - swipe left → next, swipe right → previous
  *  - swipe up → expand
@@ -72,45 +72,56 @@ fun MiniPlayer(
     val animX by animateFloatAsState(dragX, label = "miniX")
     val animY by animateFloatAsState(dragY.coerceAtMost(0f), label = "miniY")
 
-    val outerRadius = 24.dp
-    val innerRadius = Radius.inner(outerRadius, 8.dp)  // Concentric: 24 - 8 = 16dp
+    val outerRadius = 28.dp
+    val innerRadius = Radius.inner(outerRadius, 8.dp)  // Concentric: 28 - 8 = 20dp
     val outerShape = RoundedCornerShape(outerRadius)
 
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 4.dp)
-                .graphicsLayer {
-                    translationX = animX
-                    translationY = animY
-                    // Context-aware drop shadow
-                    shadowElevation = if (C.isDark) 12f else 6f
-                    shape = outerShape
-                    clip = false
-                }
-                .clip(outerShape)
-                // Glass fill
-                .background(if (C.isDark) Color(0xF0101018) else Color(0xF0F2F2F7))
-                // Rim light (Fresnel top-edge for thickness)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .graphicsLayer {
+                translationX = animX
+                translationY = animY
+                // Context-aware drop shadow — stronger for elevated glass
+                shadowElevation = if (C.isDark) 16f else 8f
+                shape = outerShape
+                clip = false
+            }
+            .clip(outerShape)
+            // Glass fill — stronger for floating capsule
+            .background(if (C.isDark) Color(0xF4101018) else Color(0xF4F2F2F7))
+            // Rim light (Fresnel top-edge for thickness) — stronger
             .drawWithContent {
                 drawContent()
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            C.glassRimLight.copy(alpha = if (C.isDark) 0.10f else 0.18f),
+                            C.glassRimLight.copy(alpha = if (C.isDark) 0.14f else 0.24f),
                             Color.Transparent,
                         ),
                         startY = 0f,
                         endY = size.height * 0.4f,
                     ),
                 )
+                // Bottom inner glow
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            if (C.isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.06f),
+                        ),
+                        startY = size.height * 0.7f,
+                        endY = size.height,
+                    ),
+                )
             }
             // Specular highlight (device tilt)
-            .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.05f, radius = 180f)
-            // Hairline border
+            .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.07f, radius = 200f)
+            // Hairline border — stronger
             .border(
-                if (C.isDark) 0.8.dp else 0.5.dp,
-                C.liquidGlassBorder,
+                if (C.isDark) 1.dp else 0.7.dp,
+                if (C.isDark) Color(0x40FFFFFF) else Color(0x22000000),
                 outerShape,
             )
             .pointerInput(track.id) {
@@ -170,9 +181,9 @@ fun MiniPlayer(
                 Icon(Icons.Filled.SkipNext, null, tint = C.text)
             }
         }
-        // Progress bar
+        // Progress bar — thinner and more refined
         Box(
-            Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomStart)
+            Modifier.fillMaxWidth().height(2.5.dp).align(Alignment.BottomStart)
                 .background(if (C.isDark) Color(0x1AFFFFFF) else Color(0x14000000))
         ) {
             Box(

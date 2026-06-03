@@ -121,8 +121,6 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val perm = rememberPermissionState(audioPermission)
     // POST_NOTIFICATIONS (Android 13+) — needed for the media-playback notification
-    // with transport controls. Playback works without it, but the notification is
-    // hidden and the foreground service is more likely to be killed when backgrounded.
     val notifPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS) else null
 
@@ -236,9 +234,9 @@ fun MainScaffold(vm: PlayerViewModel) {
 
     val artColor = com.beatdrop.kt.ui.components.rememberArtworkColor(current?.artworkUri)
     val bgColors = if (C.isDark) {
-        listOf(artColor.copy(alpha = 0.28f), Color(0xFF100E17), Color(0xFF07060A))
+        listOf(artColor.copy(alpha = 0.32f), Color(0xFF0C0A16), Color(0xFF06050B))
     } else {
-        listOf(artColor.copy(alpha = 0.15f), Color(0xFFF9F7FC), Color(0xFFF0EDF5))
+        listOf(artColor.copy(alpha = 0.18f), Color(0xFFF9F7FC), Color(0xFFF0EDF5))
     }
 
     val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
@@ -262,7 +260,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                                     .createBlurEffect(150f, 150f, android.graphics.Shader.TileMode.CLAMP)
                                     .asComposeRenderEffect()
                             }
-                            alpha = if (C.isDark) 0.5f else 0.35f
+                            alpha = if (C.isDark) 0.55f else 0.38f
                         }
                 )
             } else {
@@ -273,8 +271,8 @@ fun MainScaffold(vm: PlayerViewModel) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(if (C.isDark) Color(0xD90A0910) else Color(0xD9FFFFFF))
-                    .specularHighlight(tilt, intensity = if (C.isDark) 0.05f else 0.03f, radius = 1000f)
+                    .background(if (C.isDark) Color(0xDC06050B) else Color(0xDCFFFFFF))
+                    .specularHighlight(tilt, intensity = if (C.isDark) 0.06f else 0.04f, radius = 1000f)
             )
 
             AnimatedContent(
@@ -421,7 +419,7 @@ fun StatusBarGlassOverlay() {
             .fillMaxWidth()
             .height(topPadding)
             .background(
-                if (C.isDark) Color(0x330A0910) else Color(0x33EEEEEE)
+                if (C.isDark) Color(0x4006050B) else Color(0x40EEEEEE)
             )
             .drawWithContent {
                 drawContent()
@@ -430,7 +428,7 @@ fun StatusBarGlassOverlay() {
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            if (C.isDark) Color(0x0CFFFFFF) else Color(0x08000000),
+                            if (C.isDark) Color(0x10FFFFFF) else Color(0x0A000000),
                         ),
                         startY = size.height * 0.6f,
                         endY = size.height,

@@ -29,6 +29,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -85,16 +86,16 @@ fun LibraryScreen(
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = 8.dp)
                 .clip(RoundedCornerShape(50.dp))
-                .background(
-                    if (C.isDark) Color(0x14FFFFFF)
-                    else Color(0xB0FFFFFF)
-                )
-                .border(
-                    0.8.dp,
-                    C.liquidGlassBorder,
-                    RoundedCornerShape(50.dp),
-                )
-                .padding(horizontal = 16.dp, vertical = 13.dp),
+                .background(C.glassFloating)
+                .drawWithContent {
+                    drawContent()
+                    drawRect(brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
+                        startY = 0f, endY = size.height * 0.4f,
+                    ))
+                }
+                .border(0.7.dp, C.glassFloatingBorder, RoundedCornerShape(50.dp))
+                .padding(horizontal = 18.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Icons.Filled.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
@@ -105,17 +106,27 @@ fun LibraryScreen(
             }
         }
 
-        // ── Segmented control ───────────────────────────────────────────────
+        // ── Segmented control — glass pill style ────────────────────────────
         Row(
             Modifier.padding(horizontal = Spacing.lg, vertical = 8.dp)
-                .clip(RoundedCornerShape(12.dp)).background(C.bg2).padding(3.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(C.glassFloating)
+                .border(0.5.dp, C.glassFloatingBorder, RoundedCornerShape(14.dp))
+                .padding(3.dp)
                 .fillMaxWidth(),
         ) {
             LibTab.values().forEach { t ->
                 val active = t == tab
                 Box(
-                    Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
-                        .background(if (active) C.accent else Color.Transparent)
+                    Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (active) C.accent.copy(alpha = 0.55f)
+                            else Color.Transparent
+                        )
+                        .then(
+                            if (active) Modifier.border(0.5.dp, C.accent.copy(alpha = 0.30f), RoundedCornerShape(12.dp))
+                            else Modifier
+                        )
                         .pressableScale(onClick = { tab = t }, scaleTo = 0.97f)
                         .padding(vertical = 9.dp),
                     contentAlignment = Alignment.Center,
@@ -189,9 +200,16 @@ private fun ActionPill(label: String, icon: androidx.compose.ui.graphics.vector.
     val isAccent = bg == C.accent
     Row(
         modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(if (isAccent) bg.copy(alpha = 0.55f) else if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-            .border(0.5.dp, if (isAccent) bg.copy(alpha = 0.3f) else C.liquidGlassBorder, RoundedCornerShape(12.dp))
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = if (isAccent) 0.12f else if (C.isDark) 0.06f else 0.08f), Color.Transparent),
+                    startY = 0f, endY = size.height * 0.4f,
+                ))
+            }
+            .border(0.5.dp, if (isAccent) bg.copy(alpha = 0.30f) else C.liquidGlassBorder, RoundedCornerShape(14.dp))
             .pressableScale(onClick = onClick)
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
@@ -211,7 +229,7 @@ private fun AlbumsGrid(vm: PlayerViewModel, onOpen: (String, String) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         items(albums, key = { it.album + it.artist }) { a ->
             Column(Modifier.pressableScale(onClick = { onOpen(a.album, a.artist) })) {
-                Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(Radius.md)).background(C.bg3)) {
+                Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(Radius.lg)).background(C.bg3)) {
                     AsyncImage(model = ImageRequest.Builder(ctx).data(a.artworkUri).crossfade(true).size(256).build(),
                         contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                 }
@@ -296,7 +314,9 @@ private fun SortMenu(current: SortMode, onPick: (SortMode) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         Row(
-            Modifier.clip(RoundedCornerShape(10.dp)).background(C.bg2)
+            Modifier.clip(RoundedCornerShape(10.dp))
+                .background(C.glassFloating)
+                .border(0.5.dp, C.glassFloatingBorder, RoundedCornerShape(10.dp))
                 .pressableScale(onClick = { open = true }, scaleTo = 0.95f)
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
