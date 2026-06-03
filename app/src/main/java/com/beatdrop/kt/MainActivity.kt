@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2
 import com.beatdrop.kt.ui.components.MiniPlayer
@@ -272,7 +274,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                 Modifier
                     .fillMaxSize()
                     .background(if (C.isDark) Color(0xD90A0910) else Color(0xD9FFFFFF))
-                    .com.beatdrop.kt.ui.components.specularHighlight(tilt, intensity = if (C.isDark) 0.05f else 0.03f, radius = 1000f)
+                    .specularHighlight(tilt, intensity = if (C.isDark) 0.05f else 0.03f, radius = 1000f)
             )
 
             AnimatedContent(
