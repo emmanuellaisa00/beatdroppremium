@@ -479,7 +479,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         c.setMediaItems(list.map { it.toMediaItem() }, startIndex, 0L)
         c.prepare()
         // Apply this track's loudness gain if we have it; default to 1.0.
-        c.volume = loudnessGains[track.id] ?: 1.0f
+        c.volume = (loudnessGains[track.id] ?: 1.0f).let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
         c.play()
         _current.value = track; _duration.value = track.durationMs
         prefetchedNextId = null   // re-arm prefetch for the new current track
@@ -656,8 +656,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         // Loudness gains — apply per-track so a quiet track doesn't dip in
         // the blend and a loud one doesn't overpower. Default to 1.0 (no
         // change) when the analyzer hasn't run for a track yet.
-        val gainA = loudnessGains[cur.id] ?: 1.0f
-        val gainB = loudnessGains[next.id] ?: 1.0f
+        val gainA = (loudnessGains[cur.id] ?: 1.0f).let { if (it.isNaN()) 1.0f else it }
+        val gainB = (loudnessGains[next.id] ?: 1.0f).let { if (it.isNaN()) 1.0f else it }
 
         crossfadeJob = viewModelScope.launch {
             try {
@@ -678,8 +678,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 for (i in 0..ticks) {
                     val t = i.toFloat() / ticks                       // 0..1
                     val theta = (t * Math.PI / 2.0).toFloat()         // 0..π/2
-                    mainPlayer.volume = kotlin.math.cos(theta) * gainA  // 1·gA → 0
-                    deck.volume       = kotlin.math.sin(theta) * gainB  // 0 → 1·gB
+                    mainPlayer.volume = (kotlin.math.cos(theta) * gainA).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
+                    deck.volume       = (kotlin.math.sin(theta) * gainB).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
                     delay(stepMs)
                 }
                 // Hand off Deck B → main player at exactly Deck B's current position.
@@ -689,7 +689,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 mainPlayer.repeatMode = savedRepeatMode
                 mainPlayer.setMediaItem(next.toMediaItem())
                 mainPlayer.prepare()
-                mainPlayer.volume = gainB                              // keep B's gain after handoff
+                mainPlayer.volume = gainB.let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }                              // keep B's gain after handoff
                 mainPlayer.seekTo(handoffPos)
                 mainPlayer.play()
                 // Update UI / lyrics / play count exactly like a normal track change.

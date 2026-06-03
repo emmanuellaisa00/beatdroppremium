@@ -46,7 +46,7 @@ object LoudnessAnalyzer {
      *  target reference loudness. Returns null on decode failure. */
     fun analyze(filePath: String): Float? {
         val rms = runCatching { decodeAndComputeRms(filePath) }.getOrNull() ?: return null
-        if (rms <= 0f) return null
+        if (rms.isNaN() || rms <= 0f) return null
         val gain = REFERENCE_RMS / rms
         return gain.coerceIn(0.5f, 1.0f)
     }
@@ -54,7 +54,7 @@ object LoudnessAnalyzer {
     /** Same idea but expressed in dB — handy for the Debug Log. */
     fun rmsDb(filePath: String): Float? {
         val rms = runCatching { decodeAndComputeRms(filePath) }.getOrNull() ?: return null
-        if (rms <= 0f) return null
+        if (rms.isNaN() || rms <= 0f) return null
         return (20.0 * (ln(rms.toDouble()) / ln(10.0))).toFloat()
     }
 

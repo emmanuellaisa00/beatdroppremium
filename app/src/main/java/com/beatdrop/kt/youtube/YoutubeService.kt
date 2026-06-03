@@ -160,6 +160,32 @@ private val YT_CLIENTS = listOf(
             "Referer" to "https://www.youtube.com/embed/",
         )
     ),
+    YtClient(
+        name = "TVHTML5", clientName = "TVHTML5", clientVersion = "7.20230405.08.01",
+        headers = mapOf(
+            "User-Agent"               to "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36",
+            "X-Youtube-Client-Name"    to "7",
+            "X-Youtube-Client-Version" to "7.20230405.08.01",
+            "Origin"                   to "https://www.youtube.com",
+            "Referer"                  to "https://www.youtube.com/",
+        ),
+        extraContext = JSONObject().apply {
+            put("osName", "Windows"); put("osVersion", "10.0")
+        },
+    ),
+    YtClient(
+        name = "WEB_REMIX", clientName = "WEB_REMIX", clientVersion = "1.20240501.01.00",
+        headers = mapOf(
+            "User-Agent"               to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "X-Youtube-Client-Name"    to "67",
+            "X-Youtube-Client-Version" to "1.20240501.01.00",
+            "Origin"                   to "https://music.youtube.com",
+            "Referer"                  to "https://music.youtube.com/",
+        ),
+        extraContext = JSONObject().apply {
+            put("osName", "Windows"); put("osVersion", "10.0")
+        },
+    ),
 )
 
 // ─── Resolved stream (URL + the exact headers/UA that URL must be fetched with) ─
@@ -636,6 +662,25 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                         if (k != "User-Agent") put(k, v)
                     }
                 }
+                
+                // Fast validation: HEAD request to ensure the CDN isn't secretly blocking us
+                // (which happens constantly in 2026 without a PO Token).
+                val headReq = Request.Builder().url(url).head()
+                    .header("User-Agent", ua)
+                    .apply { extra.forEach { (k, v) -> header(k, v) } }
+                    .build()
+                val isValid = runCatching {
+                    okHttp.newCall(headReq).execute().use { resp ->
+                        val cType = resp.header("Content-Type") ?: ""
+                        resp.isSuccessful && !cType.contains("text/html")
+                    }
+                }.getOrDefault(false)
+
+                if (!isValid) {
+                    com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: CDN blocked (PO Token / SABR)")
+                    continue
+                }
+
                 com.beatdrop.kt.DebugLog.i("resolve", "✅ ${client.name} resolved ($pickedKind) → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, ua, extra)
                 setCachedStream(videoId, s); return@withContext s

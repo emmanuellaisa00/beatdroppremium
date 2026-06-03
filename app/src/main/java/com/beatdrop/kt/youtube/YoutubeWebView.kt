@@ -94,7 +94,9 @@ private fun makeExtractJs(videoId: String): String = """(function(){
     var t=0; var iv=setInterval(function(){
         t++; var pr=window.ytInitialPlayerResponse;
         if(pr&&pr.streamingData&&sendFormats(pr.streamingData)){clearInterval(iv);return;}
-        if(t>=20) clearInterval(iv);
+        var btn = document.querySelector('.ytp-large-play-button') || document.querySelector('.icon-button.player-control-play-pause-icon') || document.querySelector('.ytm-play-button-renderer');
+        if (btn) btn.click();
+        if(t>=30) clearInterval(iv);
     },500);
 })();true;"""
 
@@ -172,10 +174,9 @@ object YoutubeExtractor {
         pendingVideoId = videoId
 
         mainHandler.post {
-            // autoplay=1 triggers the player to start loading its stream immediately,
-            // which is what fires the googlevideo.com CDN requests we intercept
+            // Load music.youtube.com instead of embed to bypass "embed disabled" restrictions
             webView?.loadUrl(
-                "https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&origin=https://www.youtube.com"
+                "https://music.youtube.com/watch?v=$videoId"
             )
         }
         return try {
@@ -219,16 +220,11 @@ object YoutubeExtractor {
 // raises the WebView extractor's hit rate.
 private fun isAudioStreamUrl(url: String): Boolean {
     if (!url.contains("googlevideo.com/videoplayback")) return false
-    // Skip ad pings, image previews, ranges that aren't actual media.
-    if (url.contains("&rn=") && url.contains("&range=") && url.contains("&dur=0")) return false
-    // Accept any audio mime, any known audio itag, OR any known muxed progressive itag.
-    val audioMatches = url.contains("mime=audio") || url.contains("mime%3Daudio") ||
-        listOf("itag=140", "itag=141", "itag=251", "itag=250", "itag=249",
-               "itag=139", "itag=599", "itag=600", "itag=171", "itag=258", "itag=327")
-            .any { url.contains(it) }
-    val muxedMatches = listOf("itag=18", "itag=22", "itag=59", "itag=37", "itag=43")
-        .any { url.contains(it) }
-    return audioMatches || muxedMatches
+    // Reject init segments or pings if they are clearly not the main stream
+    if (url.contains("&rn=0") && url.contains("ump=1")) return false
+    
+    // As long as it has an itag, we can play it. ExoPlayer handles muxed or audio.
+    return url.contains("itag=")
 }
 
 // ─── Shared WebViewClient factory for the extractor ──────────────────────────
@@ -263,9 +259,7 @@ private fun extractorWebViewClient() = object : WebViewClient() {
     override fun onPageFinished(view: WebView, url: String) {
         super.onPageFinished(view, url)
         val vid = YoutubeExtractor.pendingVideoId ?: return
-        if (url.contains("youtube.com/embed")) {
-            view.evaluateJavascript(makeExtractJs(vid), null)
-        }
+        view.evaluateJavascript(makeExtractJs(vid), null)
     }
 
     override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
