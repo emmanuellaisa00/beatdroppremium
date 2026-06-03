@@ -14,7 +14,7 @@ import java.io.ByteArrayInputStream
 import java.util.concurrent.atomic.AtomicReference
 
 // Chrome 124 Android UA — same spoof as the React Native app
-private const val CHROME_UA =
+const val CHROME_UA =
     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
 
 // ─── IFrame HTML ──────────────────────────────────────────────────────────────
