@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.BeatDropSearchField
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.ui.components.glassRow
@@ -128,44 +129,22 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                 }
             }
 
-            // ── Glass Search field — real backdrop blur, accent green cursor ─
-            // Was: inline RenderEffect.createBlurEffect smearing the
-            // OutlinedTextField placeholder + typed glyphs. Now wired through
-            // glassRow → hazeGlass so only the BACKDROP behind the field is
-            // blurred (the page list scrolling under it), not the field itself.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .glassRow(radius = 50.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                OutlinedTextField(
-                    value          = q,
-                    onValueChange  = { vm.setOnlineQuery(it); if (it.length >= 2) vm.loadSuggestions() },
-                    placeholder    = { Text("Search songs, artists, albums…", color = C.textTertiary) },
-                    leadingIcon    = { Icon(Ic.Search, null, tint = C.textTertiary) },
-                    trailingIcon   = {
-                        if (q.isNotEmpty()) IconButton(onClick = { vm.setOnlineQuery("") }) {
-                            Icon(Ic.Close, "Clear", tint = C.textTertiary)
-                        }
-                    },
-                    singleLine     = true,
-                    shape          = RoundedCornerShape(50.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor   = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor   = C.text,
-                        unfocusedTextColor = C.text,
-                        cursorColor        = C.accent,       // Spotify Green cursor
-                    ),
-                    modifier          = Modifier.fillMaxWidth(),
-                    keyboardOptions   = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions   = KeyboardActions(onSearch = { vm.runOnlineSearch() }),
-                )
-            }
+            // ── Unified search field ─────────────────────────────────────────
+            // Replaces the legacy OutlinedTextField inside glassRow which
+            // (a) used C.textTertiary (38% white) for the icon and placeholder
+            // — invisible on the glass surface — and (b) had no focus state.
+            // The shared BeatDropSearchField is opaque, has an accent focus
+            // ring, an explicit clear button, and a green "Search" submit pill.
+            BeatDropSearchField(
+                value = q,
+                onChange = {
+                    vm.setOnlineQuery(it)
+                    if (it.length >= 2) vm.loadSuggestions()
+                },
+                placeholder = "Search songs, artists, albums…",
+                onSubmit = { vm.runOnlineSearch() },
+                submitting = searching,
+            )
 
             // ── Search history or autocomplete suggestions ──────────────────
             val showHistory    = q.isEmpty() && history.isNotEmpty() && results.isEmpty()

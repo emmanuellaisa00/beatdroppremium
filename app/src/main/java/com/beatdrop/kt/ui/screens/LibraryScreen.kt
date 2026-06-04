@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.BeatDropSearchField
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.ui.components.glassRow
@@ -88,27 +89,18 @@ fun LibraryScreen(
             HeaderIcon(Ic.Discover,    "Discover",  onOpenLocalDiscover)
         }
 
-        // ── Search field — Glass stadium pill (real backdrop blur via haze) ─
-        // Was: inline RenderEffect.createBlurEffect on the Row itself, which
-        // also blurred the search Icon and BasicTextField children, making
-        // the input unreadable. Now uses glassRow (Blur.subtle = 8dp) which
-        // routes through Modifier.hazeGlass so only the BACKDROP is blurred,
-        // not the children. Same fix applied in bb659ea for glass primitives;
-        // these per-screen inline copies were missed.
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Spacing.lg, vertical = 8.dp)
-                .glassRow(radius = 50.dp)
-                .padding(horizontal = 18.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Ic.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text("Search library or online…", style = Type.body, color = C.textTertiary)
-                BasicSearchField(query, vm::setQuery, C.text)
-            }
+        // ── Search field — unified BeatDropSearchField ─────────────────────
+        // Replaces the legacy inline glassRow + BasicSearchField pair. The
+        // shared component guarantees a solid (non-translucent) fill, a
+        // textSecondary placeholder (not the washed-out textTertiary), and
+        // an accent focus state — fixing the "everything is white" report.
+        Box(Modifier.padding(horizontal = Spacing.lg, vertical = 8.dp)) {
+            BeatDropSearchField(
+                value = query,
+                onChange = vm::setQuery,
+                placeholder = "Search library or online…",
+                onSubmit = null,            // live-filter, no submit affordance
+            )
         }
 
         // ── Segmented control — glass pill style with green active ──────────

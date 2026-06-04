@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.BeatDropSearchButton
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.ui.components.glassRow
@@ -96,17 +97,10 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
             ) {
                 Text("Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
 
-                // Glass search button — real backdrop blur, not self-blur.
-                // Self-blur was smearing the Search icon to invisibility.
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .glassRow(radius = 22.dp)
-                        .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
-                    Alignment.Center,
-                ) {
-                    Icon(Ic.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
-                }
+                // Unified opaque search button — guarantees icon contrast in
+                // every theme (the legacy glassRow + tint = 0xDDFFFFFF in
+                // light mode put a white icon on a near-white surface).
+                BeatDropSearchButton(onClick = onOpenSearch, contentDescription = "Search online")
             }
         }
 
@@ -386,16 +380,8 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                 IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }
                 Text("Local Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
 
-                // Glass search button — real backdrop blur via glassRow.
-                Box(
-                    Modifier
-                        .size(44.dp)
-                        .glassRow(radius = 22.dp)
-                        .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
-                    Alignment.Center,
-                ) {
-                    Icon(Ic.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
-                }
+                // Unified opaque search button.
+                BeatDropSearchButton(onClick = onOpenSearch, contentDescription = "Search online")
             }
         }
 
