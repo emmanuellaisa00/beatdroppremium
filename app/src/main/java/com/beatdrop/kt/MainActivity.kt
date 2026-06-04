@@ -8,7 +8,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -307,8 +306,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                 transitionSpec = {
                     val isPush = targetState != Dest.Tabs && initialState == Dest.Tabs
                     if (targetState == Dest.Tabs && initialState == Dest.Tabs) {
-                        (fadeIn(tween(150)) + scaleIn(initialScale = 0.97f, animationSpec = tween(150)))
-                            togetherWith fadeOut(tween(100))
+                        fadeIn(tween(180)) togetherWith fadeOut(tween(120))
                     } else if (isPush) {
                         (slideInHorizontally(tween(280)) { it } + fadeIn(tween(200))) togetherWith fadeOut(tween(120))
                     } else {

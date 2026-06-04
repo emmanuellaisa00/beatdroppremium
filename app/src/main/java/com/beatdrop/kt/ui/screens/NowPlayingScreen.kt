@@ -354,7 +354,7 @@ fun NowPlayingScreen(
                         if (t.isStreaming) {
                             Spacer(Modifier.height(2.dp))
                             Text(
-                                "Streaming · ${t.author}",
+                                "Streaming · ${t.artist}",
                                 color = Color.White.copy(alpha = 0.5f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
@@ -538,7 +538,7 @@ fun NowPlayingScreen(
                 IconButton(onClick = { vm.toggleSmartShuffle() }) {
                     Icon(
                         if (smartShuffle) Ic.Sparkles else Ic.Shuffle,
-                        "Smart Shuffle"
+                        "Smart Shuffle",
                         tint = if (smartShuffle) C.accent else Color.White,
                         modifier = Modifier.size(24.dp),
                     )
