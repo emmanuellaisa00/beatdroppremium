@@ -29,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -350,6 +351,15 @@ fun NowPlayingScreen(
                     Column(Modifier.weight(1f)) {
                         Text(t.title,  color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (t.isStreaming) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Streaming · ${t.author}",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
                         Spacer(Modifier.height(3.dp))
                         Text(t.artist, color = Color.White.copy(alpha = 0.62f), fontSize = 15.sp,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -408,8 +418,16 @@ fun NowPlayingScreen(
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
                 // Previous
-                IconButton(onClick = { vm.prev() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Ic.SkipPrev, null, tint = Color.White, modifier = Modifier.size(46.dp))
+                IconButton(
+                    onClick = { vm.prev() },
+                    modifier = Modifier.size(64.dp).pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = { vm.seekTo((vm.position.value - 5000).coerceAtLeast(0)) },
+                            onTap = { vm.prev() },
+                        )
+                    },
+                ) {
+                    Icon(Ic.SkipPrev, "Previous", tint = Color.White, modifier = Modifier.size(46.dp))
                 }
 
                 // Play / pause — glass circle with green accent
@@ -439,8 +457,16 @@ fun NowPlayingScreen(
                 }
 
                 // Next
-                IconButton(onClick = { vm.next() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Ic.SkipNext, null, tint = Color.White, modifier = Modifier.size(46.dp))
+                IconButton(
+                    onClick = { vm.next() },
+                    modifier = Modifier.size(64.dp).pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = { vm.seekTo((vm.position.value + 5000).coerceAtMost(vm.duration.value)) },
+                            onTap = { vm.next() },
+                        )
+                    },
+                ) {
+                    Icon(Ic.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(46.dp))
                 }
             }
 
@@ -512,7 +538,7 @@ fun NowPlayingScreen(
                 IconButton(onClick = { vm.toggleSmartShuffle() }) {
                     Icon(
                         if (smartShuffle) Ic.Sparkles else Ic.Shuffle,
-                        "Smart Shuffle",
+                        "Smart Shuffle"
                         tint = if (smartShuffle) C.accent else Color.White,
                         modifier = Modifier.size(24.dp),
                     )
@@ -535,6 +561,34 @@ fun NowPlayingScreen(
                             tint = if (isDownloaded) C.accent else Color.White,
                             modifier = Modifier.size(24.dp),
                         )
+                    }
+                    // Smart Shuffle tooltip
+                    val shuffleMsg by vm.smartShuffleMessage.collectAsState()
+                    if (shuffleMsg != null) {
+                        LaunchedEffect(shuffleMsg) {
+                            kotlinx.coroutines.delay(3500)
+                            vm.clearSmartShuffleMessage()
+                        }
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = shuffleMsg != null,
+                            enter = fadeIn() + slideInVertically { it / 2 },
+                            exit = fadeOut() + slideOutVertically { it / 2 },
+                        ) {
+                            Text(
+                                shuffleMsg ?: "",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 32.dp, vertical = 4.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.10f))
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                maxLines = 2,
+                            )
+                        }
                     }
                 }
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))

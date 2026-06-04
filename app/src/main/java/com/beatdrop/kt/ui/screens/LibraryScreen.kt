@@ -106,7 +106,7 @@ fun LibraryScreen(
             Icon(Ic.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text("Search your library", style = Type.body, color = C.textTertiary)
+                if (query.isEmpty()) Text("Search library or online…", style = Type.body, color = C.textTertiary)
                 BasicSearchField(query, vm::setQuery, C.text)
             }
         }
@@ -407,6 +407,7 @@ private fun SongRow(song: Track, isCurrent: Boolean, onClick: () -> Unit, onLong
 @Composable
 private fun EmptyLibrary() {
     val C = LocalAppColors.current
+    val ctx = LocalContext.current
     Column(
         Modifier
             .fillMaxSize()
@@ -417,7 +418,41 @@ private fun EmptyLibrary() {
         Icon(Ic.MusicNote, null, tint = C.textTertiary, modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(12.dp))
         Text("No music found", style = Type.title3, color = C.text)
-        Text("Add audio files to your device.", style = Type.footnote, color = C.textSecondary)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Copy MP3, FLAC, AAC, or WAV files to your device's Music folder,\nor tap below to use the system file picker.",
+            style = Type.footnote, color = C.textSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(20.dp))
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(C.accent.copy(alpha = 0.2f))
+                .border(0.5.dp, C.accent.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                .pressableScale(onClick = {
+                    try {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+                            addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                            type = "audio/*"
+                            putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        }
+                        ctx.startActivity(intent)
+                    } catch (_: Exception) {}
+                })
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Ic.Add, null, tint = C.accent, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Add music files", color = C.accent, style = Type.headline, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Or search and download songs from YouTube.",
+            style = Type.footnote, color = C.textTertiary,
+        )
     }
 }
 

@@ -78,11 +78,18 @@ fun SplashScreen(onDone: () -> Unit) {
             }
         }
 
-        // "From Laisacorp" pinned near the bottom
+        // "From Laisacorp" + "Tap to skip"
         Column(
             Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Text(
+                "Tap to skip",
+                color = C.textTertiary.copy(alpha = 0.7f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(12.dp))
             Text(
                 "FROM",
                 color = C.textTertiary,

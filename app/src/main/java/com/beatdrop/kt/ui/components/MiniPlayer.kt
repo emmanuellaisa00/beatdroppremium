@@ -144,7 +144,22 @@ fun MiniPlayer(
                 detectTapGestures(onTap = { onExpand() })
             },
     ) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column {
+            // ── Drag handle hint ──────────────────────────────────────────
+            Box(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Box(
+                    Modifier
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color.White.copy(alpha = 0.3f))
+                )
+            }
+            Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp), 
+                verticalAlignment = Alignment.CenterVertically) {
             // ── Artwork — concentric inner radius (36dp) ─────────────────────
             Box(
                 Modifier
@@ -211,6 +226,7 @@ fun MiniPlayer(
                 )
             }
         }
+        } // closes Column from drag handle
 
         // ── Progress bar — accent green, refined 2.5dp ───────────────────────
         Box(

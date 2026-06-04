@@ -315,10 +315,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val v = !_smartShuffle.value
         _smartShuffle.value = v
         viewModelScope.launch { prefs.setSmartShuffle(v) }
-        if (v && _current.value?.isStreaming == true && onlineContext.isNotEmpty()) {
-            smartShuffleOnlineContext()
+        if (v) {
+            if (_current.value?.isStreaming == true && onlineContext.isNotEmpty()) {
+                smartShuffleOnlineContext()
+            }
+            _smartShuffleMessage.value = "Smart Shuffle on — picks the best next track based on artist, style, and your taste."
+        } else {
+            _smartShuffleMessage.value = null
         }
     }
+
+    private val _smartShuffleMessage = MutableStateFlow<String?>(null)
+    val smartShuffleMessage: StateFlow<String?> = _smartShuffleMessage.asStateFlow()
+    fun clearSmartShuffleMessage() { _smartShuffleMessage.value = null }
 
     private val _repeat = MutableStateFlow(Player.REPEAT_MODE_OFF)
     val repeat: StateFlow<Int> = _repeat.asStateFlow()

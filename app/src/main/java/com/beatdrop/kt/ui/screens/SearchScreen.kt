@@ -275,6 +275,33 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                         }
                     }
                 }
+                !searching && q.isNotEmpty() && results.isEmpty() -> {
+                    // Explicit "no results" state
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Ic.Search, null,
+                                tint     = C.textTertiary.copy(alpha = 0.5f),
+                                modifier = Modifier.size(48.dp),
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "No results for "$q"",
+                                color     = C.textSecondary,
+                                fontSize  = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Try different keywords or check your connection",
+                                color     = C.textTertiary,
+                                fontSize  = 13.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier  = Modifier.padding(horizontal = 32.dp),
+                            )
+                        }
+                    }
+                }
                 else -> {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {

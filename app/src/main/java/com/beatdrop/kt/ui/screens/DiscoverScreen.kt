@@ -111,6 +111,29 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
         }
 
         if (loading) {
+            // Check if we're offline with no cache
+            val isOnline = com.beatdrop.kt.util.NetworkMonitor.isOnline.value
+            if (!isOnline && trending.isEmpty() && popHits.isEmpty()) {
+                item {
+                    Box(
+                        Modifier.fillMaxWidth().padding(48.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Ic.WifiOff, null, tint = C.textTertiary, modifier = Modifier.size(48.dp))
+                            Spacer(Modifier.height(12.dp))
+                            Text("You're offline", style = Type.title3, color = C.text)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Connect to the internet to discover trending music.",
+                                style = Type.footnote, color = C.textSecondary,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                return@LazyColumn
+            }
             item { DiscoverShimmerContent() }
             return@LazyColumn
         }
