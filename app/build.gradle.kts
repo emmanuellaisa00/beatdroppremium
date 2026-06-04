@@ -59,6 +59,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // NewPipeExtractor uses java.nio.* APIs (Path / Files) that aren't
+        // available pre-Android O. Core library desugaring backports them so
+        // we can keep minSdk=24. desugar_jdk_libs_nio adds the nio backports
+        // on top of the standard desugar set.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
@@ -123,8 +128,22 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Mozilla Rhino — evaluates YouTube's base.js signature + n-throttle JS
-    // (the same approach NewPipe/yt-dlp use to decipher protected stream URLs)
+    // (the same approach NewPipe/yt-dlp use to decipher protected stream URLs).
+    // NewPipeExtractor also depends on Rhino transitively; the explicit pin
+    // keeps us on a known-good version regardless of NewPipe's choice.
     implementation("org.mozilla:rhino:1.7.14")
+
+    // ── NewPipeExtractor ────────────────────────────────────────────────────
+    // The actively-maintained YouTube extractor library used by NewPipe and
+    // Tubular. Self-updates against BotGuard / PO-token churn via library
+    // version bumps. Pulled in from JitPack (no Maven Central release).
+    // v0.26.0 (Feb 2026) is current and handles the 2025 WebView-extractor
+    // breakage that took out our in-app Strategy 3.
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
+    // Required by NewPipe's nio-using paths at runtime (we already enable
+    // core library desugaring above; this adds the nio backport jars on
+    // top of the standard desugar set).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 
     // Room database — download history, subscriptions
     implementation("androidx.room:room-runtime:2.6.1")

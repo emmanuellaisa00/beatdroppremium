@@ -6,6 +6,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -103,8 +104,19 @@ object PipedResolver {
     }
 
     private fun tryInstance(base: String, videoId: String): ResolvedStream? {
+        // Use HttpUrl.Builder for defensive URL construction — a malformed
+        // base (e.g. trailing slash, accidental whitespace, missing scheme)
+        // used to produce DNS errors like 'Unable to resolve host
+        // "adminforge.destreams"' which we couldn't reproduce locally but
+        // hit consistently in your debug logs. Parsing the URL up front
+        // and bailing on null means we never call DNS with a garbage host.
+        val httpUrl = base.toHttpUrlOrNull()?.newBuilder()
+            ?.addPathSegment("streams")
+            ?.addPathSegment(videoId)
+            ?.build()
+            ?: return null
         val req = Request.Builder()
-            .url("$base/streams/$videoId")
+            .url(httpUrl)
             .header("User-Agent", UA)
             .header("Accept", "application/json")
             .build()

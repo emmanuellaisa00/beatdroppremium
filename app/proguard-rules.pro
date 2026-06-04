@@ -60,3 +60,21 @@
 # Keep OkHttp internals
 -dontwarn okhttp3.**
 -dontwarn okio.**
+
+# ─── NewPipeExtractor (from JitPack) ───────────────────────────────────────────
+# Mozilla Rhino is bundled inside NewPipeExtractor to evaluate YouTube's
+# base.js (signature deciphering / n-throttle). The Rhino classes are loaded
+# reflectively at runtime and minification breaks them silently.
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter
+-dontwarn org.mozilla.javascript.tools.**
+# NewPipe's own packages — keep service descriptors and extractor classes
+# resolvable for reflection-based service lookup.
+-keep class org.schabi.newpipe.extractor.** { *; }
+-dontwarn org.schabi.newpipe.extractor.**
+# nanohttpd / unbescape pulled in transitively; suppress warnings about
+# desktop-only Java APIs they reference.
+-dontwarn org.nanohttpd.**
+-dontwarn org.unbescape.**
+-dontwarn javax.naming.**
+-dontwarn javax.swing.**

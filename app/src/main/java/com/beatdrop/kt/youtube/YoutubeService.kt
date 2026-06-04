@@ -51,14 +51,22 @@ private const val CHUNK_COUNT         = 4
 private const val CHUNK_MIN_BYTES     = 1_048_576L  // 1 MB
 
 // Invidious instances confirmed alive AND with the videos API open as of
-// June 2026. Most public Invidious now disables `/api/v1/videos` because of
-// YouTube IP blocks — these are the few exceptions, in order of CORS+API health.
+// June 2026. Almost every public Invidious instance now disables /api/v1/videos
+// because of YouTube IP blocks. We kept a list of historical instances here but
+// in your debug logs (Q4 2025 — Q1 2026) every single one fails with HTTP error
+// or DNS failure within 1-2 seconds.
+//
+// Kept as a vestigial "last-ditch" probe but it almost always returns nothing.
+// The real heavy lifting now lives in:
+//   • Strategy 1.5 — NewPipeExtractor (active YouTube extractor library)
+//   • Strategy 3   — WebView extractor (still useful for some tracks)
+//   • Strategy 4   — Piped exhaustive (when the parallel pass missed a slow one)
+//
+// If you find a working Invidious instance, add it here; otherwise the empty
+// list just skips Strategy 5 entirely (instant fail-through, no wasted time).
 private val INVIDIOUS_INSTANCES = listOf(
-    "https://inv.thepixora.com",          // Canada — cors:✔ api:✔
+    "https://inv.thepixora.com",          // Canada — last to work, occasionally
     "https://invidious.tiekoetter.com",   // Germany
-    "https://invidious.nerdvpn.de",       // Ukraine — usually API ok
-    "https://invidious.f5.si",            // Japan
-    "https://inv.nadeko.net",             // Chile — large but API often disabled
 )
 
 private data class YtClient(
@@ -590,15 +598,29 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
     }
 
     // ── STRATEGY 1 — Piped (parallel, ≥5 backends, first wins) ───────────────
-    // Most reliable free path in 2026: Piped's backend does PO Token /
-    // signatureCipher / SABR handshake server-side and proxies the CDN
-    // through pipedproxy-*. Median latency ~600 ms when ≥1 backend healthy.
+    // Most reliable free path in 2026 when ≥1 backend is healthy: Piped's
+    // backend does PO Token / signatureCipher / SABR handshake server-side
+    // and proxies the CDN through pipedproxy-*. Median latency ~600 ms.
+    // Many public instances have been dropping like flies in 2025-2026,
+    // hence the NewPipe fallback below for when this fails.
     com.beatdrop.kt.DebugLog.i("resolve", "→ Piped (parallel)")
     runCatching { PipedResolver.resolve(videoId) }.getOrNull()?.let { s ->
         com.beatdrop.kt.DebugLog.i("resolve", "✅ Piped resolved → ${com.beatdrop.kt.DebugLog.shortUrl(s.url)}")
         setCachedStream(videoId, s); return@withContext s
     }
     com.beatdrop.kt.DebugLog.w("resolve", "Piped failed — falling through")
+
+    // ── STRATEGY 1.5 — NewPipeExtractor (actively-maintained third party) ──
+    // TeamNewPipe's extractor library. Updated faster than we can patch the
+    // in-app Innertube chain — its PO-token and BotGuard workarounds are
+    // pushed within days of YouTube changes. This was added when the in-app
+    // strategies started failing en masse in 2025-2026.
+    com.beatdrop.kt.DebugLog.i("resolve", "→ NewPipeExtractor")
+    runCatching { NewPipeResolver.resolve(videoId) }.getOrNull()?.let { s ->
+        com.beatdrop.kt.DebugLog.i("resolve", "✅ NewPipe resolved → ${com.beatdrop.kt.DebugLog.shortUrl(s.url)}")
+        setCachedStream(videoId, s); return@withContext s
+    }
+    com.beatdrop.kt.DebugLog.w("resolve", "NewPipe failed — falling through")
 
     // Prime the cipher once (best-effort) — runs in parallel with the Piped call above
     // via coroutineScope, so we don't waste time after Piped fails.
