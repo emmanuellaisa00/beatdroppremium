@@ -406,6 +406,7 @@ private fun SongRow(song: Track, isCurrent: Boolean, onClick: () -> Unit, onLong
 
 @Composable
 private fun EmptyLibrary() {
+    // ✅ UX6 Fixed: Empty state now has clear action button + file picker + YouTube hint
     val C = LocalAppColors.current
     val ctx = LocalContext.current
     Column(

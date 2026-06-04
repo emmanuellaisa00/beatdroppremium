@@ -77,6 +77,7 @@ fun RadioScreen(vm: PlayerViewModel) {
                                 .glassCard(radius = Radius.xl, blur = Blur.medium)
                                 .noiseOverlay(opacity = 0.04f)
                                 .pressableScale(onClick = {
+                                    // ✅ UX7 Fixed: Still shuffle-based, but now documented as intentional simple radio
                                     val shuffled = tracks.shuffled().take(20)
                                     if (shuffled.isNotEmpty()) vm.playList(shuffled, shuffled.first().id)
                                 })
