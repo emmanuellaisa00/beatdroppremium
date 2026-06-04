@@ -1,11 +1,15 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,19 +21,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.async
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassCard
+import com.beatdrop.kt.ui.components.glassRow
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.youtube.OnlineResult
 import com.beatdrop.kt.youtube.YouTubeTrending
+import kotlinx.coroutines.async
 
 /**
  * Online trending / discovery screen.
- * Shows YouTube Music trending, new releases, and curated playlists.
  */
 @Composable
 fun TrendingScreen(
@@ -52,64 +61,74 @@ fun TrendingScreen(
         isLoading = false
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        // Header
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null, tint = C.text) }
-            Text("Discover", color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        }
-
-        // Tabs
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            FilterChip(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                label = { Text("🔥 Trending") },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = C.accent),
+    ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.14f) {
+        Column(Modifier.fillMaxSize()) {
+            GlassHeader(
+                title = "Discover",
+                onBack = onBack,
+                leadingIcon = Icons.Outlined.TrendingUp,
             )
-            Spacer(Modifier.width(8.dp))
-            FilterChip(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                label = { Text("✨ New Releases") },
-                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = C.accent),
-            )
-        }
 
-        Spacer(Modifier.height(12.dp))
-
-        when {
-            isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator(color = C.accent)
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                GlassChipT(label = "🔥 Trending",    selected = selectedTab == 0) { selectedTab = 0 }
+                GlassChipT(label = "✨ New Releases", selected = selectedTab == 1) { selectedTab = 1 }
             }
-            else -> {
-                val items = if (selectedTab == 0) trending else newReleases
-                if (items.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Text("Nothing available right now", color = C.textSecondary, fontSize = 15.sp)
-                    }
-                } else {
-                    LazyColumn(
-                        Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                        contentPadding = PaddingValues(bottom = 160.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(items, key = { it.videoId }) { result ->
-                            TrendingRow(
-                                result = result,
-                                onPlay = {
-                                    vm.playOnline(result)
-                                    onExpandPlayer()
-                                },
-                                onDownload = { vm.downloadOnline(result) },
-                            )
+
+            Spacer(Modifier.height(8.dp))
+
+            when {
+                isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CircularProgressIndicator(color = C.accent)
+                }
+                else -> {
+                    val items = if (selectedTab == 0) trending else newReleases
+                    if (items.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                            Text("Nothing available right now", color = C.textSecondary, style = Type.body)
+                        }
+                    } else {
+                        LazyColumn(
+                            Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                            contentPadding = PaddingValues(bottom = 180.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(items, key = { it.videoId }) { result ->
+                                TrendingRow(
+                                    result = result,
+                                    onPlay = { vm.playOnline(result); onExpandPlayer() },
+                                    onDownload = { vm.downloadOnline(result) },
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun GlassChipT(label: String, selected: Boolean, onClick: () -> Unit) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(Radius.pill)
+    if (selected) {
+        Box(
+            Modifier.clip(shape).background(C.accent)
+                .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, style = Type.callout, color = Color.Black, fontWeight = FontWeight.SemiBold)
+        }
+    } else {
+        Box(
+            Modifier.glassRow(radius = Radius.pill)
+                .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(label, style = Type.callout, color = C.text, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -120,35 +139,36 @@ private fun TrendingRow(result: OnlineResult, onPlay: () -> Unit, onDownload: ()
     val ctx = LocalContext.current
 
     Row(
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
+            .glassRow()
             .pressableScale(onClick = onPlay)
-            .padding(vertical = 5.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Thumbnail
-        Box(Modifier.size(52.dp).clip(RoundedCornerShape(8.dp))) {
+        Box(Modifier.size(56.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3)) {
             if (result.thumbnailUrl != null) {
                 AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(result.thumbnailUrl).crossfade(true).size(128).build(),
+                    model = ImageRequest.Builder(ctx).data(result.thumbnailUrl).crossfade(true).size(160).build(),
                     contentDescription = null, contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            Box(
-                Modifier.fillMaxSize(),
-                Alignment.Center,
-            ) {
-                Icon(Icons.Filled.PlayArrow, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
+            Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Icon(Icons.Outlined.PlayArrow, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(result.title, color = C.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(result.author, color = C.textSecondary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(result.title, style = Type.callout, color = C.text, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(result.author, style = Type.footnote, color = C.textSecondary,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(result.durationText, color = C.textTertiary, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp))
-        IconButton(onClick = onDownload, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Filled.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+        Text(result.durationText, style = Type.caption, color = C.textTertiary,
+            modifier = Modifier.padding(horizontal = 6.dp))
+        IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Outlined.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
         }
     }
 }

@@ -1,11 +1,15 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material.icons.outlined.SdCard
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,14 +19,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.data.DownloadHistory
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.SectionHeader
+import com.beatdrop.kt.ui.components.glassCard
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.util.StorageHelper
 
-/**
- * Storage management screen — shows storage usage, SD card options, and cleanup tools.
- */
+/** Storage management screen. */
 @Composable
 fun StorageScreen(onBack: () -> Unit) {
     val C = LocalAppColors.current
@@ -35,121 +43,113 @@ fun StorageScreen(onBack: () -> Unit) {
     val completedCount = remember { DownloadHistory.countByStatus("completed") }
     val deletedCount = remember { DownloadHistory.countByStatus("deleted") }
 
-    Column(
-        Modifier.fillMaxSize().statusBarsPadding().verticalScroll(scrollState)
-            .padding(horizontal = 16.dp)
-    ) {
-        // Header
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null, tint = C.text) }
-            Text("Storage", color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Download size card
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = C.bg2),
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Download Storage", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    StorageHelper.formatSize(totalDownloadSize),
-                    color = C.accent, fontSize = 28.sp, fontWeight = FontWeight.Black,
-                )
-                Text("$completedCount files", color = C.textSecondary, fontSize = 13.sp)
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Storage locations
-        Text("Storage Locations", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-
-        storageLocations.forEach { storage ->
-            StorageLocationCard(storage)
-            Spacer(Modifier.height(8.dp))
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Actions
-        Text("Actions", color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-
-        OutlinedButton(
-            onClick = { showClearDialog = true },
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF453A)),
-        ) {
-            Icon(Icons.Filled.DeleteSweep, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Clear All Downloads")
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        if (deletedCount > 0) {
-            OutlinedButton(
-                onClick = {
-                    // Recover deleted — re-download
-                },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+    ScreenScaffold(ambientColor = C.glassAmbient) {
+        Column(Modifier.fillMaxSize()) {
+            GlassHeader(
+                title = "Storage",
+                subtitle = StorageHelper.formatSize(totalDownloadSize),
+                onBack = onBack,
+                leadingIcon = Icons.Outlined.Storage,
+            )
+            Column(
+                Modifier.fillMaxSize().verticalScroll(scrollState)
+                    .padding(horizontal = Spacing.lg)
+                    .padding(bottom = 180.dp),
             ) {
-                Icon(Icons.Filled.Restore, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Recover $deletedCount Deleted Downloads")
+                Spacer(Modifier.height(8.dp))
+
+                // Download size hero card
+                Box(
+                    Modifier.fillMaxWidth().glassCard(radius = Radius.lg).padding(20.dp),
+                ) {
+                    Column {
+                        Text("Download Storage", style = Type.title3, color = C.text, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            StorageHelper.formatSize(totalDownloadSize),
+                            style = Type.largeTitle.copy(fontWeight = FontWeight.Black),
+                            color = C.accent,
+                        )
+                        Text("$completedCount files", style = Type.subhead, color = C.textSecondary)
+                    }
+                }
+
+                SectionHeader("Storage Locations")
+
+                storageLocations.forEach { storage ->
+                    StorageLocationCard(storage)
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                SectionHeader("Actions")
+
+                OutlinedButton(
+                    onClick = { showClearDialog = true },
+                    shape = RoundedCornerShape(Radius.md),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF453A)),
+                ) {
+                    Icon(Icons.Outlined.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Clear All Downloads", style = Type.callout)
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                if (deletedCount > 0) {
+                    OutlinedButton(
+                        onClick = { /* Recover deleted — re-download */ },
+                        shape = RoundedCornerShape(Radius.md),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Outlined.Restore, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Recover $deletedCount Deleted Downloads", style = Type.callout)
+                    }
+                }
             }
         }
 
-        Spacer(Modifier.height(80.dp))
-    }
-
-    // Clear confirmation dialog
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear All Downloads?") },
-            text = { Text("This will delete all downloaded music files. This action cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showClearDialog = false
-                    // Clear downloads handled by ViewModel
-                }) { Text("Delete All", color = Color(0xFFFF453A)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
-            }
-        )
+        if (showClearDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDialog = false },
+                title = { Text("Clear All Downloads?") },
+                text = { Text("This will delete all downloaded music files. This action cannot be undone.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showClearDialog = false
+                    }) { Text("Delete All", color = Color(0xFFFF453A)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+                },
+            )
+        }
     }
 }
 
 @Composable
 private fun StorageLocationCard(storage: StorageHelper.StorageInfo) {
     val C = LocalAppColors.current
-    Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = C.bg2),
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .glassCard(radius = Radius.md)
+            .padding(14.dp),
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (storage.isRemovable) Icons.Filled.SdCard else Icons.Filled.Storage,
+                    if (storage.isRemovable) Icons.Outlined.SdCard else Icons.Outlined.Storage,
                     null, tint = C.accent, modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                Text(storage.label, color = C.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(storage.label, style = Type.callout, color = C.text, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
                 Text("${storage.freeGB.toInt()} / ${storage.totalGB.toInt()} GB",
-                    color = C.textSecondary, fontSize = 12.sp)
+                    style = Type.footnote, color = C.textSecondary)
             }
-            Spacer(Modifier.height(6.dp))
-            // Usage bar
+            Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
                 progress = { storage.usedPercent / 100f },
                 modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
@@ -157,8 +157,10 @@ private fun StorageLocationCard(storage: StorageHelper.StorageInfo) {
                 trackColor = C.bg3,
             )
             Spacer(Modifier.height(4.dp))
-            Text("${storage.usedPercent}% used · ${String.format("%.1f", storage.freeGB)} GB free",
-                color = C.textTertiary, fontSize = 11.sp)
+            Text(
+                "${storage.usedPercent}% used · ${String.format("%.1f", storage.freeGB)} GB free",
+                style = Type.caption, color = C.textTertiary,
+            )
         }
     }
 }

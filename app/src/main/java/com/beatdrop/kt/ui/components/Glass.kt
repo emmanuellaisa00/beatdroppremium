@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.theme.Blur
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
@@ -126,6 +127,8 @@ fun Modifier.masterGlass(
         )
         // ── Backdrop Blur (API 31+) ─────────────────────────────────────────
         .glassBlur(blur)
+        // ── Noise (organic / premium) ──────────────────────────────────────
+        .noiseOverlay(opacity = 0.03f)
         // ── Top Reflection (Fresnel rim light) ─────────────────────────────
         .drawWithContent {
             drawContent()
@@ -298,6 +301,9 @@ fun TintedGlassButton(
 /**
  * Glass card for album grids, recommendation rows, etc.
  * Blur: 24-32px (blur budget for 60fps)
+ *
+ * Renders the full stack per spec §2:
+ *   Shadow → Surface → Blur → Noise → Reflection → Inner shadow → Border.
  */
 @SuppressLint("NewApi")
 @Composable
@@ -306,10 +312,13 @@ fun Modifier.glassCard(
     blur: Float = 28f,
 ): Modifier {
     val C = LocalAppColors.current
+    val shape = RoundedCornerShape(radius)
     return this
-        .clip(RoundedCornerShape(radius))
+        .glassShadow(elevation = 15.dp, shape = shape, isDark = C.isDark)
+        .clip(shape)
         .background(C.glassCardElevated)
         .glassBlur(blur)
+        .noiseOverlay(opacity = 0.025f)
         .drawWithContent {
             drawContent()
             // Top reflection — stronger in light mode per spec
@@ -323,8 +332,51 @@ fun Modifier.glassCard(
                     endY = size.height * 0.30f,
                 ),
             )
+            // Bottom inner shadow — thickness/depth
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        C.glassInnerShadow.copy(alpha = if (C.isDark) 0.06f else 0.04f),
+                    ),
+                    startY = size.height * 0.70f,
+                    endY = size.height,
+                ),
+            )
         }
-        .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(radius))
+        .border(0.5.dp, C.glassCardElevatedBorder, shape)
+}
+
+/**
+ * Glass row — list-row variant of glassCard with smaller radius/blur,
+ * tuned for 60fps in long LazyColumns.
+ */
+@SuppressLint("NewApi")
+@Composable
+fun Modifier.glassRow(
+    radius: Dp = Radius.sm,
+    blur: Float = Blur.light,
+): Modifier {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(radius)
+    return this
+        .clip(shape)
+        .background(C.glassCardElevated.copy(alpha = 0.85f))
+        .glassBlur(blur)
+        .drawWithContent {
+            drawContent()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = if (C.isDark) 0.05f else 0.10f),
+                        Color.Transparent,
+                    ),
+                    startY = 0f,
+                    endY = size.height * 0.40f,
+                ),
+            )
+        }
+        .border(0.5.dp, C.glassCardElevatedBorder, shape)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -340,6 +392,7 @@ fun Modifier.glassSheet(radius: Dp = Radius.lg): Modifier {
         .clip(RoundedCornerShape(radius))
         .background(C.glassModal)
         .glassBlur(60f)
+        .noiseOverlay(opacity = 0.03f)
         .drawWithContent {
             drawContent()
             drawRect(

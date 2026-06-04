@@ -6,9 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,14 +19,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.SectionHeader
 import com.beatdrop.kt.ui.components.TintedGlassButton
+import com.beatdrop.kt.ui.components.glassCard
+import com.beatdrop.kt.ui.components.glassRow
+import com.beatdrop.kt.ui.components.glassShadow
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 
 @Composable
 fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBack: () -> Unit) {
@@ -39,73 +45,108 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
     }
     val tracks = group?.tracks ?: emptyList()
     val current by vm.current.collectAsState()
+    val artShape = RoundedCornerShape(Radius.xl)
 
-  Box(Modifier.fillMaxSize()) {
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(bottom = 160.dp)) {
-        item {
-            Box {
-                IconButton(onClick = onBack, modifier = Modifier.padding(8.dp)) {
-                    Icon(Icons.Filled.ArrowBack, "Back", tint = C.text)
-                }
-            }
-            Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(200.dp).clip(RoundedCornerShape(Radius.xl)).background(C.bg3)) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(ctx).data(group?.artworkUri).crossfade(true).size(512).build(),
-                        contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(albumName, color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(artistName, color = C.textSecondary, fontSize = 14.sp)
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TintedGlassButton(modifier = Modifier.height(44.dp).width(120.dp)) {
-                        Row(
-                            Modifier.fillMaxSize()
-                                .pressableScale(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) }),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Play", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    Box(
-                        Modifier.height(44.dp).width(120.dp)
-                            .clip(RoundedCornerShape(Radius.xl))
-                            .background(if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.05f))
-                            .pressableScale(onClick = { if (tracks.isNotEmpty()) vm.playList(tracks.shuffled(), tracks.first().id) }),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Shuffle, null, tint = C.text, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Shuffle", color = C.text, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-        itemsIndexed(tracks, key = { _, t -> t.id }) { index, t ->
-            Row(
-                Modifier.fillMaxWidth().pressableScale(onClick = { vm.playList(tracks, t.id) }, onLongClick = { sheetTrack = t })
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+    ScreenScaffold(ambientColor = C.glassAmbient) {
+        Column(Modifier.fillMaxSize()) {
+            GlassHeader(title = albumName, subtitle = artistName, onBack = onBack)
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 180.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("${index + 1}", color = C.textTertiary, modifier = Modifier.width(28.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(t.title, color = if (current?.id == t.id) C.accent else C.text,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                item {
+                    Column(
+                        Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Album artwork — glass-framed
+                        Box(
+                            Modifier
+                                .size(220.dp)
+                                .glassShadow(elevation = 26.dp, shape = artShape, isDark = C.isDark)
+                                .clip(artShape)
+                                .background(C.bg3),
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(ctx).data(group?.artworkUri).crossfade(true).size(720).build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        Spacer(Modifier.height(18.dp))
+                        Text(
+                            albumName, style = Type.title1, color = C.text,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(artistName, style = Type.callout, color = C.textSecondary)
+                        Spacer(Modifier.height(18.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TintedGlassButton(modifier = Modifier.height(48.dp).width(132.dp)) {
+                                Row(
+                                    Modifier.fillMaxSize().pressableScale(
+                                        onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) },
+                                    ),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Outlined.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Play", color = Color.White, style = Type.headline)
+                                }
+                            }
+                            Box(
+                                Modifier
+                                    .height(48.dp)
+                                    .width(132.dp)
+                                    .glassCard(radius = Radius.xl)
+                                    .pressableScale(
+                                        onClick = { if (tracks.isNotEmpty()) vm.playList(tracks.shuffled(), tracks.first().id) },
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.Shuffle, null, tint = C.text, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Shuffle", color = C.text, style = Type.headline)
+                                }
+                            }
+                        }
+                    }
                 }
-                Text(fmt(t.durationMs), color = C.textTertiary, fontSize = 12.sp)
+                item { SectionHeader("Tracks") }
+                itemsIndexed(tracks, key = { _, t -> t.id }) { index, t ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .glassRow()
+                            .pressableScale(
+                                onClick = { vm.playList(tracks, t.id) },
+                                onLongClick = { sheetTrack = t },
+                            )
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("${index + 1}", style = Type.footnote, color = C.textTertiary, modifier = Modifier.width(28.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                t.title,
+                                style = Type.title3,
+                                color = if (current?.id == t.id) C.accent else C.text,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                        Text(fmt(t.durationMs), style = Type.footnote, color = C.textTertiary)
+                    }
+                }
             }
         }
+        sheetTrack?.let { tk ->
+            com.beatdrop.kt.ui.components.TrackActionsSheet(vm, tk, onDismiss = { sheetTrack = null })
+        }
     }
-    sheetTrack?.let { tk ->
-        com.beatdrop.kt.ui.components.TrackActionsSheet(vm, tk, onDismiss = { sheetTrack = null })
-    }
-  }
 }

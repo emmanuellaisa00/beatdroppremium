@@ -1,12 +1,15 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,17 +19,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.data.DownloadHistory
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.IconPuck
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassCard
+import com.beatdrop.kt.ui.components.glassRow
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.util.StorageHelper
-import java.io.File
 
-/**
- * Private/hidden folder — PIN-protected access to sensitive downloads.
- * Uses DataStore to persist a hashed PIN. Downloads marked as "private"
- * are only visible after PIN entry.
- */
 @Composable
 fun PrivateFolderScreen(
     savedPin: String?,
@@ -42,7 +46,6 @@ fun PrivateFolderScreen(
     var pinError by remember { mutableStateOf<String?>(null) }
 
     if (savedPin == null || showSetPinDialog) {
-        // Set PIN dialog
         AlertDialog(
             onDismissRequest = { if (savedPin != null) showSetPinDialog = false },
             title = { Text(if (savedPin == null) "Set Private Folder PIN" else "Change PIN") },
@@ -67,7 +70,7 @@ fun PrivateFolderScreen(
                     )
                     pinError?.let {
                         Spacer(Modifier.height(4.dp))
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        Text(it, color = MaterialTheme.colorScheme.error, style = Type.caption)
                     }
                 }
             },
@@ -87,82 +90,98 @@ fun PrivateFolderScreen(
         )
     } else if (!isUnlocked) {
         // PIN entry screen
-        Column(
-            Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(Modifier.height(80.dp))
-            Icon(Icons.Filled.Lock, null, tint = C.accent, modifier = Modifier.size(48.dp))
-            Spacer(Modifier.height(16.dp))
-            Text("Private Folder", color = C.text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text("Enter your PIN to access private downloads", color = C.textSecondary, fontSize = 14.sp)
-            Spacer(Modifier.height(24.dp))
-            OutlinedTextField(
-                value = enteredPin,
-                onValueChange = {
-                    enteredPin = it
-                    if (it.length == 4 && it == savedPin) {
-                        isUnlocked = true
-                    } else if (it.length == 4) {
-                        enteredPin = ""
+        ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.16f) {
+            Column(Modifier.fillMaxSize()) {
+                GlassHeader(title = "Private Folder", onBack = onBack, leadingIcon = Icons.Outlined.Lock)
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = Spacing.xxl),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(48.dp))
+                    IconPuck(icon = Icons.Outlined.Lock, contentDescription = null, size = 96.dp, tint = C.accent)
+                    Spacer(Modifier.height(20.dp))
+                    Text("Private Folder", style = Type.title1, color = C.text)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Enter your PIN to access private downloads",
+                        style = Type.subhead, color = C.textSecondary,
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Box(
+                        Modifier.fillMaxWidth().glassCard(radius = Radius.lg).padding(16.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = enteredPin,
+                            onValueChange = {
+                                enteredPin = it
+                                if (it.length == 4 && it == savedPin) {
+                                    isUnlocked = true
+                                } else if (it.length == 4) {
+                                    enteredPin = ""
+                                }
+                            },
+                            label = { Text("4-digit PIN") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(Radius.md),
+                        )
                     }
-                },
-                label = { Text("4-digit PIN") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            Row {
-                TextButton(onClick = onBack) { Text("Cancel") }
-                Spacer(Modifier.width(16.dp))
-                TextButton(onClick = { showSetPinDialog = true }) { Text("Change PIN") }
+                    Spacer(Modifier.height(16.dp))
+                    Row {
+                        TextButton(onClick = onBack) { Text("Cancel") }
+                        Spacer(Modifier.width(16.dp))
+                        TextButton(onClick = { showSetPinDialog = true }) { Text("Change PIN") }
+                    }
+                }
             }
         }
     } else {
         // Private folder contents
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { isUnlocked = false; onBack() }) {
-                    Icon(Icons.Filled.ArrowBack, null, tint = C.text)
-                }
-                Icon(Icons.Filled.Lock, null, tint = C.accent, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Private Folder", color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            }
+        ScreenScaffold(ambientColor = C.glassAmbient) {
+            Column(Modifier.fillMaxSize()) {
+                GlassHeader(
+                    title = "Private Folder",
+                    onBack = { isUnlocked = false; onBack() },
+                    leadingIcon = Icons.Outlined.LockOpen,
+                )
 
-            // Show private downloads
-            val privateDownloads = DownloadHistory.getAll().filter { it.status == "completed" }
-            if (privateDownloads.isEmpty()) {
-                Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.Lock, null, tint = C.textTertiary.copy(alpha = 0.4f), modifier = Modifier.size(48.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text("No private downloads yet", color = C.textSecondary, fontSize = 15.sp)
-                        Text("Mark downloads as private to hide them here", color = C.textTertiary, fontSize = 13.sp)
+                val privateDownloads = DownloadHistory.getAll().filter { it.status == "completed" }
+                if (privateDownloads.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconPuck(icon = Icons.Outlined.Lock, contentDescription = null, size = 84.dp, tint = C.textTertiary)
+                            Spacer(Modifier.height(16.dp))
+                            Text("No private downloads yet", style = Type.headline, color = C.textSecondary)
+                            Text(
+                                "Mark downloads as private to hide them here",
+                                style = Type.subhead, color = C.textTertiary,
+                            )
+                        }
                     }
-                }
-            } else {
-                LazyColumn(
-                    Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(privateDownloads, key = { it.videoId }) { record ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Filled.MusicNote, null, tint = C.accent, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(record.title, color = C.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                Text("${StorageHelper.formatSize(record.fileSize)} · ${record.format}",
-                                    color = C.textTertiary, fontSize = 11.sp)
+                } else {
+                    LazyColumn(
+                        Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                        contentPadding = PaddingValues(bottom = 180.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        items(privateDownloads, key = { it.videoId }) { record ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .glassRow()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.MusicNote, null, tint = C.accent, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(record.title, style = Type.callout, color = C.text, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        "${StorageHelper.formatSize(record.fileSize)} · ${record.format}",
+                                        style = Type.caption, color = C.textTertiary,
+                                    )
+                                }
                             }
                         }
                     }

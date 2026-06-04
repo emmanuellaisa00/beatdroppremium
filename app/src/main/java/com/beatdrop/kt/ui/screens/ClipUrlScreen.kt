@@ -1,22 +1,33 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.PlayerViewModel
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.IconPuck
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.TintedGlassButton
+import com.beatdrop.kt.ui.components.glassCard
+import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.util.ClipboardWatcher
 
 /**
  * Screen shown when a URL is detected (from clipboard, share menu, or deep link).
- * Shows video info and offers Play/Download options.
  */
 @Composable
 fun ClipUrlScreen(
@@ -37,45 +48,71 @@ fun ClipUrlScreen(
         }
     }
 
-    Column(
-        Modifier.fillMaxSize().statusBarsPadding().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null, tint = C.text) }
-            Text("Link Detected", color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(32.dp))
-        Icon(Icons.Filled.Link, null, tint = C.accent, modifier = Modifier.size(48.dp))
-        Spacer(Modifier.height(16.dp))
-        Text(url, color = C.textSecondary, fontSize = 14.sp)
-        if (detected != null) {
-            Spacer(Modifier.height(8.dp))
-            Text("Platform: ${detected.platform}", color = C.textTertiary, fontSize = 12.sp)
-            if (detected.isPlaylist) {
-                Text("Playlist detected", color = C.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        Spacer(Modifier.height(24.dp))
-        if (isLoading) {
-            CircularProgressIndicator(color = C.accent)
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = { vm.playOnlineByUrl(url); onExpandPlayer() },
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+    ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.18f) {
+        Column(Modifier.fillMaxSize()) {
+            GlassHeader(title = "Link Detected", onBack = onBack, leadingIcon = Icons.Outlined.Link)
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = Spacing.lg)
+                    .padding(top = 24.dp, bottom = 180.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                IconPuck(icon = Icons.Outlined.Link, contentDescription = null, size = 84.dp, tint = C.accent)
+                Spacer(Modifier.height(20.dp))
+
+                // URL card
+                Box(
+                    Modifier.fillMaxWidth().glassCard(radius = Radius.lg).padding(20.dp),
                 ) {
-                    Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Play")
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(url, style = Type.body, color = C.text)
+                        if (detected != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Platform: ${detected.platform}", style = Type.footnote, color = C.textTertiary)
+                            if (detected.isPlaylist) {
+                                Text(
+                                    "Playlist detected",
+                                    style = Type.footnote, color = C.accent,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
                 }
-                OutlinedButton(
-                    onClick = { vm.downloadOnlineByUrl(url) },
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                ) {
-                    Icon(Icons.Filled.Download, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Download")
+                Spacer(Modifier.height(24.dp))
+                if (isLoading) {
+                    CircularProgressIndicator(color = C.accent)
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TintedGlassButton(modifier = Modifier.height(48.dp).width(140.dp)) {
+                            Row(
+                                Modifier.fillMaxSize().pressableScale(onClick = {
+                                    vm.playOnlineByUrl(url); onExpandPlayer()
+                                }),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Outlined.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Play", color = Color.White, style = Type.headline)
+                            }
+                        }
+                        Box(
+                            Modifier
+                                .height(48.dp)
+                                .width(160.dp)
+                                .glassCard(radius = Radius.xl)
+                                .pressableScale(onClick = { vm.downloadOnlineByUrl(url) }),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Outlined.Download, null, tint = C.text, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Download", color = C.text, style = Type.headline)
+                            }
+                        }
+                    }
                 }
             }
         }

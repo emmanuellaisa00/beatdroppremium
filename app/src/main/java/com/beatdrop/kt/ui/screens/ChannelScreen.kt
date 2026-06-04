@@ -1,36 +1,47 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Subscriptions
+import com.beatdrop.kt.ui.components.GlassHeader
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.TintedGlassButton
+import com.beatdrop.kt.ui.components.glassCard
+import com.beatdrop.kt.ui.components.glassRow
+import com.beatdrop.kt.ui.components.glassShadow
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
+import com.beatdrop.kt.ui.theme.Spacing
+import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.youtube.OnlineResult
 import com.beatdrop.kt.youtube.YouTubeTrending
 
-/**
- * Channel screen — shows a YouTube channel's latest videos with subscribe/unsubscribe.
- */
 @Composable
 fun ChannelScreen(
     vm: PlayerViewModel,
@@ -52,100 +63,129 @@ fun ChannelScreen(
         isLoading = false
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        // Header
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null, tint = C.text) }
-        }
+    ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.14f) {
+        Column(Modifier.fillMaxSize()) {
+            GlassHeader(title = channelName, subtitle = "${videos.size} videos", onBack = onBack)
 
-        // Channel info card
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = C.bg2),
-            modifier = Modifier.padding(horizontal = 16.dp),
-        ) {
-            Row(
-                Modifier.padding(16.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+            // Channel info card
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.sm)
+                    .glassCard(radius = Radius.lg)
+                    .padding(16.dp),
             ) {
-                // Avatar
-                Box(Modifier.size(56.dp).clip(CircleShape)) {
-                    channelThumb?.let {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context).data(it).crossfade(true).size(128).build(),
-                            contentDescription = null, contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } ?: Icon(Icons.Filled.Person, null, tint = C.textTertiary, modifier = Modifier.size(56.dp))
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(channelName, color = C.text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("${videos.size} videos", color = C.textSecondary, fontSize = 13.sp)
-                }
-                // Subscribe button
-                Button(
-                    onClick = {
-                        if (isSubscribed) {
-                            Subscriptions.unsubscribe(channelId)
-                        } else {
-                            Subscriptions.subscribe(Subscriptions.Channel(
-                                channelId = channelId,
-                                name = channelName,
-                                thumbnailUrl = channelThumb,
-                            ))
-                        }
-                        isSubscribed = !isSubscribed
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isSubscribed) C.bg3 else C.accent,
-                    ),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                ) {
-                    Text(
-                        if (isSubscribed) "Subscribed" else "Subscribe",
-                        color = if (isSubscribed) C.text else Color.White,
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Videos
-        when {
-            isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                CircularProgressIndicator(color = C.accent)
-            }
-            videos.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Text("No videos found", color = C.textSecondary)
-            }
-            else -> LazyColumn(
-                Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(bottom = 160.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(videos, key = { it.videoId }) { result ->
-                    Row(
-                        Modifier.fillMaxWidth().pressableScale(onClick = {
-                            vm.playOnline(result)
-                            onExpandPlayer()
-                        }).padding(vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Avatar — glass-framed circle
+                    Box(
+                        Modifier
+                            .size(64.dp)
+                            .glassShadow(elevation = 12.dp, shape = CircleShape, isDark = C.isDark)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(C.accent, C.purple)))
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        colors = listOf(Color.White.copy(alpha = 0.25f), Color.Transparent),
+                                        startY = 0f, endY = size.height * 0.4f,
+                                    ),
+                                )
+                            }
+                            .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(result.title, color = C.text, fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(result.author + " · " + result.durationText,
-                                color = C.textSecondary, fontSize = 12.sp, maxLines = 1)
+                        channelThumb?.let {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context).data(it).crossfade(true).size(160).build(),
+                                contentDescription = null, contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            )
+                        } ?: Icon(Icons.Outlined.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(channelName, style = Type.title2, color = C.text, fontWeight = FontWeight.Bold)
+                        Text("${videos.size} videos", style = Type.subhead, color = C.textSecondary)
+                    }
+
+                    // Subscribe button
+                    if (isSubscribed) {
+                        Box(
+                            Modifier
+                                .height(38.dp)
+                                .glassCard(radius = Radius.pill)
+                                .pressableScale(onClick = {
+                                    Subscriptions.unsubscribe(channelId); isSubscribed = false
+                                })
+                                .padding(horizontal = 18.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Subscribed", color = C.text, style = Type.callout, fontWeight = FontWeight.SemiBold)
                         }
-                        IconButton(onClick = { vm.downloadOnline(result) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Filled.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+                    } else {
+                        TintedGlassButton(modifier = Modifier.height(38.dp)) {
+                            Row(
+                                Modifier.fillMaxSize().pressableScale(onClick = {
+                                    Subscriptions.subscribe(Subscriptions.Channel(
+                                        channelId = channelId,
+                                        name = channelName,
+                                        thumbnailUrl = channelThumb,
+                                    ))
+                                    isSubscribed = true
+                                }),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Spacer(Modifier.width(14.dp))
+                                Text("Subscribe", color = Color.White, style = Type.callout, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.width(14.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Videos
+            when {
+                isLoading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    CircularProgressIndicator(color = C.accent)
+                }
+                videos.isEmpty() -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                    Text("No videos found", style = Type.body, color = C.textSecondary)
+                }
+                else -> LazyColumn(
+                    Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
+                    contentPadding = PaddingValues(bottom = 180.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    items(videos, key = { it.videoId }) { result ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .glassRow()
+                                .pressableScale(onClick = {
+                                    vm.playOnline(result)
+                                    onExpandPlayer()
+                                })
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Outlined.PlayArrow, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    result.title, style = Type.callout, color = C.text,
+                                    fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    "${result.author} · ${result.durationText}",
+                                    style = Type.footnote, color = C.textSecondary, maxLines = 1,
+                                )
+                            }
+                            IconButton(onClick = { vm.downloadOnline(result) }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Outlined.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+                            }
                         }
                     }
                 }
