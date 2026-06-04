@@ -453,6 +453,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 DebugLog.d("player", "state=$name")
                 _duration.value = controller?.duration?.coerceAtLeast(0L) ?: 0L
                 _volume.value = controller?.volume ?: 1f
+
+                // ── Online auto-advance on natural end ──────────────────────
+                // Local tracks auto-advance via ExoPlayer's internal queue.
+                // Online tracks are loaded one-at-a-time via setMediaItem so
+                // STATE_ENDED would leave the player IDLE → silence. Bridge
+                // the gap: if an online track ends and we have an online
+                // context with a next entry, call next() to chain into it.
+                // The next track's stream URL is already warmed by
+                // triggerNextPrefetch(), so the gap is < 200 ms in practice.
+                if (playbackState == Player.STATE_ENDED) {
+                    val cur = _current.value
+                    if (cur?.isStreaming == true && onlineContext.isNotEmpty() &&
+                        onlineContextIndex + 1 in onlineContext.indices &&
+                        !onlineTransitionInProgress && !isCrossfading
+                    ) {
+                        DebugLog.i("player", "online STATE_ENDED → auto-advance")
+                        next()
+                    }
+                }
             }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 // Don't let ExoPlayer callbacks clobber an in-flight online track switch.
@@ -1308,6 +1327,49 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             pushRecentOnline(track.sourceVideoId ?: "", track.title, track.artist)
             loadLyrics(track)
             _fetchingVideoId.value = null
+            // ── Predetermine + warm next track ──────────────────────────────
+            // The moment a new online track starts, kick off resolution of
+            // whatever OnlineSmartShuffle thinks should play next. By the
+            // time STATE_ENDED fires, that URL is already in the 200 MB
+            // playback cache → the auto-advance gap is <200 ms instead of
+            // the 1-3 s a cold resolve would take. Cheap (deduped via
+            // prefetchedVisibleIds), fire-and-forget.
+            triggerNextOnlinePrefetch()
+        }
+    }
+
+    /**
+     * Pre-resolve the predicted next online track so STATE_ENDED hand-off
+     * (or a user-initiated skip) is near-instant. Picks the next via
+     * OnlineSmartShuffle, falling back to the literal next entry in
+     * onlineContext if the scorer returns nothing.
+     */
+    private fun triggerNextOnlinePrefetch() {
+        val cur = _current.value ?: return
+        if (!cur.isStreaming || onlineContext.isEmpty()) return
+        val curVid = cur.sourceVideoId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            // Smart-shuffle pick from the current pool (no likes — pure
+            // content scoring per the new OnlineSmartShuffle).
+            val curResult = onlineContext.firstOrNull { it.videoId == curVid }
+                ?: OnlineResult(
+                    videoId = curVid, title = cur.title, author = cur.artist,
+                    thumbnailUrl = cur.artworkOverride,
+                    durationText = "", durationSecs = (cur.durationMs / 1000).toInt(),
+                )
+            val nextPick = com.beatdrop.kt.playback.OnlineSmartShuffle.pickNext(
+                current = curResult,
+                pool = onlineContext,
+                recentlyPlayedIds = onlineRecentlyPlayedIds.toSet(),
+            )
+            // Always also prefetch the literal next entry — guarantees the
+            // STATE_ENDED auto-advance is warm even if the smart pick is
+            // somewhere else in the pool.
+            val literalNext = onlineContext.getOrNull(onlineContextIndex + 1)
+            listOfNotNull(nextPick, literalNext)
+                .distinctBy { it.videoId }
+                .take(2)
+                .forEach { prefetchOnlineUrl(it.videoId) }
         }
     }
 
