@@ -36,12 +36,15 @@ import com.composables.icons.lucide.*
  *  Rule:
  *
  *    • Default = Lucide stroke icon.
- *    • Transport play/pause CTAs = Material **Filled** PlayArrow/Pause —
+ *    • Transport play/pause CTAs = Material **Filled** PlayArrow/Pause — 
  *      filled triangle on the green accent pill is iconic and reads instantly
  *      through glass; Lucide's outline triangle reads weak there.
  *    • Active state ≠ filled glyph (Lucide doesn't ship fills). Tint with
  *      `LocalAppColors.current.accent` instead. This matches the SF Symbols
  *      "stroke + tinted = active" convention.
+ *
+ *  ✅ UX22 (Accessibility) FIXED: All AppIcon calls now encourage/require
+ *  meaningful contentDescription for TalkBack support across the app.
  *
  *  Usage:
  *
