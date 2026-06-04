@@ -87,15 +87,28 @@ fun NowPlayingScreen(
         com.beatdrop.kt.ui.components.TrackActionsSheet(vm, t, onDismiss = { showActions = false })
     }
 
-    // ── Art pulse animation (scale 1.0 → 1.032 on beat) ─────────────────────
+    // ── Art pulse animation ─────────────────────────────────────────────────
+    // Resting: 1.0 ↔ 1.032 every 2.6s (calm breath while playing).
+    // Fetching: 1.0 ↔ 1.05 every 1.1s — same motion vocabulary, just more
+    //   urgent. Tells the user "we're working on it" without a spinner or
+    //   "Loading…" text. Replaces the LinearProgressIndicator that used to
+    //   sit under the title.
+    val fetchingVideoId by vm.fetchingVideoId.collectAsState()
+    val isFetching = fetchingVideoId != null && fetchingVideoId == t.sourceVideoId
     val infinite = rememberInfiniteTransition(label = "pulse")
-    val pulse by infinite.animateFloat(
+    val restingPulse by infinite.animateFloat(
         1f, 1.032f,
         infiniteRepeatable(tween(2600, easing = EaseInOutSine), RepeatMode.Reverse),
-        label = "pulse",
+        label = "resting-pulse",
     )
+    val fetchPulse by infinite.animateFloat(
+        1f, 1.05f,
+        infiniteRepeatable(tween(1100, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "fetch-pulse",
+    )
+    val pulse = if (isFetching) fetchPulse else restingPulse
     val artScale by animateFloatAsState(
-        if (isPlaying) pulse else 0.88f,
+        if (isPlaying || isFetching) pulse else 0.88f,
         spring(stiffness = Spring.StiffnessLow),
         label = "art",
     )
@@ -359,18 +372,10 @@ fun NowPlayingScreen(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
                             )
-                            // ✅ Improved online music UX: Show fetching state
-                            if (pos == 0L && dur == 0L) {
-                                // Modern Spotify-style loading indicator
-                                LinearProgressIndicator(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .height(2.dp)
-                                        .padding(top = 4.dp),
-                                    color = C.accent,
-                                    trackColor = Color.White.copy(alpha = 0.2f),
-                                )
-                            }
+                            // The "fetching" state is communicated by the
+                            // artwork pulse intensification (1.05@1.1s vs
+                            // resting 1.032@2.6s) — see fetchPulse above.
+                            // No spinner, no "Loading…" text by design.
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(t.artist, color = Color.White.copy(alpha = 0.62f), fontSize = 15.sp,
@@ -550,24 +555,19 @@ fun NowPlayingScreen(
                 // Smart Shuffle — sparkle accent when active
                 // ✅ UX11 Fixed: Shows toast/message when toggled (smartShuffleMessage)
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
-                // Download — shows tick if already saved locally
+                // Download — diegetic progress ring drawn around the glyph.
+                // No spinner, no progress bar — the ring is the indicator.
                 val videoId = track?.sourceVideoId
                 val isDownloaded = videoId != null && vm.isOnlineDownloaded(videoId)
                 val dlJob = videoId?.let { vm.downloadJobFor(it) }
                 val isDownloading = dlJob?.status == com.beatdrop.kt.youtube.DownloadStatus.DOWNLOADING
                 if (videoId != null) {
-                    IconButton(onClick = {
-                        if (!isDownloaded && !isDownloading) {
-                            vm.downloadOnlineWithMetadata(videoId)
-                        }
-                    }) {
-                        Icon(
-                            if (isDownloaded) Ic.Check else Ic.Download,
-                            if (isDownloaded) "Downloaded" else if (isDownloading) "Downloading…" else "Download",
-                            tint = if (isDownloaded) C.accent else Color.White,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
+                    com.beatdrop.kt.ui.components.DiegeticDownloadIcon(
+                        isDownloaded = isDownloaded,
+                        isDownloading = isDownloading,
+                        progressPercent = dlJob?.progress ?: 0,
+                        onClick = { vm.downloadOnlineWithMetadata(videoId) },
+                    )
                     // Smart Shuffle tooltip
                     val shuffleMsg by vm.smartShuffleMessage.collectAsState()
                     if (shuffleMsg != null) {
