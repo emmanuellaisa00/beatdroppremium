@@ -162,11 +162,13 @@ object YouTubePlaylist {
                     when (p.size) { 2 -> p[0]*60+p[1]; 3 -> p[0]*3600+p[1]*60+p[2]; else -> 0 }
                 } else 0
 
-                val thumb = item.optJSONObject("thumbnail")
-                    ?.optJSONObject("musicThumbnailRenderer")?.optJSONObject("thumbnail")
-                    ?.optJSONArray("thumbnails")?.let {
-                        if (it.length() > 0) it.getJSONObject(it.length()-1).optString("url") else null
-                    } ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+                val thumb = upgradeThumbnailUrl(
+                    item.optJSONObject("thumbnail")
+                        ?.optJSONObject("musicThumbnailRenderer")?.optJSONObject("thumbnail")
+                        ?.optJSONArray("thumbnails")?.let {
+                            if (it.length() > 0) it.getJSONObject(it.length()-1).optString("url") else null
+                        }
+                ) ?: ytThumbHd(videoId)
 
                 out.add(OnlineResult(
                     videoId = videoId, title = title, author = artist,

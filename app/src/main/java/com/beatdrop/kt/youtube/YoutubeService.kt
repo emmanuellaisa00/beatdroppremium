@@ -325,13 +325,15 @@ private fun parseYouTubeMusicResults(root: JSONObject): List<OnlineResult> {
             }
         } else 0
 
-        val thumb = item.optJSONObject("thumbnail")
-            ?.optJSONObject("musicThumbnailRenderer")
-            ?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
-            ?.let { thumbs ->
-                if (thumbs.length() > 0) thumbs.getJSONObject(thumbs.length() - 1).optString("url")
-                else "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
-            } ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+        val thumb = upgradeThumbnailUrl(
+            item.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")
+                ?.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
+                ?.let { thumbs ->
+                    if (thumbs.length() > 0) thumbs.getJSONObject(thumbs.length() - 1).optString("url")
+                    else null
+                }
+        ) ?: ytThumbHd(videoId)
 
         out.add(OnlineResult(
             videoId = videoId, title = title, author = artist,
@@ -1238,12 +1240,12 @@ internal fun parseInnertubeRenderer(vr: JSONObject): OnlineResult? {
     // ── Live detection (proper badge/overlay checks, NOT empty lengthText) ───
     val isLive = detectLiveStream(vr)
 
-    // ── Thumbnail extraction ────────────────────────────────────────────────
+    // ── Thumbnail extraction (upgrade to maxres / 720px square covers) ──────
     val thumbsArr  = vr.optJSONObject("thumbnail")?.optJSONArray("thumbnails")
-    val thumb = if (thumbsArr != null && thumbsArr.length() > 0)
-        thumbsArr.getJSONObject(thumbsArr.length() - 1).optString("url",
-            "https://i.ytimg.com/vi/$videoId/hqdefault.jpg")
-    else "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+    val rawThumb = if (thumbsArr != null && thumbsArr.length() > 0)
+        thumbsArr.getJSONObject(thumbsArr.length() - 1).optString("url", "")
+    else ""
+    val thumb = upgradeThumbnailUrl(rawThumb).orEmpty().ifBlank { ytThumbHd(videoId) }
 
     val (cleanTitle, cleanArtist) = parseTitle(rawTitle, rawAuthor)
     return OnlineResult(

@@ -252,13 +252,23 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 row.forEach { t ->
-                    // HOT TRENDING grid card — was self-blurring its thumbnail
-                    // and title text. Now uses glassRow (real backdrop blur)
-                    // so the card's image + text stay sharp.
+                    // HOT TRENDING grid card — opaque elevated surface.
+                    // Was using glassRow which in light mode resolves to
+                    // glassCardElevated * alpha 0.95 = near-solid white, so
+                    // the title text + thumbnail vanished into the background
+                    // (the "white screen covering Hot Trending" bug). Now
+                    // backs with a guaranteed-opaque bg2 layer at theme-
+                    // appropriate alpha + a faint 1.dp hairline border.
                     Row(
                         Modifier
                             .weight(1f)
-                            .glassRow(radius = Radius.md)
+                            .clip(RoundedCornerShape(Radius.md))
+                            .background(C.bg2.copy(alpha = if (C.isDark) 0.55f else 0.92f))
+                            .border(
+                                0.5.dp,
+                                C.glassCardElevatedBorder,
+                                RoundedCornerShape(Radius.md),
+                            )
                             .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.97f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
