@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -37,6 +38,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassRow
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -126,34 +128,15 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                 }
             }
 
-            // ── Glass Search field — blur 28px, accent green cursor ─────────
+            // ── Glass Search field — real backdrop blur, accent green cursor ─
+            // Was: inline RenderEffect.createBlurEffect smearing the
+            // OutlinedTextField placeholder + typed glyphs. Now wired through
+            // glassRow → hazeGlass so only the BACKDROP behind the field is
+            // blurred (the page list scrolling under it), not the field itself.
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(50.dp))
-                    .background(C.glassCardElevated)
-                    .then(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Modifier.graphicsLayer {
-                                renderEffect = RenderEffect.createChainEffect(
-                                    RenderEffect.createColorFilterEffect(
-                                        android.graphics.ColorMatrixColorFilter(
-                                            android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                        )
-                                    ),
-                                    RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-                                ).asComposeRenderEffect()
-                            }
-                        } else Modifier
-                    )
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(brush = Brush.verticalGradient(
-                            listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
-                            startY = 0f, endY = size.height * 0.4f,
-                        ))
-                    }
-                    .border(0.7.dp, C.glassCardElevatedBorder, RoundedCornerShape(50.dp))
+                    .glassRow(radius = 50.dp)
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -269,13 +252,15 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                         state          = listState,
                         contentPadding = PaddingValues(bottom = 160.dp),
                     ) {
-                        items(results, key = { it.videoId }) { r ->
+                        itemsIndexed(results, key = { _, r -> r.videoId }) { idx, r ->
                             val job = jobs[r.videoId]
                             CatalogRow(
                                 result  = r,
                                 isSaved = job?.status == DownloadStatus.COMPLETED,
                                 onPlay  = {
-                                    vm.prepareAndPlayOnline(r)
+                                    // Pass the full results list as context so
+                                    // NowPlayingScreen skip-next/prev walks it.
+                                    vm.prepareAndPlayOnline(r, results, idx)
                                     onExpandPlayer()
                                 },
                                 onSave  = {

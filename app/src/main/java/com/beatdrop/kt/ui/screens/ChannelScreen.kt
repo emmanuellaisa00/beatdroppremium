@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -156,13 +157,15 @@ fun ChannelScreen(
                     contentPadding = PaddingValues(bottom = 180.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    items(videos, key = { it.videoId }) { result ->
+                    itemsIndexed(videos, key = { _, r -> r.videoId }) { idx, result ->
                         Row(
                             Modifier
                                 .fillMaxWidth()
                                 .glassRow()
                                 .pressableScale(onClick = {
-                                    vm.playOnline(result)
+                                    // Pass the full channel-videos list as context
+                                    // so skip-next/prev walks through it.
+                                    vm.prepareAndPlayOnline(result, videos, idx)
                                     onExpandPlayer()
                                 })
                                 .padding(horizontal = 12.dp, vertical = 10.dp),

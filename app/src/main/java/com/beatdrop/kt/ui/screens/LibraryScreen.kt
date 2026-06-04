@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassRow
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Track
 import com.beatdrop.kt.data.SortMode
@@ -87,35 +88,18 @@ fun LibraryScreen(
             HeaderIcon(Ic.Discover,    "Discover",  onOpenLocalDiscover)
         }
 
-        // ── Search field — Glass stadium pill (blur 28px) ────────────────────
+        // ── Search field — Glass stadium pill (real backdrop blur via haze) ─
+        // Was: inline RenderEffect.createBlurEffect on the Row itself, which
+        // also blurred the search Icon and BasicTextField children, making
+        // the input unreadable. Now uses glassRow (Blur.subtle = 8dp) which
+        // routes through Modifier.hazeGlass so only the BACKDROP is blurred,
+        // not the children. Same fix applied in bb659ea for glass primitives;
+        // these per-screen inline copies were missed.
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.lg, vertical = 8.dp)
-                .clip(RoundedCornerShape(50.dp))
-                .background(C.glassCardElevated)
-                .then(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        Modifier.graphicsLayer {
-                            renderEffect = RenderEffect.createChainEffect(
-                                RenderEffect.createColorFilterEffect(
-                                    android.graphics.ColorMatrixColorFilter(
-                                        android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                    )
-                                ),
-                                RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-                            ).asComposeRenderEffect()
-                        }
-                    } else Modifier
-                )
-                .drawWithContent {
-                    drawContent()
-                    drawRect(brush = Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
-                        startY = 0f, endY = size.height * 0.4f,
-                    ))
-                }
-                .border(0.7.dp, C.glassCardElevatedBorder, RoundedCornerShape(50.dp))
+                .glassRow(radius = 50.dp)
                 .padding(horizontal = 18.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

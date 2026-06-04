@@ -552,8 +552,51 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         cancelAutoMix()
         controller?.let { if (it.isPlaying) it.pause() else it.play() }
     }
-    fun next() { cancelAutoMix(); controller?.seekToNextMediaItem() }
-    fun prev() { cancelAutoMix(); controller?.seekToPreviousMediaItem() }
+    fun next() {
+        cancelAutoMix()
+        // Online context wins over ExoPlayer's internal queue — see
+        // onlineContext field comment for why.
+        val cur = _current.value
+        if (cur?.isStreaming == true && onlineContext.isNotEmpty()) {
+            val nextIdx = onlineContextIndex + 1
+            if (nextIdx in onlineContext.indices) {
+                val nextResult = onlineContext[nextIdx]
+                // Preserve the context across the re-play call.
+                prepareAndPlayOnline(nextResult, onlineContext, nextIdx)
+                return
+            }
+            // End of online context — fall through to ExoPlayer (no-op for
+            // single-item case, advance if a local track somehow got mixed in).
+        }
+        controller?.seekToNextMediaItem()
+    }
+
+    fun prev() {
+        cancelAutoMix()
+        // Apple Music / Spotify behaviour: tap prev within first 3s of a
+        // track = previous track; later than 3s = restart current track.
+        val c = controller
+        val cur = _current.value
+        if (cur?.isStreaming == true && onlineContext.isNotEmpty()) {
+            val pos = c?.currentPosition ?: 0L
+            if (pos > 3_000L) {
+                c?.seekTo(0L)
+                _position.value = 0L
+                return
+            }
+            val prevIdx = onlineContextIndex - 1
+            if (prevIdx in onlineContext.indices) {
+                val prevResult = onlineContext[prevIdx]
+                prepareAndPlayOnline(prevResult, onlineContext, prevIdx)
+                return
+            }
+            // Beginning of online context — just restart current.
+            c?.seekTo(0L)
+            _position.value = 0L
+            return
+        }
+        c?.seekToPreviousMediaItem()
+    }
     fun seekTo(ms: Long) { cancelAutoMix(); controller?.seekTo(ms); _position.value = ms }
 
     private fun loadLyrics(track: Track) {
@@ -921,6 +964,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _lastFailedOnline = MutableStateFlow<OnlineResult?>(null)
     val lastFailedOnline: StateFlow<OnlineResult?> = _lastFailedOnline.asStateFlow()
 
+    // ── Online playback context (skip-next/skip-prev across a list) ─────────
+    // ExoPlayer's seekToNextMediaItem only walks its own MediaItem list. For
+    // online tracks we use setMediaItem (single item) because each one needs
+    // a fresh resolve before it can be played. To make skip-forward/back work
+    // we track the originating list (search results, trending grid, etc.)
+    // here and override next()/prev() to advance through it, calling
+    // prepareAndPlayOnline again on the new item.
+    @Volatile private var onlineContext: List<OnlineResult> = emptyList()
+    @Volatile private var onlineContextIndex: Int = -1
+
     fun playOnline(result: OnlineResult) {
         prepareAndPlayOnline(result)
     }
@@ -932,8 +985,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         prepareAndPlayOnline(result)
     }
 
-    fun prepareAndPlayOnline(result: OnlineResult) {
-        DebugLog.i("play", "tap → \"${result.title}\" [${result.videoId}]")
+    /**
+     * Play an online result. When called with [context] (the surrounding list
+     * the user tapped from — search results, a Trending grid, a Discover
+     * carousel, etc.) and [contextIndex], the [next]/[prev] transport
+     * controls will advance through that list, resolving each track on
+     * demand. Without a context, skip-next/prev are no-ops for online tracks
+     * (same as before).
+     */
+    fun prepareAndPlayOnline(
+        result: OnlineResult,
+        context: List<OnlineResult> = listOf(result),
+        contextIndex: Int = context.indexOfFirst { it.videoId == result.videoId }.coerceAtLeast(0),
+    ) {
+        onlineContext = context
+        onlineContextIndex = contextIndex
+        DebugLog.i("play", "tap → \"${result.title}\" [${result.videoId}] (ctx=${context.size}, idx=$contextIndex)")
         // Show track info in Now Playing instantly — no blocking overlay
         val tempTrack = Track(
             id = "yt_${result.videoId}",

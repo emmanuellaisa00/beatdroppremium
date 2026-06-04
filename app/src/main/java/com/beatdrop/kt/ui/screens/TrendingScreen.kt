@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -92,10 +93,16 @@ fun TrendingScreen(
                             contentPadding = PaddingValues(bottom = 180.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            items(items, key = { it.videoId }) { result ->
+                            itemsIndexed(items, key = { _, r -> r.videoId }) { idx, result ->
                                 TrendingRow(
                                     result = result,
-                                    onPlay = { vm.playOnline(result); onExpandPlayer() },
+                                    // Pass the surrounding list as context so
+                                    // skip-next/prev in NowPlayingScreen and
+                                    // MiniPlayer can walk through it.
+                                    onPlay = {
+                                        vm.prepareAndPlayOnline(result, items, idx)
+                                        onExpandPlayer()
+                                    },
                                     onDownload = { vm.downloadOnline(result) },
                                 )
                             }

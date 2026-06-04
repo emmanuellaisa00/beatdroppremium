@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassRow
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Track
 import com.beatdrop.kt.ui.components.SectionHeader
@@ -94,34 +95,12 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
             ) {
                 Text("Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
 
-                // Glass search button (pill, blur 28px)
+                // Glass search button — real backdrop blur, not self-blur.
+                // Self-blur was smearing the Search icon to invisibility.
                 Box(
                     Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(C.glassCardElevated)
-                        .then(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                Modifier.graphicsLayer {
-                                    renderEffect = RenderEffect.createChainEffect(
-                                        RenderEffect.createColorFilterEffect(
-                                            android.graphics.ColorMatrixColorFilter(
-                                                android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                            )
-                                        ),
-                                        RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-                                    ).asComposeRenderEffect()
-                                }
-                            } else Modifier
-                        )
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
-                                startY = 0f, endY = size.height * 0.4f,
-                            ))
-                        }
-                        .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(22.dp))
+                        .glassRow(radius = 22.dp)
                         .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
                     Alignment.Center,
                 ) {
@@ -139,10 +118,12 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
         val quickGrid  = trending.drop(1).take(6)
 
         // ── Featured Hero card (glass style, blur 28px) ─────────────────────
+        // Featured + quickGrid all come from the same `trending` list, so we
+        // use that as the skip-next/prev context. The featured one is index 0.
         featured?.let { feat ->
             item {
                 OnlineFeaturedHero(feat) {
-                    vm.prepareAndPlayOnline(feat)
+                    vm.prepareAndPlayOnline(feat, trending, 0)
                     onExpandPlayer()
                 }
             }
@@ -153,7 +134,9 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
             item { OnlineEyebrow("HOT TRENDING") }
             item {
                 OnlineQuickGrid(quickGrid) { track ->
-                    vm.prepareAndPlayOnline(track)
+                    // quickGrid is `trending.drop(1).take(6)` — find original index in `trending`
+                    val ctxIdx = trending.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                    vm.prepareAndPlayOnline(track, trending, ctxIdx)
                     onExpandPlayer()
                 }
             }
@@ -163,7 +146,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
         if (popHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Trending Pop Hits", popHits) { track ->
-                    vm.prepareAndPlayOnline(track)
+                    val ctxIdx = popHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                    vm.prepareAndPlayOnline(track, popHits, ctxIdx)
                     onExpandPlayer()
                 }
             }
@@ -172,7 +156,8 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
         if (hiphopHits.isNotEmpty()) {
             item {
                 OnlineCarousel("Global Hot Charts", hiphopHits) { track ->
-                    vm.prepareAndPlayOnline(track)
+                    val ctxIdx = hiphopHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                    vm.prepareAndPlayOnline(track, hiphopHits, ctxIdx)
                     onExpandPlayer()
                 }
             }
@@ -249,33 +234,13 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 row.forEach { t ->
+                    // HOT TRENDING grid card — was self-blurring its thumbnail
+                    // and title text. Now uses glassRow (real backdrop blur)
+                    // so the card's image + text stay sharp.
                     Row(
                         Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(C.glassCardElevated)
-                            .then(
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    Modifier.graphicsLayer {
-                                        renderEffect = RenderEffect.createChainEffect(
-                                            RenderEffect.createColorFilterEffect(
-                                                android.graphics.ColorMatrixColorFilter(
-                                                    android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                                )
-                                            ),
-                                            RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-                                        ).asComposeRenderEffect()
-                                    }
-                                } else Modifier
-                            )
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(brush = Brush.verticalGradient(
-                                    listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
-                                    startY = 0f, endY = size.height * 0.3f,
-                                ))
-                            }
-                            .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(Radius.md))
+                            .glassRow(radius = Radius.md)
                             .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.97f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -397,34 +362,11 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                 IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }
                 Text("Local Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
 
-                // Glass search button
+                // Glass search button — real backdrop blur via glassRow.
                 Box(
                     Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(C.glassCardElevated)
-                        .then(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                Modifier.graphicsLayer {
-                                    renderEffect = RenderEffect.createChainEffect(
-                                        RenderEffect.createColorFilterEffect(
-                                            android.graphics.ColorMatrixColorFilter(
-                                                android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                            )
-                                        ),
-                                        RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP),
-                                    ).asComposeRenderEffect()
-                                }
-                            } else Modifier
-                        )
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
-                                startY = 0f, endY = size.height * 0.4f,
-                            ))
-                        }
-                        .border(0.5.dp, C.glassCardElevatedBorder, RoundedCornerShape(22.dp))
+                        .glassRow(radius = 22.dp)
                         .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
                     Alignment.Center,
                 ) {
