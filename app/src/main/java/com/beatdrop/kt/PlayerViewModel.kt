@@ -719,7 +719,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
         c?.seekToPreviousMediaItem()
     }
-    fun seekTo(ms: Long) { cancelAutoMix(); controller?.seekTo(ms); _position.value = ms }
+    fun seekTo(ms: Long) {
+        cancelAutoMix()
+        controller?.seekTo(ms)
+        _position.value = ms
+        // Recompute the active lyric line immediately on seek; otherwise the
+        // highlight stays stale for up to one ticker interval (~120 ms) which
+        // is visually jarring when the user taps a line to jump to it.
+        if (_lyrics.value.isNotEmpty()) {
+            _activeLyric.value = LrcParser.activeIndex(_lyrics.value, ms)
+        }
+    }
 
     private fun loadLyrics(track: Track) {
         viewModelScope.launch {
