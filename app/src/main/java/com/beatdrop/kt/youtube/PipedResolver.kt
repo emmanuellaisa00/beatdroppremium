@@ -38,11 +38,18 @@ object PipedResolver {
         "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
 
     // Static seed list — verified working as of June 2026.
-    // Most public Piped instances are now dead or rate-limiting.
+    // Expanded from 2 to 8: parallel resolve() tries ALL at once, so more seeds
+    // = better chance of at least one responding within the 5s window.
     // Auto-refresh from the public registry on each resolve() call.
     @Volatile private var instances: MutableList<String> = mutableListOf(
-        "https://api.piped.private.coffee",
-        "https://pipedapi.smnz.de",
+        "https://api.piped.private.coffee",   // Austria — consistently fast
+        "https://pipedapi.smnz.de",            // Germany
+        "https://pipedapi.adminforge.de",      // Germany
+        "https://piped-api.garudalinux.org",   // Italy
+        "https://api.piped.yt",                // Netherlands
+        "https://pipedapi.leptons.xyz",        // Finland
+        "https://piped.drgns.space",           // US
+        "https://api.piped.projectsegfau.lt",  // Germany — large instance
     )
     @Volatile private var lastRefresh: Long = 0L
 
@@ -80,8 +87,17 @@ object PipedResolver {
     /** All-instances variant — used as a last-ditch fallback. */
     suspend fun resolveExhaustive(videoId: String): ResolvedStream? = withContext(Dispatchers.IO) {
         for (base in instances) {
-            val r = runCatching { tryInstance(base, videoId) }.getOrNull()
-            if (r != null) return@withContext r
+            val host = base.removePrefix("https://")
+            try {
+                val r = tryInstance(base, videoId)
+                if (r != null) return@withContext r
+                com.beatdrop.kt.DebugLog.w("resolve", "piped-ex $host: no stream")
+            } catch (e: Exception) {
+                val msg = e.message ?: e.javaClass.simpleName
+                val label = if (msg.contains("timeout", true) || msg.contains("timed out", true)) "timeout"
+                            else "failed (${msg.take(60)})"
+                com.beatdrop.kt.DebugLog.w("resolve", "piped-ex $host: $label")
+            }
         }
         null
     }

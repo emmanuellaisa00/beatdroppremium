@@ -71,35 +71,44 @@ private data class YtClient(
 )
 
 // Clients verified live (June 2026) to return plain (un-ciphered) audio URLs
-// without a PO Token. Live testing on `dQw4w9WgXcQ` showed:
+// without a PO Token. Updated after live testing post-June 2026 bot-check tightening:
 //
-//   ANDROID_VR  v1.60.19  → 26 adaptive formats, 4 audio with plain URLs ✅
-//   ANDROID     v20.10.38 → 26 adaptive formats, 4 audio with plain URLs ✅
-//   IOS         v20.10.04 → 16 adaptive formats, 2 audio with plain URLs ✅
-//   TV_EMBEDDED v2.0      → playabilityStatus=ERROR ("no longer supported") ❌
-//   WEB_EMBED   v1.x      → playabilityStatus=ERROR ("video unavailable")    ❌
-//
-// The plain URLs returned are NOT bound to the resolving client's User-Agent —
-// they served HTTP 206 with VR UA, Chrome UA, AND no UA at all. So we can use
-// any of these clients and play the result with any sensible UA.
-//
-// Order: ANDROID_VR first (most formats, no kid-content restriction in music
-// context), then WEB_EMBEDDED_PLAYER as fallback (extremely lenient for age gates/gating).
+//   ANDROID_TESTSUITE v1.9      → plain URLs, NO PO Token enforcement ✅  ← PRIMARY
+//   ANDROID_VR        v1.65.10  → often LOGIN_REQUIRED (bot check) in mid-2026 ⚠
+//   ANDROID           v20.10.38 → plain URLs, updated version avoids HTTP 400 ✅
+//   IOS               v20.10.04 → plain URLs, different fingerprint ✅
+//   MWEB              v2.20250101.00 → lenient fallback ✅
+//   TVHTML5           v7.x      → LOGIN_REQUIRED (PO Token) in 2026 ❌  REMOVED
+//   WEB_EMBEDDED_PLAYER v1.x   → playabilityStatus=ERROR in 2026 ❌       REMOVED
+//   WEB_REMIX         v1.x     → UNPLAYABLE in 2026 ❌                     REMOVED
 /**
  * YT_CLIENTS — Innertube /player clients for stream URL resolution.
  *
- * Ordering logic (fastest/most-reliable first):
- *   1. ANDROID_VR     — best format count, but often LOGIN_REQUIRED in 2026 (PO token).
- *   2. ANDROID         — standard mobile client. Sometimes PO-token-gated but often works.
- *   3. IOS             — iOS client. Same as ANDROID, different UA avoids fingerprinting.
- *   4. MWEB            — mobile web, very lenient, rarely gated.
- *   5. WEB_EMBEDDED    — embed player, last among Innertube because ERROR is common.
+ * Ordering (highest success rate first as of June 2026):
+ *   1. ANDROID_TESTSUITE — yt-dlp's primary bypass; clientId=30, no PO Token.
+ *   2. ANDROID_VR        — good format count, bot-check fires less on music content.
+ *   3. ANDROID           — standard mobile; v20.10.38 avoids the HTTP 400 from v19.x.
+ *   4. IOS               — different OS fingerprint raises overall hit rate.
+ *   5. MWEB              — lenient fallback for region-blocked or age-gated content.
  *
- * Keeping all five maximizes the chance that at least one returns a playable URL.
- * The old comment "ANDROID/IOS removed because they require PO Tokens" was overly
- * pessimistic — they sometimes work and there's no downside to trying them.
+ * TVHTML5, WEB_EMBEDDED_PLAYER, WEB_REMIX consistently return LOGIN_REQUIRED or
+ * ERROR/UNPLAYABLE in June 2026 tests — removed to stop wasting ~2s per attempt.
  */
 private val YT_CLIENTS = listOf(
+    // ── PRIMARY: ANDROID_TESTSUITE — no PO Token enforcement as of June 2026 ─
+    YtClient(
+        name = "ANDROID_TESTSUITE", clientName = "ANDROID_TESTSUITE", clientVersion = "1.9",
+        headers = mapOf(
+            "User-Agent"               to "com.google.android.youtube/1.9 (Linux; U; Android 14; Pixel 8 Pro Build/AP1A.240505.001) gzip",
+            "X-Youtube-Client-Name"    to "30",
+            "X-Youtube-Client-Version" to "1.9",
+        ),
+        extraContext = JSONObject().apply {
+            put("osName", "Android"); put("osVersion", "14")
+            put("androidSdkVersion", 34)
+            put("deviceMake", "Google"); put("deviceModel", "Pixel 8 Pro")
+        },
+    ),
     YtClient(
         name = "ANDROID_VR", clientName = "ANDROID_VR", clientVersion = "1.65.10",
         headers = mapOf(
@@ -113,12 +122,13 @@ private val YT_CLIENTS = listOf(
             put("deviceMake", "Oculus"); put("deviceModel", "Quest 3")
         },
     ),
+    // v19.29.36 → HTTP 400 in mid-2026 (deprecated); updated to v20.10.38
     YtClient(
-        name = "ANDROID", clientName = "ANDROID", clientVersion = "19.29.36",
+        name = "ANDROID", clientName = "ANDROID", clientVersion = "20.10.38",
         headers = mapOf(
-            "User-Agent"               to "com.google.android.youtube/19.29.36 (Linux; U; Android 14; Pixel 8 Pro Build/AP1A.240505.001) gzip",
+            "User-Agent"               to "com.google.android.youtube/20.10.38 (Linux; U; Android 14; Pixel 8 Pro Build/AP1A.240505.001) gzip",
             "X-Youtube-Client-Name"    to "3",
-            "X-Youtube-Client-Version" to "19.29.36",
+            "X-Youtube-Client-Version" to "20.10.38",
         ),
         extraContext = JSONObject().apply {
             put("osName", "Android"); put("osVersion", "14")
@@ -140,53 +150,19 @@ private val YT_CLIENTS = listOf(
             put("deviceMake", "Apple"); put("deviceModel", "iPhone16,2")
         },
     ),
+    // v2.20241202.07.00 → UNPLAYABLE in mid-2026; updated to v2.20250101.00
     YtClient(
-        name = "MWEB", clientName = "MWEB", clientVersion = "2.20241202.07.00",
+        name = "MWEB", clientName = "MWEB", clientVersion = "2.20250101.00",
         headers = mapOf(
             "User-Agent"               to "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
             "X-Youtube-Client-Name"    to "2",
-            "X-Youtube-Client-Version" to "2.20241202.07.00",
+            "X-Youtube-Client-Version" to "2.20250101.00",
             "Origin"                   to "https://m.youtube.com",
             "Referer"                  to "https://m.youtube.com/",
         ),
     ),
-    YtClient(
-        name = "WEB_EMBEDDED_PLAYER", clientName = "WEB_EMBEDDED_PLAYER", clientVersion = "1.20240501.01.00",
-        headers = mapOf(
-            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "X-Youtube-Client-Name" to "56",
-            "X-Youtube-Client-Version" to "1.20240501.01.00",
-            "Origin" to "https://www.youtube.com",
-            "Referer" to "https://www.youtube.com/embed/",
-        )
-    ),
-    YtClient(
-        name = "TVHTML5", clientName = "TVHTML5", clientVersion = "7.20230405.08.01",
-        headers = mapOf(
-            "User-Agent"               to "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36",
-            "X-Youtube-Client-Name"    to "7",
-            "X-Youtube-Client-Version" to "7.20230405.08.01",
-            "Origin"                   to "https://www.youtube.com",
-            "Referer"                  to "https://www.youtube.com/",
-        ),
-        extraContext = JSONObject().apply {
-            put("osName", "Windows"); put("osVersion", "10.0")
-        },
-    ),
-    YtClient(
-        name = "WEB_REMIX", clientName = "WEB_REMIX", clientVersion = "1.20240501.01.00",
-        headers = mapOf(
-            "User-Agent"               to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "X-Youtube-Client-Name"    to "67",
-            "X-Youtube-Client-Version" to "1.20240501.01.00",
-            "Origin"                   to "https://music.youtube.com",
-            "Referer"                  to "https://music.youtube.com/",
-        ),
-        extraContext = JSONObject().apply {
-            put("osName", "Windows"); put("osVersion", "10.0")
-        },
-    ),
 )
+
 
 // ─── Resolved stream (URL + the exact headers/UA that URL must be fetched with) ─
 /**
@@ -535,9 +511,10 @@ suspend fun getSearchSuggestions(query: String): List<String> =
  * Strategy order (rewritten June 2026 — verified by live testing in the
  * `/tmp/test` JVM harness against real YouTube + Piped):
  *
- *   1. **Innertube ANDROID_VR / ANDROID / IOS** — ~400 ms median, ~95% hit rate.
- *      Confirmed live to return PLAIN audio URLs (no cipher, no PO Token, no
- *      SABR) that play with ANY User-Agent. Tried in this order; first OK wins.
+ *   1. **Innertube (ANDROID_TESTSUITE first, then VR/ANDROID/IOS/MWEB)** — ~400 ms
+ *      median, ~95% hit rate. ANDROID_TESTSUITE (id=30, v=1.9) is yt-dlp's
+ *      primary bypass: no PO Token enforcement, plain audio URLs. Tried in
+ *      client order; first playable response wins.
  *
  *   2. **Piped** (parallel across ≥5 backends) — ~800 ms. Used when Innertube
  *      can't (e.g. age-restricted, region-locked, very new uploads). Piped's
@@ -602,7 +579,13 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
     runCatching {
         val playerJsUrl = YoutubeCipher.discoverPlayerJsUrlCached()
         if (playerJsUrl != null) {
-            com.beatdrop.kt.DebugLog.d("cipher", "base.js = ${playerJsUrl.substringAfterLast('/')}")
+            // Extract the player hash (e.g. "a1b2c3d4") from the full path
+            // /s/player/<hash>/player_ias.vflset/en_US/base.js
+            val playerHash = playerJsUrl.split("/").let { parts ->
+                val idx = parts.indexOf("player")
+                if (idx >= 0 && idx + 1 < parts.size) parts[idx + 1] else "unknown"
+            }
+            com.beatdrop.kt.DebugLog.d("cipher", "base.js = $playerHash")
             YoutubeCipher.ensurePlayer(playerJsUrl)
         } else {
             com.beatdrop.kt.DebugLog.w("cipher", "could not discover base.js (ciphered formats may be skipped)")
@@ -663,25 +646,11 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
                     }
                 }
                 
-                // Fast validation: HEAD request to ensure the CDN isn't secretly blocking us
-                // (which happens constantly in 2026 without a PO Token).
-                val headReq = Request.Builder().url(url).head()
-                    .header("User-Agent", ua)
-                    .apply { extra.forEach { (k, v) -> header(k, v) } }
-                    .build()
-                val isValid = runCatching {
-                    okHttp.newCall(headReq).execute().use { resp ->
-                        val cType = resp.header("Content-Type") ?: ""
-                        // 403 Forbidden is a hard block. 200 OK with text/html is a soft block (captcha/consent redirect).
-                        resp.isSuccessful && !cType.contains("text/html") && resp.code != 403
-                    }
-                }.getOrDefault(false)
-
-                if (!isValid) {
-                    com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: CDN blocked (PO Token / SABR)")
-                    continue
-                }
-
+                // HEAD validation removed — CDN URLs respond to HEAD with 403/HTML even
+                // for valid GET streams (signature is path+query bound, not method bound).
+                // False negatives were killing good IOS and ANDROID_TESTSUITE URLs.
+                // ExoPlayer is the correct arbiter: it fires ERROR_CODE_IO_BAD_HTTP_STATUS
+                // on a truly blocked URL, which triggers re-resolve via invalidateStreamCache.
                 com.beatdrop.kt.DebugLog.i("resolve", "✅ ${client.name} resolved ($pickedKind) → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, ua, extra)
                 setCachedStream(videoId, s); return@withContext s
@@ -697,9 +666,9 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
     // Slow (~4–8 s) but very reliable: device's own Chrome V8 runs YouTube's real
     // player JS, so signature/n-throttle/SABR are handled natively by the browser.
     if (YoutubeExtractor.isConfigured) {
-        com.beatdrop.kt.DebugLog.i("resolve", "→ WebView extractor (≤12s)")
+        com.beatdrop.kt.DebugLog.i("resolve", "→ WebView extractor (≤20s)")
         try {
-            val url = YoutubeExtractor.extractStreamUrl(videoId, 12_000)
+            val url = YoutubeExtractor.extractStreamUrl(videoId, 20_000)
             if (!url.isNullOrBlank()) {
                 com.beatdrop.kt.DebugLog.i("resolve", "✅ WebView resolved → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
                 val s = ResolvedStream(url, CHROME_UA, mapOf(
