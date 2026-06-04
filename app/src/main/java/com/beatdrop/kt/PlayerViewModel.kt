@@ -405,10 +405,20 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 ) {
                     lastRecoveredVideoId = cur.sourceVideoId
                     val resumeAt = controller?.currentPosition ?: 0L
+                    // CRITICAL: clear the broken media item from the controller
+                    // BEFORE we kick off the re-resolve. Otherwise ExoPlayer
+                    // keeps re-buffering the rejected URL in parallel with our
+                    // WebView extraction (the second onPlayerError code=2004
+                    // mid-extraction in your debug log) — which then gets
+                    // suppressed by lastRecoveredVideoId, leaving the player
+                    // dead-IDLE while we work.
+                    controller?.let {
+                        onlineTransitionInProgress = true
+                        it.stop()
+                        it.clearMediaItems()
+                    }
                     viewModelScope.launch {
-                        // Was: invalidateStreamCache() — walked the same Innertube
-                        // chain and produced the same bad URL → 2004 loop.
-                        // Now: markForWebViewRetry() tells getStream() to SKIP
+                        // markForWebViewRetry() tells getStream() to SKIP
                         // Strategy 2 (Innertube) and go straight to Strategy 3
                         // (WebView extractor) which uses real Chrome cookies +
                         // visitorData and is not subject to PO-token enforcement.
@@ -426,14 +436,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                         }.getOrNull()
                         if (fresh != null) {
                             _ytTrackCache[fresh.id] = fresh
-                            val c = controller ?: return@launch
-                            onlineTransitionInProgress = true
+                            val c = controller ?: run { onlineTransitionInProgress = false; return@launch }
                             c.setMediaItem(fresh.toMediaItem()); c.prepare()
                             c.seekTo(resumeAt); c.play()
                             onlineTransitionInProgress = false
                             _current.value = fresh
                         } else {
-                            _onlineMessage.value = "Stream expired. Try playing again."
+                            onlineTransitionInProgress = false
+                            _onlineMessage.value = "Couldn't play this track — may be region-blocked or require sign-in. Try another."
                         }
                     }
                     return

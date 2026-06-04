@@ -62,15 +62,81 @@ window.__ytCmd={
 // YT.Player API if it's been wired up.
 private const val NUDGE_AUTOPLAY_JS = """(function(){
     if (window.__nudged) return; window.__nudged = true;
+
+    // ── JS-side error reporting ─────────────────────────────────────────────
+    // Anything thrown on the page → routed back through the AndroidBridge
+    // so we see why the embed player is bailing instead of guessing.
+    function report(tag, msg){
+        try { if (window.AndroidBridge && window.AndroidBridge.onDebug)
+                window.AndroidBridge.onDebug(tag + ': ' + msg); } catch(e){}
+    }
+    window.addEventListener('error', function(ev){
+        report('jserr', (ev.message || '?') + ' @' + (ev.filename || '?') + ':' + (ev.lineno || '?'));
+    }, true);
+    window.addEventListener('unhandledrejection', function(ev){
+        var r = ev.reason; report('jsreject', (r && r.message) ? r.message : String(r));
+    });
+    report('boot', 'nudge active, ua=' + navigator.userAgent.substring(0, 80));
+
+    // ── Status reporter — tells us whether <video> elements / YT.Player /
+    //    play button even exist on the page (a 'no autoplay' bug looks
+    //    different from a 'page is a bot-check redirect' bug).
+    setTimeout(function(){
+        try {
+            var vids = document.getElementsByTagName('video');
+            var btn = document.querySelector('.ytp-large-play-button')
+                   || document.querySelector('.ytp-play-button')
+                   || document.querySelector('button[aria-label*="Play"]');
+            report('dom',
+                'videos=' + vids.length +
+                ' ytPlayer=' + (!!window.__ytPlayer) +
+                ' playBtn=' + (!!btn) +
+                ' url=' + location.href.substring(0, 80));
+            if (vids.length > 0) {
+                var v = vids[0];
+                report('video0',
+                    'paused=' + v.paused +
+                    ' readyState=' + v.readyState +
+                    ' networkState=' + v.networkState +
+                    ' src=' + (v.src || v.currentSrc || '(none)').substring(0, 80));
+            }
+        } catch(e) { report('domerr', e.message || String(e)); }
+    }, 2000);
+
+    // ── Autoplay nudge — every 200ms for 5s, brute-force ────────────────────
     var n = 0;
     var iv = setInterval(function(){
         n++;
-        if (n > 25) { clearInterval(iv); return; }
+        if (n > 25) {
+            clearInterval(iv);
+            // Final status snapshot before we give up.
+            try {
+                var vids = document.getElementsByTagName('video');
+                if (vids.length > 0) {
+                    var v = vids[0];
+                    report('final',
+                        'paused=' + v.paused +
+                        ' readyState=' + v.readyState +
+                        ' networkState=' + v.networkState +
+                        ' err=' + (v.error ? v.error.code : 'none'));
+                } else {
+                    report('final', 'no <video> ever appeared');
+                }
+            } catch(e){}
+            return;
+        }
         try {
-            // 1) Direct <video> play
+            // 1) Direct <video> play (each call returns a promise; log rejections)
             var vids = document.getElementsByTagName('video');
             for (var i = 0; i < vids.length; i++) {
-                try { var p = vids[i].play(); if (p && p.catch) p.catch(function(){}); } catch(e){}
+                try {
+                    var p = vids[i].play();
+                    if (p && p.catch) p.catch(function(err){
+                        if (n === 1) report('playrej', err.name + ': ' + err.message);
+                    });
+                } catch(e){
+                    if (n === 1) report('playthrow', e.message || String(e));
+                }
             }
             // 2) IFrame API
             if (window.__ytPlayer && window.__ytPlayer.playVideo) {
@@ -198,6 +264,13 @@ object YoutubeExtractor {
     @Volatile internal var pendingVideoId: String? = null
     @Volatile internal var webView: WebView? = null
 
+    /**
+     * When true, the WebViewClient prints every non-noise request URL it sees
+     * during an active extraction to DebugLog. Defaults ON until we have a
+     * confirmed-working extraction in the wild; flip off later for performance.
+     */
+    @Volatile var verbose: Boolean = true
+
     val isConfigured: Boolean get() = webView != null
 
     suspend fun extractStreamUrl(videoId: String, timeoutMs: Long = 15_000): String? {
@@ -252,6 +325,17 @@ object YoutubeExtractor {
         mainHandler.post { webView?.loadUrl("about:blank") }
         d.completeExceptionally(Exception(error))
     }
+
+    /**
+     * JS-bridge debug channel — NUDGE_AUTOPLAY_JS reports DOM state, window
+     * errors, and play() promise rejections through here. Only logged while
+     * an extraction is in flight; ignored otherwise to keep the log clean.
+     */
+    @JavascriptInterface
+    fun onDebug(message: String) {
+        if (pendingRef.get() == null) return
+        com.beatdrop.kt.DebugLog.d("webview-js", message)
+    }
 }
 
 // ─── Checks if a CDN URL is a usable media stream ─────────────────────────────
@@ -273,34 +357,48 @@ private fun isAudioStreamUrl(url: String): Boolean {
 
 // ─── Shared WebViewClient factory for the extractor ──────────────────────────
 private fun extractorWebViewClient() = object : WebViewClient() {
-    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = false
+    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
+        // Log redirects on the main frame so we can spot bot-check / consent
+        // pages that punt the embed page somewhere else.
+        if (YoutubeExtractor.pendingRef.get() != null && r.isForMainFrame) {
+            com.beatdrop.kt.DebugLog.d("webview", "redirect main → ${com.beatdrop.kt.DebugLog.shortUrl(r.url.toString())}")
+        }
+        return false
+    }
 
     /**
      * PRIMARY CAPTURE — intercepts the googlevideo.com CDN request the moment
      * YouTube's player fires it. The URL is already fully deciphered (n-sig,
      * signatureCipher resolved by Chrome's V8) — no native JS decryption needed.
      * Returns an empty 204 to prevent the WebView from downloading actual audio data.
+     *
+     * Diagnostic mode (set via YoutubeExtractor.verbose = true): logs every
+     * non-trivial URL the WebView issues so we can tell apart
+     *   - "no requests at all" (autoplay denied or page didn't load),
+     *   - "wrong URL shape we should also accept",
+     *   - "POST-only UMP cohort (no in-app fix possible)".
      */
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
         val extracting = YoutubeExtractor.pendingRef.get() != null
-        if (extracting) {
-            // Diagnostic: see what's ACTUALLY firing during an extraction
-            // attempt. Log anything that looks media-adjacent so we can tell
-            // the difference between "no requests at all" (autoplay broken)
-            // and "wrong URL shape" (filter too tight).
-            if (url.contains("googlevideo.com") ||
-                url.contains("/youtubei/v1/player") ||
-                url.contains("/youtubei/v1/reel")) {
-                com.beatdrop.kt.DebugLog.d("webview", "saw ${request.method} ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
+        if (extracting && YoutubeExtractor.verbose) {
+            // Filter the truly-noisy stuff (images, css, fonts, beacons) but
+            // surface anything that could plausibly be a stream or player API.
+            val noise = url.endsWith(".png") || url.endsWith(".jpg") ||
+                        url.endsWith(".webp") || url.endsWith(".css") ||
+                        url.endsWith(".woff2") || url.endsWith(".ico") ||
+                        url.contains("/generate_204") ||
+                        url.contains("/log_event")
+            if (!noise) {
+                com.beatdrop.kt.DebugLog.d("webview", "${request.method} ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
             }
-            if (isAudioStreamUrl(url)) {
-                YoutubeExtractor.onStreamResult(url)
-                return WebResourceResponse(
-                    "audio/mp4", "UTF-8", 204, "No Content",
-                    emptyMap(), ByteArrayInputStream(ByteArray(0))
-                )
-            }
+        }
+        if (extracting && isAudioStreamUrl(url)) {
+            YoutubeExtractor.onStreamResult(url)
+            return WebResourceResponse(
+                "audio/mp4", "UTF-8", 204, "No Content",
+                emptyMap(), ByteArrayInputStream(ByteArray(0))
+            )
         }
         return null
     }
@@ -312,22 +410,38 @@ private fun extractorWebViewClient() = object : WebViewClient() {
         view.evaluateJavascript(makeExtractJs(vid), null)
     }
 
+    override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+        super.onPageStarted(view, url, favicon)
+        if (YoutubeExtractor.pendingRef.get() != null) {
+            com.beatdrop.kt.DebugLog.d("webview", "page started → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
+        }
+    }
+
     override fun onPageFinished(view: WebView, url: String) {
         super.onPageFinished(view, url)
         val vid = YoutubeExtractor.pendingVideoId ?: return
+        com.beatdrop.kt.DebugLog.d("webview", "page finished → ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
         view.evaluateJavascript(makeExtractJs(vid), null)
-        // Aggressive autoplay nudge — Chromium's autoplay policy denies the
-        // first play() call on mobile if the page hasn't had user activation.
-        // We keep poking the video element until it plays. Each play() call
-        // that succeeds fires the CDN request we intercept.
+        // Aggressive autoplay nudge — see NUDGE_AUTOPLAY_JS comment.
         view.evaluateJavascript(NUDGE_AUTOPLAY_JS, null)
     }
 
     override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
         super.onReceivedError(v, req, err)
-        // Decoupled: do not abort extraction instantly on page load errors — allow the
-        // timeout to handle it, so minor resource/redirect blocks do not disrupt extraction.
-        // if (req.isForMainFrame) YoutubeExtractor.onStreamError("page_load_error")
+        // Only log MAIN-frame errors — every blocked tracker pixel hits this
+        // too and would drown the log otherwise.
+        if (req.isForMainFrame && YoutubeExtractor.pendingRef.get() != null) {
+            val desc = try { err.description?.toString() ?: "?" } catch (_: Throwable) { "?" }
+            val code = try { err.errorCode } catch (_: Throwable) { -1 }
+            com.beatdrop.kt.DebugLog.w("webview", "page error code=$code $desc → ${com.beatdrop.kt.DebugLog.shortUrl(req.url.toString())}")
+        }
+    }
+
+    override fun onReceivedHttpError(view: WebView, req: WebResourceRequest, resp: WebResourceResponse) {
+        super.onReceivedHttpError(view, req, resp)
+        if (req.isForMainFrame && YoutubeExtractor.pendingRef.get() != null) {
+            com.beatdrop.kt.DebugLog.w("webview", "page http ${resp.statusCode} → ${com.beatdrop.kt.DebugLog.shortUrl(req.url.toString())}")
+        }
     }
 }
 
