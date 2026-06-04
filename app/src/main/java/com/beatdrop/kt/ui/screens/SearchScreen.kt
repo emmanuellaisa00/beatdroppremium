@@ -72,6 +72,13 @@ fun SearchScreen(
     val history    by vm.searchHistory.collectAsState()
     val jobs       by vm.downloadJobs.collectAsState()
 
+    // Filter chips state — defaults to ALL so the first paint shows the
+    // full Albums + Playlists + Songs stack. Reset to ALL whenever a new
+    // search query is submitted so the chip doesn't 'stick' across
+    // unrelated queries.
+    var filter by remember { mutableStateOf(SearchFilter.ALL) }
+    LaunchedEffect(q) { filter = SearchFilter.ALL }
+
     var snackbarMessage   by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(snackbarMessage) {
@@ -231,12 +238,24 @@ fun SearchScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 results.isNotEmpty() || albums.isNotEmpty() || playlists.isNotEmpty() -> {
+                    // ── Filter chips: All · Songs · Albums · Playlists ──────
+                    val showSongs     = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
+                    val showAlbums    = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
+                    val showPlaylists = filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS
+                    SearchFilterChips(
+                        selected = filter,
+                        songCount = results.size,
+                        albumCount = albums.size,
+                        playlistCount = playlists.size,
+                        onSelect = { filter = it },
+                    )
+                    Spacer(Modifier.height(8.dp))
                     LazyColumn(
                         state          = listState,
                         contentPadding = PaddingValues(bottom = 160.dp),
                     ) {
                         // ── Albums section (Spotify-style horizontal carousel) ──
-                        if (albums.isNotEmpty()) {
+                        if (showAlbums && albums.isNotEmpty()) {
                             item {
                                 SectionEyebrow("Albums", count = albums.size)
                             }
@@ -249,7 +268,7 @@ fun SearchScreen(
                             }
                         }
                         // ── Playlists section ──────────────────────────────────
-                        if (playlists.isNotEmpty()) {
+                        if (showPlaylists && playlists.isNotEmpty()) {
                             item {
                                 SectionEyebrow("Playlists", count = playlists.size)
                             }
@@ -267,12 +286,12 @@ fun SearchScreen(
                             }
                         }
                         // ── Songs header ───────────────────────────────────────
-                        if (results.isNotEmpty()) {
+                        if (showSongs && results.isNotEmpty()) {
                             item {
                                 SectionEyebrow("Songs", count = results.size)
                             }
                         }
-                        itemsIndexed(results, key = { _, r -> r.videoId }) { idx, r ->
+                        if (showSongs) itemsIndexed(results, key = { _, r -> r.videoId }) { idx, r ->
                             val job = jobs[r.videoId]
                             // Predictive prefetch — if the row stays on
                             // screen >400 ms (i.e. user isn't fly-scrolling
@@ -604,6 +623,83 @@ private fun PlaylistCarousel(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+    }
+}
+
+// ─── Search filter chips ─────────────────────────────────────────────────────
+
+/** Which sections of the search-results list to show. */
+private enum class SearchFilter { ALL, SONGS, ALBUMS, PLAYLISTS }
+
+/**
+ * Horizontal pill-chip row for filtering the typed search results.
+ *
+ *   [ All  127 ] [ Songs  98 ] [ Albums  12 ] [ Playlists  17 ]
+ *
+ * Active chip = accent-green fill + black text. Inactive = white-12%
+ * fill + white-80% text. A chip whose count is zero is still tappable
+ * (so the user can switch back to a still-loading section), but
+ * desaturated to white-40% to signal 'nothing here yet'.
+ */
+@Composable
+private fun SearchFilterChips(
+    selected: SearchFilter,
+    songCount: Int,
+    albumCount: Int,
+    playlistCount: Int,
+    onSelect: (SearchFilter) -> Unit,
+) {
+    val C = LocalAppColors.current
+    val total = songCount + albumCount + playlistCount
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+    ) {
+        item { Chip("All",       total,         selected == SearchFilter.ALL,       C) { onSelect(SearchFilter.ALL) } }
+        item { Chip("Songs",     songCount,     selected == SearchFilter.SONGS,     C) { onSelect(SearchFilter.SONGS) } }
+        item { Chip("Albums",    albumCount,    selected == SearchFilter.ALBUMS,    C) { onSelect(SearchFilter.ALBUMS) } }
+        item { Chip("Playlists", playlistCount, selected == SearchFilter.PLAYLISTS, C) { onSelect(SearchFilter.PLAYLISTS) } }
+    }
+}
+
+@Composable
+private fun Chip(
+    label: String,
+    count: Int,
+    active: Boolean,
+    C: com.beatdrop.kt.ui.theme.AppColors,
+    onClick: () -> Unit,
+) {
+    val bg = if (active) C.accent else Color.White.copy(alpha = 0.10f)
+    val fg = when {
+        active     -> Color.Black
+        count == 0 -> C.text.copy(alpha = 0.40f)
+        else       -> C.text.copy(alpha = 0.85f)
+    }
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .pressableScale(onClick = onClick, scaleTo = 0.94f)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            color    = fg,
+            fontSize = 13.sp,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+        )
+        if (count > 0) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                count.toString(),
+                color    = if (active) Color.Black.copy(alpha = 0.65f) else C.textSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+            )
         }
     }
 }
