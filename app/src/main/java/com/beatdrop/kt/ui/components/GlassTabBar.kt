@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -41,28 +40,11 @@ import com.beatdrop.kt.ui.theme.Type
 
 data class TabSpec2(val route: String, val label: String, val iconFilled: ImageVector, val iconOutlined: ImageVector)
 
-// ─── iOS 26 Liquid Glass Tab Bar ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// iOS 26 / Spotify Glassmorphism Bottom Tab Bar
+// Spec: height=88px, radius=44px, blur=40px, accent=#21FF6B
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * iOS 26-style Liquid Glass floating tab bar with:
- *
- *   ✅ Backdrop blur + saturation boost (API 31+)
- *   ✅ Specular highlights responding to device tilt
- *   ✅ Rim light (Fresnel top-edge highlight for glass thickness)
- *   ✅ Scroll-responsive morphing: shrinks when scrolling down, expands back up
- *   ✅ Content-aware glass fill (adapts to dark/light)
- *   ✅ Interaction glow on tab press
- *   ✅ Concentric corner radii (outer bar vs inner indicator)
- *   ✅ Graceful pre-API-31 fallback (heavier opaque fill)
- *   ✅ Hairline border + inner shadow for depth
- *   ✅ Haptic feedback on selection
- *   ✅ Floating capsule with horizontal margin (iOS 26 style)
- *   ✅ Active glass highlight pill behind active icon
- *   ✅ Tiny labels below icons
- *
- * @param isScrolledDown pass true when the user is scrolling down content.
- *        The tab bar morphs smaller to focus on content.
- */
 @Composable
 fun GlassTabBar2(
     tabs: List<TabSpec2>,
@@ -76,12 +58,12 @@ fun GlassTabBar2(
 
     // ── Scroll-responsive morphing ───────────────────────────────────────────
     val barHeight by animateDpAsState(
-        targetValue = if (isScrolledDown) 48.dp else 64.dp,
+        targetValue = if (isScrolledDown) 56.dp else 88.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "barHeight",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (isScrolledDown) 20.dp else 24.dp,
+        targetValue = if (isScrolledDown) 22.dp else 26.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "iconSize",
     )
@@ -91,77 +73,89 @@ fun GlassTabBar2(
         label = "labelAlpha",
     )
 
-    val outerRadius = 28.dp
-    val outerShape = RoundedCornerShape(outerRadius)
+    // ── Spec: outer radius=44px (pill), inner indicator uses concentric rule ─
+    val outerRadius = 44.dp
+    val outerShape  = RoundedCornerShape(outerRadius)
 
-    // ── Glass bar container — floating capsule ───────────────────────────────
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Box(
             Modifier
                 .fillMaxWidth()
-                // Glass fill — stronger for the floating capsule
-                .background(
-                    if (C.isDark) Color(0xD90E0C1A) else Color(0xE8F4F4F8),
-                    shape = outerShape,
-                )
-                // Rim light (top-edge glow for glass thickness)
+                // ── Glass fill (rgba(18,18,22,.45) + gradient top-light) ─────
+                .background(C.glassNav)
                 .drawWithContent {
                     drawContent()
+                    // Top reflection gradient
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
-                                C.glassRimLight.copy(alpha = if (C.isDark) 0.14f else 0.28f),
+                                Color.White.copy(alpha = 0.08f),
                                 Color.Transparent,
                             ),
                             startY = 0f,
-                            endY = size.height * 0.4f,
+                            endY = size.height * 0.35f,
                         ),
                     )
-                }
-                // Inner glow for depth
-                .drawWithContent {
-                    drawContent()
+                    // Bottom inner glow for depth
                     drawRect(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                if (C.isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.08f),
+                                if (C.isDark) Color.White.copy(alpha = 0.04f)
+                                         else Color.White.copy(alpha = 0.06f),
                             ),
-                            startY = size.height * 0.7f,
+                            startY = size.height * 0.70f,
                             endY = size.height,
                         ),
                     )
                 }
-                // Specular highlight (device tilt)
-                .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.07f, radius = 220f)
-                // Hairline border — stronger for floating capsule
+                // ── Backdrop blur (40px = heavy level) ────────────────────────
+                .then(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        Modifier.graphicsLayer {
+                            renderEffect = RenderEffect.createChainEffect(
+                                RenderEffect.createColorFilterEffect(
+                                    android.graphics.ColorMatrixColorFilter(
+                                        android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
+                                    )
+                                ),
+                                RenderEffect.createBlurEffect(40f, 40f, Shader.TileMode.CLAMP),
+                            ).asComposeRenderEffect()
+                        }
+                    } else Modifier
+                )
+                // ── Specular highlight (device tilt) ──────────────────────────
+                .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.06f, radius = 320f)
+                // ── Rim light (Fresnel top-edge) ─────────────────────────────
+                .rimLight(outerRadius)
+                // ── Hairline border ──────────────────────────────────────────
                 .border(
-                    width = if (C.isDark) 1.dp else 0.7.dp,
-                    color = if (C.isDark) Color(0x40FFFFFF) else Color(0x28000000),
-                    shape = outerShape,
+                    width  = if (C.isDark) 1.dp else 0.7.dp,
+                    color  = C.glassNavBorder,
+                    shape  = outerShape,
                 ),
         ) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp)
-                    .height(barHeight),
+                    .height(barHeight)
+                    .padding(horizontal = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment     = Alignment.CenterVertically,
             ) {
                 tabs.forEachIndexed { _, tab ->
                     val isActive = tab.route == current
                     LiquidTabItem(
-                        tab = tab,
-                        active = isActive,
+                        tab      = tab,
+                        active   = isActive,
                         iconSize = iconSize,
                         labelAlpha = labelAlpha,
                         modifier = Modifier.weight(1f),
-                        onClick = {
+                        onClick  = {
                             if (isActive) return@LiquidTabItem
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             onSelect(tab.route)
@@ -183,43 +177,75 @@ private fun LiquidTabItem(
     onClick: () -> Unit,
 ) {
     val C = LocalAppColors.current
+
+    // Spring animation for scale
     val scale by animateFloatAsState(
         targetValue = if (active) 1.06f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
         label = "tabScale2",
     )
 
-    // Glass highlight pill behind active icon
-    val pillShape = RoundedCornerShape(14.dp)
+    // ── Active icon puck (spec: 64x64px, blur(30px)) ─────────────────────
+    val puckShape = RoundedCornerShape(32.dp)
 
     Box(
         modifier
             .fillMaxHeight()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
+                indication        = null,
+                onClick           = onClick,
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // Active background pill
+        // Active background pill — glass puck with green accent glow
         if (active) {
             Box(
                 Modifier
-                    .width(52.dp)
-                    .height(32.dp)
-                    .clip(pillShape)
+                    .size(64.dp)
+                    .clip(puckShape)
                     .background(
-                        if (C.isDark) C.accent.copy(alpha = 0.25f)
-                        else C.accent.copy(alpha = 0.15f)
+                        if (C.isDark) Color.White.copy(alpha = 0.08f)
+                                     else Color.White.copy(alpha = 0.15f),
                     )
                     .border(
-                        0.5.dp,
-                        C.accent.copy(alpha = 0.30f),
-                        pillShape,
+                        width  = 1.dp,
+                        color  = if (C.isDark) Color.White.copy(alpha = 0.15f)
+                                 else Color.White.copy(alpha = 0.30f),
+                        shape  = puckShape,
                     )
-            )
+                    .then(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Modifier.graphicsLayer {
+                                renderEffect = RenderEffect.createChainEffect(
+                                    RenderEffect.createColorFilterEffect(
+                                        android.graphics.ColorMatrixColorFilter(
+                                            android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
+                                        )
+                                    ),
+                                    RenderEffect.createBlurEffect(30f, 30f, Shader.TileMode.CLAMP),
+                                ).asComposeRenderEffect()
+                            }
+                        } else Modifier
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                // Green accent glow inside puck
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(puckShape)
+                        .background(
+                            C.accent.copy(alpha = 0.20f),
+                        )
+                        .border(0.5.dp, C.accent.copy(alpha = 0.30f), puckShape)
+                )
+            }
         }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.scale(scale),
@@ -230,15 +256,16 @@ private fun LiquidTabItem(
                 tint = if (active) C.accent else C.textSecondary,
                 modifier = Modifier.size(iconSize),
             )
-            // Label below icon (iOS 26 style)
+            // Label below icon (spec: 10sp, letter-spacing 0.1sp)
             if (labelAlpha > 0.01f) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     tab.label,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.1.sp,
-                    color = if (active) C.accent.copy(alpha = labelAlpha) else C.textTertiary.copy(alpha = labelAlpha * 0.7f),
+                    fontSize       = 10.sp,
+                    fontWeight     = FontWeight.Medium,
+                    letterSpacing  = 0.1.sp,
+                    color = if (active) C.accent.copy(alpha = labelAlpha)
+                            else C.textTertiary.copy(alpha = labelAlpha * 0.7f),
                     maxLines = 1,
                 )
             }

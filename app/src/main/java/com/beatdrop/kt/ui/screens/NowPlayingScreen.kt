@@ -35,11 +35,18 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.AppleLyrics
-import com.beatdrop.kt.ui.components.glassBlur
+import com.beatdrop.kt.ui.components.TintedGlassButton
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.rememberArtworkColor
+import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Spotify Glassmorphism Now Playing Screen
+// Background: #050505 + ambient glow rgba(50,120,255,.18)
+// Accent: #21FF6B (Spotify Green)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 @kotlin.OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +81,7 @@ fun NowPlayingScreen(
         com.beatdrop.kt.ui.components.TrackActionsSheet(vm, t, onDismiss = { showActions = false })
     }
 
-    // ── Art pulse animation ───────────────────────────────────────────────────
+    // ── Art pulse animation (scale 1.0 → 1.032 on beat) ─────────────────────
     val infinite = rememberInfiniteTransition(label = "pulse")
     val pulse by infinite.animateFloat(
         1f, 1.032f,
@@ -89,27 +96,31 @@ fun NowPlayingScreen(
 
     val artColor = rememberArtworkColor(t.artworkUri)
     var dragAccum by remember { mutableStateOf(0f) }
+    val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
 
-    // ── Full-screen backdrop ──────────────────────────────────────────────────
+    // ── Full-screen backdrop with ambient glow ───────────────────────────────
     Box(
         Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(artColor.copy(alpha = 0.78f), Color(0xFF06050B))
+                    listOf(
+                        artColor.copy(alpha = 0.78f),
+                        Color(0xFF050505),
+                    )
                 )
             )
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = { if (dragAccum > 180f) onCollapse(); dragAccum = 0f },
                 ) { _, dy -> if (dy > 0) dragAccum += dy }
-            }
+            },
     ) {
-        // Blurred art backdrop
+        // ── Blurred art backdrop ─────────────────────────────────────────────
         AsyncImage(
-            model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
+            model  = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
             contentDescription = null,
-            contentScale = ContentScale.Crop,
+            contentScale       = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -121,7 +132,35 @@ fun NowPlayingScreen(
                     alpha = 0.40f
                 },
         )
+
+        // Dark overlay for contrast
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+
+        // ── Ambient player glow (rgba(50,120,255,.18) — spec rule) ───────────
+        Box(
+            Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0x2D3278FF),  // rgba(50,120,255,.18)
+                                Color.Transparent,
+                            ),
+                            center = Offset(size.width * 0.5f, size.height * 0.3f),
+                            radius = size.width * 0.7f,
+                        ),
+                    )
+                },
+        )
+
+        // ── Specular highlight (device tilt) ────────────────────────────────
+        Box(
+            Modifier
+                .fillMaxSize()
+                .specularHighlight(tilt, intensity = 0.05f, radius = 600f),
+        )
 
         // ── Content column ────────────────────────────────────────────────────
         Column(
@@ -133,7 +172,7 @@ fun NowPlayingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
 
-            // Drag pill — glass style
+            // ── Drag pill (glass style) ────────────────────────────────────
             Box(
                 Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
                 contentAlignment = Alignment.Center,
@@ -143,11 +182,11 @@ fun NowPlayingScreen(
                         .size(36.dp, 4.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.35f))
-                        .pressableScale(onClick = onCollapse)
+                        .pressableScale(onClick = onCollapse),
                 )
             }
 
-            // ── Auto-Mix "next up" glass pill ─────────────────────────────────
+            // ── Auto-Mix "next up" glass pill ──────────────────────────────
             mixingNext?.let { upNext ->
                 Row(
                     modifier = Modifier
@@ -167,10 +206,12 @@ fun NowPlayingScreen(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "Mixing in: ${upNext.title}",
-                        color = Color.White, fontSize = 12.sp,
+                        color     = Color.White,
+                        fontSize  = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 200.dp),
+                        maxLines  = 1,
+                        overflow  = TextOverflow.Ellipsis,
+                        modifier  = Modifier.widthIn(max = 200.dp),
                     )
                 }
             }
@@ -182,8 +223,8 @@ fun NowPlayingScreen(
                     (fadeIn(tween(320)) + slideInVertically(tween(320)) { it / 12 }) togetherWith
                     (fadeOut(tween(220)) + slideOutVertically(tween(220)) { -it / 12 })
                 },
-                label = "modeSwitch",
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                label      = "modeSwitch",
+                modifier   = Modifier.weight(1f).fillMaxWidth(),
             ) { lyricsMode ->
                 if (!lyricsMode) {
                     // ── ART MODE ─────────────────────────────────────────────
@@ -203,10 +244,10 @@ fun NowPlayingScreen(
                             Alignment.Center,
                         ) {
                             AsyncImage(
-                                model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
+                                model  = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
                                 contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
+                                contentScale       = ContentScale.Crop,
+                                modifier           = Modifier.fillMaxSize(),
                             )
                         }
                     }
@@ -226,45 +267,31 @@ fun NowPlayingScreen(
                                     .border(0.6.dp, Color.White.copy(alpha = 0.20f), RoundedCornerShape(Radius.md)),
                             ) {
                                 AsyncImage(
-                                    model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
+                                    model  = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).build(),
                                     contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale       = ContentScale.Crop,
+                                    modifier           = Modifier.fillMaxSize(),
                                 )
                             }
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(
-                                    t.title,
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    t.artist,
-                                    color = Color.White.copy(alpha = 0.6f),
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                                Text(t.title,  color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(t.artist, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             val isFav = liked.contains(t.id)
                             IconButton(onClick = { vm.toggleLike(t.id) }) {
                                 Icon(
                                     if (isFav) Icons.Filled.Star else Icons.Filled.StarBorder,
                                     "Favourite",
-                                    tint = if (isFav) Color(0xFFFFCC00) else Color.White.copy(alpha = 0.80f),
+                                    tint     = if (isFav) Color(0xFFFFCC00) else Color.White.copy(alpha = 0.80f),
                                     modifier = Modifier.size(22.dp),
                                 )
                             }
                             IconButton(onClick = { }) {
-                                Icon(
-                                    Icons.Filled.MoreHoriz, "More",
-                                    tint = Color.White.copy(alpha = 0.80f),
-                                    modifier = Modifier.size(22.dp),
-                                )
+                                Icon(Icons.Filled.MoreHoriz, "More",
+                                    tint = Color.White.copy(alpha = 0.80f), modifier = Modifier.size(22.dp))
                             }
                         }
 
@@ -277,23 +304,16 @@ fun NowPlayingScreen(
                             }
                             lyrics.isEmpty() -> {
                                 Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
-                                    Text(
-                                        "No synced lyrics available.",
-                                        color = Color.White.copy(alpha = 0.55f),
-                                        textAlign = TextAlign.Center,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    )
+                                    Text("No synced lyrics available.", color = Color.White.copy(alpha = 0.55f),
+                                        textAlign = TextAlign.Center, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                                 }
                             }
-                            else -> {
-                                AppleLyrics(
-                                    lines       = lyrics,
-                                    activeIndex = activeLyric,
-                                    modifier    = Modifier.weight(1f),
-                                    onSeek      = { vm.seekTo(it) },
-                                )
-                            }
+                            else -> AppleLyrics(
+                                lines       = lyrics,
+                                activeIndex = activeLyric,
+                                modifier    = Modifier.weight(1f),
+                                onSeek      = { vm.seekTo(it) },
+                            )
                         }
                     }
                 }
@@ -306,28 +326,15 @@ fun NowPlayingScreen(
                 exit    = fadeOut(tween(160)),
             ) {
                 Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            t.title,
-                            color      = Color.White,
-                            fontSize   = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines   = 1,
-                            overflow   = TextOverflow.Ellipsis,
-                        )
+                        Text(t.title,  color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.height(3.dp))
-                        Text(
-                            t.artist,
-                            color    = Color.White.copy(alpha = 0.62f),
-                            fontSize = 15.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Text(t.artist, color = Color.White.copy(alpha = 0.62f), fontSize = 15.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width(10.dp))
                     val isFav = liked.contains(t.id)
@@ -340,32 +347,29 @@ fun NowPlayingScreen(
                         )
                     }
                     IconButton(onClick = { showActions = true }) {
-                        Icon(
-                            Icons.Filled.MoreHoriz, "More",
-                            tint     = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(24.dp),
-                        )
+                        Icon(Icons.Filled.MoreHoriz, "More",
+                            tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(24.dp))
                     }
                 }
             }
 
-            // ── Seek bar — glass track style ──────────────────────────────────
+            // ── Seek bar — accent green track ────────────────────────────────
             val safeDur = dur.coerceAtLeast(1L)
             Slider(
                 value         = pos.coerceIn(0, safeDur).toFloat(),
                 onValueChange = { vm.seekTo(it.toLong()) },
                 valueRange    = 0f..safeDur.toFloat(),
                 colors = SliderDefaults.colors(
-                    activeTrackColor   = Color.White,
+                    activeTrackColor   = C.accent,       // Spotify Green
                     inactiveTrackColor = Color.White.copy(alpha = 0.22f),
                     thumbColor         = Color.White,
                 ),
                 modifier = Modifier.fillMaxWidth().height(40.dp),
                 thumb = {
                     Box(
-                        Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                        Modifier.size(28.dp).clip(CircleShape)
                             .background(Color.White)
-                            .shadow(4.dp, CircleShape)
+                            .shadow(4.dp, CircleShape),
                     )
                 },
             )
@@ -379,7 +383,7 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(6.dp))
 
-            // ── Transport controls — glass capsule row ────────────────────────
+            // ── Transport controls — glass capsule with Spotify Green accent ─
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -389,23 +393,33 @@ fun NowPlayingScreen(
                 IconButton(onClick = { vm.prev() }, modifier = Modifier.size(64.dp)) {
                     Icon(Icons.Filled.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
-                // Play / pause — glass circle button
+
+                // Play / pause — glass circle with green accent
                 Box(
                     Modifier
                         .size(76.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+                        .background(C.accent.copy(alpha = 0.25f))       // Green tint glass
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.15f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        )
+                        .border(1.dp, C.accent.copy(alpha = 0.40f), CircleShape)
                         .pressableScale(onClick = { vm.togglePlay() }),
                     Alignment.Center,
                 ) {
                     Icon(
                         if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         "Play/Pause",
-                        tint     = Color.White,
+                        tint     = C.accent,         // Spotify Green icon
                         modifier = Modifier.size(42.dp),
                     )
                 }
+
                 // Next
                 IconButton(onClick = { vm.next() }, modifier = Modifier.size(64.dp)) {
                     Icon(Icons.Filled.SkipNext, null, tint = Color.White, modifier = Modifier.size(46.dp))
@@ -419,27 +433,21 @@ fun NowPlayingScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Filled.VolumeDown, "Min volume",
-                    tint     = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.size(20.dp),
-                )
+                Icon(Icons.Filled.VolumeDown, "Min volume",
+                    tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
                 Slider(
                     value         = volume,
                     onValueChange = { vm.setVolume(it) },
                     valueRange    = 0f..1f,
                     colors = SliderDefaults.colors(
-                        activeTrackColor   = Color.White.copy(alpha = 0.90f),
+                        activeTrackColor   = C.accent,              // Green active track
                         inactiveTrackColor = Color.White.copy(alpha = 0.22f),
                         thumbColor         = Color.White,
                     ),
                     modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
                 )
-                Icon(
-                    Icons.Filled.VolumeUp, "Max volume",
-                    tint     = Color.White.copy(alpha = 0.75f),
-                    modifier = Modifier.size(20.dp),
-                )
+                Icon(Icons.Filled.VolumeUp, "Max volume",
+                    tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
             }
 
             Spacer(Modifier.height(8.dp))
@@ -452,49 +460,43 @@ fun NowPlayingScreen(
                     .clip(RoundedCornerShape(50))
                     .background(Color.White.copy(alpha = 0.14f))
                     .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(50))
-                    // Top rim light on dock pill
                     .drawWithContent {
                         drawContent()
+                        // Top rim light on dock pill
                         drawRect(
                             brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = 0.10f), Color.Transparent),
-                                startY = 0f, endY = size.height * 0.4f,
-                            )
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.10f),
+                                    Color.Transparent,
+                                ),
+                                startY = 0f,
+                                endY   = size.height * 0.4f,
+                            ),
                         )
                     }
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
-                // Lyrics toggle
+                // Lyrics toggle — green accent when active
                 IconButton(onClick = { showLyrics = !showLyrics }) {
                     Icon(
                         Icons.Filled.FormatQuote, "Lyrics",
-                        tint     = if (showLyrics) C.accent else Color.White,
+                        tint = if (showLyrics) C.accent else Color.White,
                         modifier = Modifier.size(26.dp),
                     )
                 }
-                // Thin divider
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
-                // AirPlay / audio output
-                IconButton(onClick = {
-                    com.beatdrop.kt.playback.AudioOutput.openSwitcher(ctx)
-                }) {
-                    Icon(
-                        Icons.Filled.Airplay, "Audio output",
-                        tint     = Color.White,
-                        modifier = Modifier.size(24.dp),
-                    )
+                // AirPlay
+                IconButton(onClick = { com.beatdrop.kt.playback.AudioOutput.openSwitcher(ctx) }) {
+                    Icon(Icons.Filled.Airplay, "Audio output",
+                        tint = Color.White, modifier = Modifier.size(24.dp))
                 }
-                // Thin divider
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // Queue
                 IconButton(onClick = onOpenQueue) {
-                    Icon(
-                        Icons.Filled.List, "Queue",
-                        tint     = Color.White,
-                        modifier = Modifier.size(26.dp),
-                    )
+                    Icon(Icons.Filled.List, "Queue",
+                        tint = Color.White, modifier = Modifier.size(26.dp))
                 }
             }
         }

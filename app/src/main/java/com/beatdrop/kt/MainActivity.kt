@@ -37,14 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.components.GlassTabBar2
@@ -77,7 +76,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        // Handle incoming share intent or deep link
         handleIncomingIntent(intent)
     }
 
@@ -86,19 +84,14 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
-    /**
-     * Handle URLs shared from other apps (YouTube, TikTok, etc.) or opened via deep link.
-     */
     private fun handleIncomingIntent(intent: android.content.Intent?) {
         when (intent?.action) {
             android.content.Intent.ACTION_SEND -> {
                 val sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT) ?: return
-                val url = sharedText.trim()
                 // The clipboard watcher will detect this URL and show the dialog
             }
             android.content.Intent.ACTION_VIEW -> {
                 val data = intent.data ?: return
-                val url = data.toString()
                 // Will be handled by clipboard detection in Root composable
             }
         }
@@ -120,7 +113,6 @@ private val audioPermission: String
 fun Root(vm: PlayerViewModel = viewModel()) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val perm = rememberPermissionState(audioPermission)
-    // POST_NOTIFICATIONS (Android 13+) — needed for the media-playback notification
     val notifPerm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         rememberPermissionState(android.Manifest.permission.POST_NOTIFICATIONS) else null
 
@@ -131,7 +123,6 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     LaunchedEffect(perm.status.isGranted) {
         if (perm.status.isGranted) {
             vm.loadLibrary()
-            // Best-effort: ask for notification permission once audio is granted.
             if (notifPerm != null && !notifPerm.status.isGranted) notifPerm.launchPermissionRequest()
         }
     }
@@ -141,13 +132,11 @@ fun Root(vm: PlayerViewModel = viewModel()) {
         OnboardingScreen(onGetStarted = { onboarded = true; perm.launchPermissionRequest() }); return
     }
     if (!perm.status.isGranted) {
-        PermissionPrompt(
-            onRequest = { perm.launchPermissionRequest() }
-        )
+        PermissionPrompt(onRequest = { perm.launchPermissionRequest() })
         return
     }
 
-    // Clipboard URL detection — show dialog when user has a video URL copied
+    // Clipboard URL detection
     var clipUrl by rememberSaveable { mutableStateOf<String?>(null) }
     if (perm.status.isGranted) {
         val detected = com.beatdrop.kt.util.ClipboardWatcher.checkClipboard(context)
@@ -186,9 +175,9 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 
 private val TABS = listOf(
     TabSpec2("library",  "Library",  Icons.Filled.LibraryMusic, Icons.Outlined.LibraryMusic),
-    TabSpec2("discover", "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
-    TabSpec2("radio",    "Radio",    Icons.Filled.Podcasts, Icons.Outlined.Podcasts),
-    TabSpec2("settings", "Settings", Icons.Filled.Settings, Icons.Outlined.Settings),
+    TabSpec2("discover", "Discover", Icons.Filled.Explore,      Icons.Outlined.Explore),
+    TabSpec2("radio",    "Radio",    Icons.Filled.Podcasts,     Icons.Outlined.Podcasts),
+    TabSpec2("settings", "Settings", Icons.Filled.Settings,     Icons.Outlined.Settings),
 )
 
 private sealed interface Dest {
@@ -205,7 +194,6 @@ private sealed interface Dest {
     data object Search : Dest
     data object NowPlaying : Dest
     data object Queue : Dest
-    // New SnapTube-style screens
     data object Downloads : Dest
     data object Trending : Dest
     data object Browser : Dest
@@ -216,6 +204,12 @@ private sealed interface Dest {
     data class ClipUrl(val url: String) : Dest
     data class PlaylistDownload(val playlistId: String) : Dest
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Spotify Glassmorphism Main Scaffold
+// Background: #050505 + ambient glow (rgba(30,80,200,.12))
+// Accent: #21FF6B (Spotify Green)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 fun MainScaffold(vm: PlayerViewModel) {
@@ -234,24 +228,32 @@ fun MainScaffold(vm: PlayerViewModel) {
 
     val artColor = com.beatdrop.kt.ui.components.rememberArtworkColor(current?.artworkUri)
     val bgColors = if (C.isDark) {
-        listOf(artColor.copy(alpha = 0.32f), Color(0xFF0C0A16), Color(0xFF06050B))
+        listOf(
+            artColor.copy(alpha = 0.32f),
+            Color(0xFF0B0B0B),
+            Color(0xFF050505),
+        )
     } else {
-        listOf(artColor.copy(alpha = 0.18f), Color(0xFFF9F7FC), Color(0xFFF0EDF5))
+        listOf(
+            artColor.copy(alpha = 0.18f),
+            Color(0xFFF8F8FC),
+            Color(0xFFF0EDF5),
+        )
     }
 
     val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
 
     Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
         Box(Modifier.fillMaxSize()) {
-            // Global blurred artwork background
+            // ── Global blurred artwork background ────────────────────────────
             if (current != null) {
                 AsyncImage(
-                    model = coil.request.ImageRequest.Builder(LocalContext.current)
+                    model  = coil.request.ImageRequest.Builder(LocalContext.current)
                         .data(current?.artworkUri)
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    contentScale       = androidx.compose.ui.layout.ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
@@ -261,20 +263,49 @@ fun MainScaffold(vm: PlayerViewModel) {
                                     .asComposeRenderEffect()
                             }
                             alpha = if (C.isDark) 0.55f else 0.38f
-                        }
+                        },
                 )
             } else {
-                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.linearGradient(bgColors)))
+                // Deep background with ambient glow (Spotify style)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(bgColors)
+                        )
+                        .drawWithContent {
+                            drawContent()
+                            // Ambient background glow — Spotify blue/cyan
+                            drawRect(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x1E1E5080),   // rgba(30,80,200,.12)
+                                        Color.Transparent,
+                                    ),
+                                    center = Offset(size.width * 0.5f, size.height * 0.2f),
+                                    radius = size.width * 0.8f,
+                                ),
+                            )
+                        },
+                )
             }
 
-            // Global translucent glass tint & specular reflection
+            // ── Global translucent glass tint & specular reflection ──────────
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(if (C.isDark) Color(0xDC06050B) else Color(0xDCFFFFFF))
-                    .specularHighlight(tilt, intensity = if (C.isDark) 0.06f else 0.04f, radius = 1000f)
+                    .background(
+                        if (C.isDark) Color(0xE0050505)
+                        else Color(0xE8FFFFFF),
+                    )
+                    .specularHighlight(
+                        tilt,
+                        intensity = if (C.isDark) 0.06f else 0.04f,
+                        radius    = 1000f,
+                    ),
             )
 
+            // ── Animated screen transitions ──────────────────────────────────
             AnimatedContent(
                 targetState = currentDest,
                 transitionSpec = {
@@ -322,7 +353,6 @@ fun MainScaffold(vm: PlayerViewModel) {
                         Dest.Search          -> SearchScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) })
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
-                        // New screens
                         Dest.Downloads       -> com.beatdrop.kt.ui.screens.DownloadsScreen(vm, onBack = { pop() })
                         Dest.Trending        -> com.beatdrop.kt.ui.screens.TrendingScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) }, onBack = { pop() })
                         Dest.Browser         -> com.beatdrop.kt.ui.screens.BrowserScreen(
@@ -395,8 +425,6 @@ private fun TabsHost(
             }
             GlassTabBar2(TABS, tab) { onTab(it) }
         }
-
-        // Premium status bar frosted glass blur overlay
         StatusBarGlassOverlay()
     }
 }
@@ -404,11 +432,10 @@ private fun TabsHost(
 @Composable private fun PlaylistsScreenHosted(vm: PlayerViewModel, onBack: () -> Unit, onOpen: (String) -> Unit) = PlaylistsScreen(vm, onBack = onBack, onOpen = onOpen)
 @Composable private fun StatsHosted(vm: PlayerViewModel, onBack: () -> Unit) = StatsScreen(vm, onBack = onBack)
 
-/**
- * Liquid Glass status bar overlay — uses backdrop blur + saturation boost
- * with a subtle rim light at the bottom edge. Adapts to light/dark theme.
- * Pre-API-31 fallback uses a heavier translucent fill.
- */
+// ═══════════════════════════════════════════════════════════════════════════════
+// Status Bar Glass Overlay — Backdrop blur + rim light
+// ═══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 fun StatusBarGlassOverlay() {
     val C = LocalAppColors.current
@@ -419,13 +446,13 @@ fun StatusBarGlassOverlay() {
             .fillMaxWidth()
             .height(topPadding)
             .background(
-                if (C.isDark) Color(0x4006050B) else Color(0x40EEEEEE)
+                if (C.isDark) Color(0x30050505) else Color(0x30EEEEEE)
             )
             .drawWithContent {
                 drawContent()
-                // Bottom-edge rim light — glass thickness indicator
+                // Bottom-edge rim light
                 drawRect(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
                             if (C.isDark) Color(0x10FFFFFF) else Color(0x0A000000),
@@ -434,6 +461,6 @@ fun StatusBarGlassOverlay() {
                         endY = size.height,
                     ),
                 )
-            }
+            },
     )
 }

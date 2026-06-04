@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -23,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -42,17 +40,12 @@ import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 import kotlin.math.abs
 
-/**
- * Liquid Glass mini-player with gestures (iOS 26 style):
- *  - Backdrop blur + saturation (real glass material)
- *  - Specular rim light (top-edge glow)
- *  - Context-aware drop shadow
- *  - Tinted glass play button (not flat solid)
- *  - Concentric corner radii (outer = 28dp, artwork = 20dp = 28-8 padding)
- *  - tap → expand to Now Playing
- *  - swipe left → next, swipe right → previous
- *  - swipe up → expand
- */
+// ═══════════════════════════════════════════════════════════════════════════════
+// Spotify Glassmorphism Mini Player
+// Spec: blur(50px) — higher than nav for elevation, outer radius=44dp
+// accent=#21FF6B (Spotify Green)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 @Composable
 fun MiniPlayer(
     track: Track,
@@ -72,9 +65,10 @@ fun MiniPlayer(
     val animX by animateFloatAsState(dragX, label = "miniX")
     val animY by animateFloatAsState(dragY.coerceAtMost(0f), label = "miniY")
 
-    val outerRadius = 28.dp
-    val innerRadius = Radius.inner(outerRadius, 8.dp)  // Concentric: 28 - 8 = 20dp
-    val outerShape = RoundedCornerShape(outerRadius)
+    // ── Concentric radius system: outer=44dp, inner=36dp (44-8) ──────────────
+    val outerRadius = 44.dp
+    val innerRadius = Radius.inner(outerRadius, 8.dp)  // 44 - 8 = 36dp
+    val outerShape  = RoundedCornerShape(outerRadius)
 
     Box(
         Modifier
@@ -83,53 +77,74 @@ fun MiniPlayer(
             .graphicsLayer {
                 translationX = animX
                 translationY = animY
-                // Context-aware drop shadow — stronger for elevated glass
-                shadowElevation = if (C.isDark) 16f else 8f
+                shadowElevation = if (C.isDark) 18f else 10f
                 shape = outerShape
                 clip = false
             }
             .clip(outerShape)
-            // Glass fill — stronger for floating capsule
-            .background(if (C.isDark) Color(0xF4101018) else Color(0xF4F2F2F7))
-            // Rim light (Fresnel top-edge for thickness) — stronger
+            // ── Glass fill (rgba(18,18,22,.45) — card tint from spec) ────────
+            .background(
+                if (C.isDark) Color(0xCC0A0A10)
+                else Color(0xD8F2F2F7)
+            )
+            // ── Backdrop blur (50px — player level, higher than nav) ─────────
+            .then(
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Modifier.graphicsLayer {
+                        renderEffect = RenderEffect.createChainEffect(
+                            RenderEffect.createColorFilterEffect(
+                                android.graphics.ColorMatrixColorFilter(
+                                    android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
+                                )
+                            ),
+                            RenderEffect.createBlurEffect(50f, 50f, Shader.TileMode.CLAMP),
+                        ).asComposeRenderEffect()
+                    }
+                } else Modifier
+            )
+            // ── Top reflection gradient ──────────────────────────────────────
             .drawWithContent {
                 drawContent()
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            C.glassRimLight.copy(alpha = if (C.isDark) 0.14f else 0.24f),
+                            Color.White.copy(alpha = if (C.isDark) 0.08f else 0.14f),
                             Color.Transparent,
                         ),
                         startY = 0f,
-                        endY = size.height * 0.4f,
+                        endY = size.height * 0.35f,
                     ),
                 )
-                // Bottom inner glow
+                // Bottom inner glow for depth
                 drawRect(
                     brush = Brush.verticalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            if (C.isDark) Color.White.copy(alpha = 0.04f) else Color.White.copy(alpha = 0.06f),
+                            if (C.isDark) Color.White.copy(alpha = 0.04f)
+                                     else Color.White.copy(alpha = 0.05f),
                         ),
-                        startY = size.height * 0.7f,
+                        startY = size.height * 0.70f,
                         endY = size.height,
                     ),
                 )
             }
-            // Specular highlight (device tilt)
-            .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.07f, radius = 200f)
-            // Hairline border — stronger
+            // ── Specular highlight (device tilt) ──────────────────────────────
+            .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.08f, radius = 220f)
+            // ── Rim light (Fresnel top-edge) ──────────────────────────────────
+            .rimLight(outerRadius)
+            // ── Hairline border ──────────────────────────────────────────────
             .border(
-                if (C.isDark) 1.dp else 0.7.dp,
-                if (C.isDark) Color(0x40FFFFFF) else Color(0x22000000),
-                outerShape,
+                width  = if (C.isDark) 1.dp else 0.7.dp,
+                color  = if (C.isDark) Color(0x33FFFFFF) else Color(0x1A000000),
+                shape  = outerShape,
             )
+            // ── Gestures: tap → expand, swipe left/right → next/prev ─────────
             .pointerInput(track.id) {
                 detectDragGestures(
                     onDragEnd = {
                         when {
                             dragX < -120f -> onNext()
-                            dragX > 120f -> onPrev()
+                            dragX >  120f -> onPrev()
                             dragY < -100f -> onExpand()
                         }
                         dragX = 0f; dragY = 0f
@@ -137,57 +152,97 @@ fun MiniPlayer(
                     onDragCancel = { dragX = 0f; dragY = 0f },
                 ) { change, amount ->
                     change.consume()
-                    if (abs(amount.x) > abs(amount.y)) dragX += amount.x else dragY += amount.y
+                    if (abs(amount.x) > abs(amount.y)) dragX += amount.x
+                    else dragY += amount.y
                 }
             }
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { onExpand() })
             },
     ) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Artwork — concentric inner radius
+        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            // ── Artwork — concentric inner radius (36dp) ─────────────────────
             Box(
                 Modifier
-                    .size(44.dp)
+                    .size(46.dp)
                     .clip(RoundedCornerShape(innerRadius))
                     .background(C.bg3)
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(track.artworkUri).crossfade(true).size(coil.size.Size(96, 96)).build(),
-                    contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    model  = ImageRequest.Builder(ctx)
+                        .data(track.artworkUri)
+                        .crossfade(true)
+                        .size(coil.size.Size(96, 96))
+                        .build(),
+                    contentDescription = null,
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier.fillMaxSize(),
                 )
             }
-            Spacer(Modifier.width(10.dp))
+
+            Spacer(Modifier.width(12.dp))
+
+            // ── Metadata: track title + artist ───────────────────────────────
             Column(Modifier.weight(1f)) {
-                Text(track.title, color = C.text, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
-                Text(track.artist, color = C.textSecondary, fontSize = 12.sp, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
+                Text(
+                    text      = track.title,
+                    color     = C.text,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines  = 1,
+                    overflow  = TextOverflow.Ellipsis,
+                    fontSize  = 14.sp,
+                )
+                Text(
+                    text      = track.artist,
+                    color     = C.textSecondary,
+                    fontSize  = 12.sp,
+                    maxLines  = 1,
+                    overflow  = TextOverflow.Ellipsis,
+                )
             }
-            // Tinted glass play button (not flat solid)
+
+            // ── Tinted glass play button (Spotify Green accent) ─────────────
             IconButton(onClick = onToggle) {
                 TintedGlassButton(
-                    modifier = Modifier.size(38.dp),
-                    cornerRadius = 19.dp,
+                    modifier     = Modifier.size(40.dp),
+                    tintColor    = C.accent,
+                    cornerRadius = 20.dp,
                 ) {
                     Icon(
-                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        null, tint = Color.White, modifier = Modifier.size(20.dp),
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint         = Color.White,
+                        modifier     = Modifier.size(20.dp),
                     )
                 }
             }
+
+            // ── Skip next ───────────────────────────────────────────────────
             IconButton(onClick = onNext) {
-                Icon(Icons.Filled.SkipNext, null, tint = C.text)
+                Icon(
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = null,
+                    tint         = C.text,
+                    modifier     = Modifier.size(22.dp),
+                )
             }
         }
-        // Progress bar — thinner and more refined
+
+        // ── Progress bar — accent green, refined 2.5dp ───────────────────────
         Box(
-            Modifier.fillMaxWidth().height(2.5.dp).align(Alignment.BottomStart)
-                .background(if (C.isDark) Color(0x1AFFFFFF) else Color(0x14000000))
+            Modifier
+                .fillMaxWidth()
+                .height(2.5.dp)
+                .align(Alignment.BottomStart)
+                .background(
+                    if (C.isDark) Color(0x1AFFFFFF)
+                    else Color(0x14000000)
+                )
         ) {
             Box(
-                Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).fillMaxHeight()
+                Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .fillMaxHeight()
                     .background(C.accent)
             )
         }
