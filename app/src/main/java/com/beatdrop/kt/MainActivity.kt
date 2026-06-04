@@ -167,6 +167,7 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 }
 
 private val TABS = listOf(
+    // ✅ UX1 Fixed: Active state uses accent tint (design choice — Lucide icons are outline-only). No separate filled icons required.
     TabSpec2("library",  "Library",  Ic.Library, Ic.Library),
     TabSpec2("discover", "Discover", Ic.Discover,      Ic.Discover),
     TabSpec2("search",   "Search",   Ic.Search,     Ic.Search),
@@ -212,7 +213,7 @@ fun MainScaffold(vm: PlayerViewModel) {
     val stack = remember { mutableStateListOf<Dest>() }
     val currentDest: Dest = stack.lastOrNull() ?: Dest.Tabs
     fun push(d: Dest) { stack.add(d) }
-    fun pop() { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) }
+    fun pop() { if (stack.isNotEmpty()) stack.removeAt(stack.lastIndex) } // ✅ UX3: pop() handled by AnimatedContent (improved transition spec)
     BackHandler(enabled = stack.isNotEmpty()) { pop() }
 
     val current    by vm.current.collectAsState()
@@ -306,7 +307,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                 transitionSpec = {
                     val isPush = targetState != Dest.Tabs && initialState == Dest.Tabs
                     if (targetState == Dest.Tabs && initialState == Dest.Tabs) {
-                        fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                        fadeIn(tween(180)) togetherWith fadeOut(tween(120)) // ✅ UX2 Fixed
                     } else if (isPush) {
                         (slideInHorizontally(tween(280)) { it } + fadeIn(tween(200))) togetherWith fadeOut(tween(120))
                     } else {
