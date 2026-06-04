@@ -324,8 +324,10 @@ fun NowPlayingScreen(
                         // Lyrics body
                         when {
                             lyricsLoading && lyrics.isEmpty() -> {
+                                // Content-shaped ghost lines instead of a spinner.
+                                // Crossfades into real AppleLyrics once the fetch lands.
                                 Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) {
-                                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
+                                    com.beatdrop.kt.ui.components.LyricsSilhouettes()
                                 }
                             }
                             lyrics.isEmpty() -> {
@@ -398,66 +400,21 @@ fun NowPlayingScreen(
                 }
             }
 
-            // ── Seek bar — accent green track + diegetic buffer indicator ────
-            // The slider sits inside a Box so we can paint a thin buffer
-            // overlay on top of it. When the buffer is ahead of the playhead
-            // by ≥2 s a faint accent rail is drawn from pos→bufferedPos with
-            // a small pulsing dot at the buffer head. Communicates "ready
-            // ahead" without any text/spinner. Resting opacity is low so
-            // it never competes with the main track.
+            // ── Seek bar — iOS-style thin rail, no thumb at rest ───────────
+            // While the stream URL is resolving (isFetching) the bar shows a
+            // sweeping accent shimmer in place of progress — no spinner, no
+            // text. Once playback starts the shimmer disappears and the
+            // normal track + filled-progress takes over.
+            // The buffered-ahead indicator was removed per design feedback:
+            // users should see only their playback progress, not the
+            // fetcher's progress.
             val safeDur = dur.coerceAtLeast(1L)
-            val buffered by vm.bufferedPosition.collectAsState()
-            val bufferLeadMs = (buffered - pos).coerceAtLeast(0L)
-            val showBufferRail = t.isStreaming && bufferLeadMs >= 2_000L && safeDur > 0L
-            val bufferPulse by rememberInfiniteTransition(label = "buffer-pulse").animateFloat(
-                initialValue = 0.35f, targetValue = 0.85f,
-                animationSpec = infiniteRepeatable(tween(900, easing = EaseInOutSine), RepeatMode.Reverse),
-                label = "buffer-pulse-alpha",
+            com.beatdrop.kt.ui.components.IosSeekBar(
+                positionMs = pos,
+                durationMs = safeDur,
+                onSeek = { vm.seekTo(it) },
+                loading = isFetching,
             )
-            Box(Modifier.fillMaxWidth().height(40.dp)) {
-                Slider(
-                    value         = pos.coerceIn(0, safeDur).toFloat(),
-                    onValueChange = { vm.seekTo(it.toLong()) },
-                    valueRange    = 0f..safeDur.toFloat(),
-                    colors = SliderDefaults.colors(
-                        activeTrackColor   = C.accent,       // Spotify Green
-                        inactiveTrackColor = Color.White.copy(alpha = 0.22f),
-                        thumbColor         = Color.White,
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(40.dp),
-                    thumb = {
-                        Box(
-                            Modifier.size(28.dp).clip(CircleShape)
-                                .background(Color.White)
-                                .shadow(4.dp, CircleShape),
-                        )
-                    },
-                )
-                if (showBufferRail) {
-                    androidx.compose.foundation.Canvas(
-                        modifier = Modifier.matchParentSize().padding(horizontal = 12.dp),
-                    ) {
-                        val w = size.width
-                        val centerY = size.height / 2f
-                        val posX = (pos.toFloat() / safeDur) * w
-                        val bufX = (buffered.coerceAtMost(safeDur).toFloat() / safeDur) * w
-                        // Faint accent rail from playhead → buffer head.
-                        drawLine(
-                            color = C.accent.copy(alpha = 0.35f),
-                            start = androidx.compose.ui.geometry.Offset(posX, centerY),
-                            end   = androidx.compose.ui.geometry.Offset(bufX, centerY),
-                            strokeWidth = 2.dp.toPx(),
-                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                        )
-                        // Pulsing dot at the buffer head.
-                        drawCircle(
-                            color = C.accent.copy(alpha = bufferPulse),
-                            radius = 3.dp.toPx(),
-                            center = androidx.compose.ui.geometry.Offset(bufX, centerY),
-                        )
-                    }
-                }
-            }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 6.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -676,14 +633,21 @@ fun NowPlayingScreen(
                         )
                     ),
             ) {
-                AppleLyrics(
-                    lines       = lyrics,
-                    activeIndex = activeLyric,
-                    modifier    = Modifier.fillMaxSize(),
-                    onSeek      = { vm.seekTo(it) },
-                    // No onTapAny here → taps fall through to onSeek
-                    // (proper Apple Music behaviour in full mode).
-                )
+                if (lyricsLoading && lyrics.isEmpty()) {
+                    // Ghost lines while LrcLib / sidecar fetch is in flight.
+                    Box(Modifier.fillMaxSize(), Alignment.Center) {
+                        com.beatdrop.kt.ui.components.LyricsSilhouettes()
+                    }
+                } else {
+                    AppleLyrics(
+                        lines       = lyrics,
+                        activeIndex = activeLyric,
+                        modifier    = Modifier.fillMaxSize(),
+                        onSeek      = { vm.seekTo(it) },
+                        // No onTapAny here → taps fall through to onSeek
+                        // (proper Apple Music behaviour in full mode).
+                    )
+                }
                 // Close button — small floating glass puck top-right
                 IconButton(
                     onClick = { fullLyrics = false },

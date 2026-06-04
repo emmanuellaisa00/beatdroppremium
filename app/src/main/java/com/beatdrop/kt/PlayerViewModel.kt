@@ -1382,6 +1382,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         onlineContext = context
         onlineContextIndex = contextIndex
         DebugLog.i("play", "tap → \"${result.title}\" [${result.videoId}] (ctx=${context.size}, idx=$contextIndex)")
+
+        // ── Instant track switch ────────────────────────────────────────
+        // Cut the previous track's audio and zero the seek bar BEFORE any
+        // other UI state changes — otherwise the user briefly sees the
+        // new track's title with the old track's position bar still
+        // scrubbing along (the 'transition limbo' the user reported).
+        cancelAutoMix()
+        controller?.let {
+            runCatching { it.stop() }
+            runCatching { it.clearMediaItems() }
+        }
+        _position.value = 0L
+        _bufferedPosition.value = 0L
+        _activeLyric.value = -1
+        _lyrics.value = emptyList()
+
         // Show track info in Now Playing instantly — no blocking overlay
         val tempTrack = Track(
             id = "yt_${result.videoId}",
@@ -1396,6 +1412,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             artworkOverride = result.thumbnailUrl,
         )
         _current.value = tempTrack
+        _duration.value = result.durationSecs * 1000L   // show full bar length immediately
         _fetchingVideoId.value = result.videoId
         _lastFailedOnline.value = null
         lastRecoveredVideoId = null   // allow 403-recovery for this fresh play
