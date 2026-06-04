@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -55,10 +56,16 @@ import com.beatdrop.kt.youtube.OnlineResult
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
+fun SearchScreen(
+    vm: PlayerViewModel,
+    onExpandPlayer: () -> Unit = {},
+    onOpenOnlineAlbum: (com.beatdrop.kt.youtube.OnlineAlbum) -> Unit = {},
+) {
     val C = LocalAppColors.current
     val q          by vm.onlineQuery.collectAsState()
     val results    by vm.onlineResults.collectAsState()
+    val albums     by vm.albumResults.collectAsState()
+    val playlists  by vm.playlistResults.collectAsState()
     val searching  by vm.isSearching.collectAsState()
     val message    by vm.onlineMessage.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
@@ -223,18 +230,48 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
                     rowCount = 6,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                results.isNotEmpty() -> {
-                    Text(
-                        "${results.size} songs found",
-                        color     = C.textTertiary,
-                        fontSize  = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier  = Modifier.padding(bottom = 8.dp),
-                    )
+                results.isNotEmpty() || albums.isNotEmpty() || playlists.isNotEmpty() -> {
                     LazyColumn(
                         state          = listState,
                         contentPadding = PaddingValues(bottom = 160.dp),
                     ) {
+                        // ── Albums section (Spotify-style horizontal carousel) ──
+                        if (albums.isNotEmpty()) {
+                            item {
+                                SectionEyebrow("Albums", count = albums.size)
+                            }
+                            item {
+                                AlbumCarousel(
+                                    albums = albums,
+                                    onOpen = onOpenOnlineAlbum,
+                                )
+                                Spacer(Modifier.height(16.dp))
+                            }
+                        }
+                        // ── Playlists section ──────────────────────────────────
+                        if (playlists.isNotEmpty()) {
+                            item {
+                                SectionEyebrow("Playlists", count = playlists.size)
+                            }
+                            item {
+                                PlaylistCarousel(
+                                    playlists = playlists,
+                                    onOpen = { pl ->
+                                        // Reuse playFeaturedPlaylist plumbing — it
+                                        // starts playback and sets the onlineContext.
+                                        vm.playFeaturedPlaylist(pl.playlistId)
+                                        onExpandPlayer()
+                                    },
+                                )
+                                Spacer(Modifier.height(16.dp))
+                            }
+                        }
+                        // ── Songs header ───────────────────────────────────────
+                        if (results.isNotEmpty()) {
+                            item {
+                                SectionEyebrow("Songs", count = results.size)
+                            }
+                        }
                         itemsIndexed(results, key = { _, r -> r.videoId }) { idx, r ->
                             val job = jobs[r.videoId]
                             // Predictive prefetch — if the row stays on
@@ -425,6 +462,148 @@ private fun CatalogRow(
                 tint     = if (isSaved) C.accent else C.textTertiary,   // Green when saved
                 modifier = Modifier.size(22.dp),
             )
+        }
+    }
+}
+// ─── Section headers + typed result carousels ─────────────────────────────────
+
+@Composable
+private fun SectionEyebrow(label: String, count: Int) {
+    val C = LocalAppColors.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 8.dp, start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            color      = C.text,
+            fontSize   = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier   = Modifier.weight(1f),
+        )
+        Text(
+            count.toString(),
+            color    = C.textTertiary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+private fun AlbumCarousel(
+    albums: List<com.beatdrop.kt.youtube.OnlineAlbum>,
+    onOpen: (com.beatdrop.kt.youtube.OnlineAlbum) -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+    ) {
+        items(albums, key = { it.browseId }) { album ->
+            Column(
+                Modifier
+                    .width(150.dp)
+                    .pressableScale(onClick = { onOpen(album) }, scaleTo = 0.96f),
+            ) {
+                Box(
+                    Modifier
+                        .size(150.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.bg3),
+                ) {
+                    if (album.thumbnailUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(ctx)
+                                .data(album.thumbnailUrl).crossfade(true).size(512).build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    album.title,
+                    color    = C.text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    buildString {
+                        append("Album")
+                        if (album.artist.isNotBlank()) append(" · ").append(album.artist)
+                        if (album.year.isNotBlank())   append(" · ").append(album.year)
+                    },
+                    color    = C.textSecondary,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistCarousel(
+    playlists: List<com.beatdrop.kt.youtube.OnlinePlaylist>,
+    onOpen: (com.beatdrop.kt.youtube.OnlinePlaylist) -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+    ) {
+        items(playlists, key = { it.playlistId }) { pl ->
+            Column(
+                Modifier
+                    .width(150.dp)
+                    .pressableScale(onClick = { onOpen(pl) }, scaleTo = 0.96f),
+            ) {
+                Box(
+                    Modifier
+                        .size(150.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.bg3),
+                ) {
+                    if (pl.thumbnailUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(ctx)
+                                .data(pl.thumbnailUrl).crossfade(true).size(512).build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    pl.title,
+                    color    = C.text,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    buildString {
+                        append("Playlist")
+                        if (pl.author.isNotBlank())   append(" · ").append(pl.author)
+                        if (pl.trackCount > 0)        append(" · ").append("${pl.trackCount} tracks")
+                    },
+                    color    = C.textSecondary,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

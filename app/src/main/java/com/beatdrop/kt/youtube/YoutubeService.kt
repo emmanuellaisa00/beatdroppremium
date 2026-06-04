@@ -1368,3 +1368,221 @@ private fun formatTime(s: Int): String {
 private fun htmlDecode(s: String) = s
     .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     .replace("&quot;", "\"").replace("&#39;", "'")
+
+// ─── YT Music typed search — albums and playlists ─────────────────────────────
+// These call the same Innertube `search` endpoint as searchYoutubeMusic but
+// with a different `params` filter, returning Album or Playlist surfaces
+// respectively. Used by the typed search-suggestions UI ("Songs · Albums
+// · Playlists") and by the OnlineAlbumScreen / OnlinePlaylistScreen routes.
+
+private const val YT_MUSIC_PARAMS_ALBUMS    = "EgWKAQIYAWoQEAMQBBAJEAoQERAQEBUQHg=="
+private const val YT_MUSIC_PARAMS_PLAYLISTS = "EgWKAQIoAWoQEAMQBBAJEAoQERAQEBUQHg=="
+
+suspend fun searchYoutubeMusicAlbums(query: String, maxResults: Int = 12): List<OnlineAlbum> =
+    withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isBlank()) return@withContext emptyList()
+        val body = JSONObject().apply {
+            put("query", q)
+            put("params", YT_MUSIC_PARAMS_ALBUMS)
+            put("context", JSONObject().put("client", JSONObject().apply {
+                put("clientName", "WEB_REMIX")
+                put("clientVersion", "1.20240501.01.00")
+                put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
+            }))
+        }.toString()
+        val req = Request.Builder()
+            .url("$YT_MUSIC_SEARCH?prettyPrint=false")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+            .header("X-Youtube-Client-Name", "67")
+            .header("X-Youtube-Client-Version", "1.20240501.01.00")
+            .header("Origin", "https://music.youtube.com")
+            .header("Referer", "https://music.youtube.com/")
+            .build()
+        runCatching {
+            val json = okHttp.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching emptyList<OnlineAlbum>()
+                JSONObject(resp.body!!.string())
+            }
+            parseYouTubeMusicAlbums(json).take(maxResults)
+        }.getOrDefault(emptyList())
+    }
+
+suspend fun searchYoutubeMusicPlaylists(query: String, maxResults: Int = 12): List<OnlinePlaylist> =
+    withContext(Dispatchers.IO) {
+        val q = query.trim()
+        if (q.isBlank()) return@withContext emptyList()
+        val body = JSONObject().apply {
+            put("query", q)
+            put("params", YT_MUSIC_PARAMS_PLAYLISTS)
+            put("context", JSONObject().put("client", JSONObject().apply {
+                put("clientName", "WEB_REMIX")
+                put("clientVersion", "1.20240501.01.00")
+                put("hl", "en"); put("gl", "US"); put("utcOffsetMinutes", 0)
+            }))
+        }.toString()
+        val req = Request.Builder()
+            .url("$YT_MUSIC_SEARCH?prettyPrint=false")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+            .header("X-Youtube-Client-Name", "67")
+            .header("X-Youtube-Client-Version", "1.20240501.01.00")
+            .header("Origin", "https://music.youtube.com")
+            .header("Referer", "https://music.youtube.com/")
+            .build()
+        runCatching {
+            val json = okHttp.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching emptyList<OnlinePlaylist>()
+                JSONObject(resp.body!!.string())
+            }
+            parseYouTubeMusicPlaylists(json).take(maxResults)
+        }.getOrDefault(emptyList())
+    }
+
+/**
+ * Parse the album-filtered YT-Music search response. Albums come back as
+ * musicResponsiveListItemRenderer with a navigationEndpoint pointing at
+ * a browseId (MPRE…) and an inner audioPlaylistId we use for fetching tracks.
+ */
+private fun parseYouTubeMusicAlbums(root: JSONObject): List<OnlineAlbum> {
+    val out = ArrayList<OnlineAlbum>()
+    val items = mutableListOf<JSONObject>()
+    fun walk(o: Any?) {
+        when (o) {
+            is JSONObject -> {
+                if (o.has("musicResponsiveListItemRenderer")) {
+                    o.optJSONObject("musicResponsiveListItemRenderer")?.let { items.add(it) }
+                }
+                o.keys().forEach { walk(o.opt(it)) }
+            }
+            is JSONArray -> for (i in 0 until o.length()) walk(o.opt(i))
+        }
+    }
+    walk(root)
+    for (item in items) {
+        // Find the navigationEndpoint browseId — albums use MPRE… prefix.
+        val navEndpoint = item.optJSONObject("navigationEndpoint")
+            ?: item.optJSONObject("doubleTapCommand")
+            ?: continue
+        val browseId = navEndpoint.optJSONObject("browseEndpoint")?.optString("browseId").orEmpty()
+        if (!browseId.startsWith("MPRE")) continue
+
+        // audioPlaylistId — try the menu items first (the "Play album" action
+        // carries it in its watchPlaylistEndpoint).
+        val audioPlaylistId = run {
+            val menuItems = item.optJSONObject("menu")
+                ?.optJSONObject("menuRenderer")
+                ?.optJSONArray("items") ?: return@run null
+            for (i in 0 until menuItems.length()) {
+                val mi = menuItems.optJSONObject(i)
+                val pl = mi?.optJSONObject("menuNavigationItemRenderer")
+                    ?.optJSONObject("navigationEndpoint")
+                    ?.optJSONObject("watchPlaylistEndpoint")?.optString("playlistId")
+                    ?: mi?.optJSONObject("menuServiceItemRenderer")
+                        ?.optJSONObject("serviceEndpoint")
+                        ?.optJSONObject("queueAddEndpoint")
+                        ?.optJSONObject("queueTarget")?.optString("playlistId")
+                if (!pl.isNullOrBlank()) return@run pl
+            }
+            null
+        }
+            ?: navEndpoint.optJSONObject("browseEndpoint")
+                ?.optJSONObject("browseEndpointContextSupportedConfigs")
+                ?.optJSONObject("browseEndpointContextMusicConfig")
+                ?.optString("pageType")
+                ?.let { null }   // pageType is just a label, not the playlist
+            ?: continue          // can't fetch without it
+
+        val flex = item.optJSONArray("flexColumns") ?: continue
+        val title = flex.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+            ?.optJSONObject(0)?.optString("text") ?: continue
+        val secondaryRuns = flex.optJSONObject(1)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+        var artist = ""; var year = ""
+        if (secondaryRuns != null) {
+            val parts = (0 until secondaryRuns.length())
+                .mapNotNull { secondaryRuns.optJSONObject(it)?.optString("text") }
+                .filter { it.isNotBlank() && it != " • " }
+            // Layout: "Album • Artist • 2024"  (sometimes "Single • Artist • 2024")
+            artist = parts.getOrNull(1) ?: parts.firstOrNull().orEmpty()
+            year = parts.lastOrNull { it.matches(Regex("\\d{4}")) }.orEmpty()
+        }
+        val thumb = upgradeThumbnailUrl(
+            item.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails")?.let {
+                    if (it.length() > 0) it.getJSONObject(it.length() - 1).optString("url") else null
+                }
+        )
+        out.add(OnlineAlbum(
+            browseId = browseId,
+            audioPlaylistId = audioPlaylistId,
+            title = title, artist = artist, year = year,
+            thumbnailUrl = thumb,
+        ))
+    }
+    return out
+}
+
+/**
+ * Parse the playlist-filtered YT-Music search response.
+ */
+private fun parseYouTubeMusicPlaylists(root: JSONObject): List<OnlinePlaylist> {
+    val out = ArrayList<OnlinePlaylist>()
+    val items = mutableListOf<JSONObject>()
+    fun walk(o: Any?) {
+        when (o) {
+            is JSONObject -> {
+                if (o.has("musicResponsiveListItemRenderer")) {
+                    o.optJSONObject("musicResponsiveListItemRenderer")?.let { items.add(it) }
+                }
+                o.keys().forEach { walk(o.opt(it)) }
+            }
+            is JSONArray -> for (i in 0 until o.length()) walk(o.opt(i))
+        }
+    }
+    walk(root)
+    for (item in items) {
+        val browseId = item.optJSONObject("navigationEndpoint")
+            ?.optJSONObject("browseEndpoint")?.optString("browseId").orEmpty()
+        if (!browseId.startsWith("VL")) continue        // Playlist browseIds use VL prefix
+        val playlistId = browseId.removePrefix("VL")
+
+        val flex = item.optJSONArray("flexColumns") ?: continue
+        val title = flex.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+            ?.optJSONObject(0)?.optString("text") ?: continue
+        val secondaryRuns = flex.optJSONObject(1)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")?.optJSONArray("runs")
+        var author = ""; var trackCount = -1
+        if (secondaryRuns != null) {
+            val parts = (0 until secondaryRuns.length())
+                .mapNotNull { secondaryRuns.optJSONObject(it)?.optString("text") }
+                .filter { it.isNotBlank() && it != " • " }
+            // "Playlist • Owner • 56 tracks"
+            author = parts.getOrNull(1) ?: parts.firstOrNull().orEmpty()
+            parts.firstOrNull { it.contains("track", ignoreCase = true) || it.contains("song", ignoreCase = true) }
+                ?.let { Regex("(\\d+)").find(it)?.value?.toIntOrNull() }
+                ?.let { trackCount = it }
+        }
+        val thumb = upgradeThumbnailUrl(
+            item.optJSONObject("thumbnail")
+                ?.optJSONObject("musicThumbnailRenderer")?.optJSONObject("thumbnail")
+                ?.optJSONArray("thumbnails")?.let {
+                    if (it.length() > 0) it.getJSONObject(it.length() - 1).optString("url") else null
+                }
+        )
+        out.add(OnlinePlaylist(
+            playlistId = playlistId,
+            title = title, author = author, trackCount = trackCount,
+            thumbnailUrl = thumb,
+        ))
+    }
+    return out
+}

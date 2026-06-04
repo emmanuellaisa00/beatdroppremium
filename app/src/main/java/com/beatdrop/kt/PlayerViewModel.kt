@@ -21,6 +21,7 @@ import com.beatdrop.kt.playback.PlaybackService
 import com.beatdrop.kt.youtube.*
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -1248,6 +1249,14 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _onlineResults = MutableStateFlow<List<OnlineResult>>(emptyList())
     val onlineResults: StateFlow<List<OnlineResult>> = _onlineResults.asStateFlow()
 
+    // Typed search results — albums and playlists fetched in parallel with
+    // the song results so the search screen can render
+    // 'Albums · Playlists · Songs' (Spotify-style sectioned results).
+    private val _albumResults = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlineAlbum>>(emptyList())
+    val albumResults: StateFlow<List<com.beatdrop.kt.youtube.OnlineAlbum>> = _albumResults.asStateFlow()
+    private val _playlistResults = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlinePlaylist>>(emptyList())
+    val playlistResults: StateFlow<List<com.beatdrop.kt.youtube.OnlinePlaylist>> = _playlistResults.asStateFlow()
+
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
@@ -1268,17 +1277,50 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val q = _onlineQuery.value.trim()
         if (q.isBlank()) return
         _isSearching.value = true; _suggestions.value = emptyList()
+        // Reset typed results so the previous query's albums/playlists don't
+        // linger while the new search is in flight.
+        _albumResults.value = emptyList()
+        _playlistResults.value = emptyList()
         DebugLog.i("search", "query=\"$q\" (provider configured=${OnlineSearch.isConfigured})")
         viewModelScope.launch {
             // Save search query in local history
             runCatching { prefs.addSearchQuery(q) }
-            val res = runCatching { OnlineSearch.provider.search(q) }.getOrElse {
-                DebugLog.e("search", "failed", it)
-                _onlineMessage.value = "Couldn't search the catalog: ${it.message}"; emptyList()
+            // Songs (primary) + Albums + Playlists fan-out in parallel; whoever
+            // finishes first updates its own flow. The screen is responsible
+            // for ordering them in the UI (Top result / Albums / Playlists /
+            // Songs).  Albums + playlists are best-effort: any failure leaves
+            // its flow empty rather than failing the whole search.
+            val songsJob = async(Dispatchers.IO) {
+                runCatching { OnlineSearch.provider.search(q) }.getOrElse {
+                    DebugLog.e("search", "songs failed", it); emptyList()
+                }
             }
-            DebugLog.i("search", "${res.size} results")
-            _onlineResults.value = res; _isSearching.value = false
+            val albumsJob = async(Dispatchers.IO) {
+                runCatching { com.beatdrop.kt.youtube.searchYoutubeMusicAlbums(q) }.getOrDefault(emptyList())
+            }
+            val playlistsJob = async(Dispatchers.IO) {
+                runCatching { com.beatdrop.kt.youtube.searchYoutubeMusicPlaylists(q) }.getOrDefault(emptyList())
+            }
+            val res = songsJob.await()
+            _onlineResults.value = res
+            _albumResults.value = albumsJob.await()
+            _playlistResults.value = playlistsJob.await()
+            _isSearching.value = false
+            DebugLog.i("search", "${res.size} songs · ${_albumResults.value.size} albums · ${_playlistResults.value.size} playlists")
+            if (res.isEmpty() && _albumResults.value.isEmpty() && _playlistResults.value.isEmpty()) {
+                // Surface a helpful message only if everything came back empty.
+                _onlineMessage.value = "No results for \"$q\". Try different keywords."
+            }
         }
+    }
+
+    /**
+     * Open a YT Music album: fetches its track list (album = playlist with
+     * OLAK5uy_ prefix) and starts playback at the first track. Used by the
+     * OnlineAlbumScreen "Play" button and by tapping an album row.
+     */
+    fun playAlbum(album: com.beatdrop.kt.youtube.OnlineAlbum, startVideoId: String? = null) {
+        playFeaturedPlaylist(album.audioPlaylistId, startVideoId)
     }
 
     fun loadSuggestions() {

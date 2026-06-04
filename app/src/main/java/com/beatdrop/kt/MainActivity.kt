@@ -240,6 +240,8 @@ private sealed interface Dest {
     data class Channel(val channelId: String, val name: String, val thumb: String?) : Dest
     data class ClipUrl(val url: String) : Dest
     data class PlaylistDownload(val playlistId: String) : Dest
+    /** YT-Music online album detail screen (Spotify-style). */
+    data class OnlineAlbum(val album: com.beatdrop.kt.youtube.OnlineAlbum) : Dest
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -387,7 +389,11 @@ fun MainScaffold(vm: PlayerViewModel) {
                         Dest.LocalDiscover   -> LocalDiscoverScreen(vm, onBack = { pop() }, onOpenSearch = { push(Dest.Search) })
                         Dest.Eq              -> EqScreen(onBack = { pop() })
                         Dest.DebugLog        -> DebugLogScreen(vm, onBack = { pop() })
-                        Dest.Search          -> SearchScreen(vm, onExpandPlayer = { push(Dest.NowPlaying) })
+                        Dest.Search          -> SearchScreen(
+                            vm,
+                            onExpandPlayer = { push(Dest.NowPlaying) },
+                            onOpenOnlineAlbum = { push(Dest.OnlineAlbum(it)) },
+                        )
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
                         Dest.Downloads       -> com.beatdrop.kt.ui.screens.DownloadsScreen(vm, onBack = { pop() })
@@ -417,6 +423,12 @@ fun MainScaffold(vm: PlayerViewModel) {
                         )
                         is Dest.PlaylistDownload -> com.beatdrop.kt.ui.screens.PlaylistDownloadScreen(
                             vm = vm, playlistId = dest.playlistId, onBack = { pop() },
+                        )
+                        is Dest.OnlineAlbum -> com.beatdrop.kt.ui.screens.OnlineAlbumScreen(
+                            vm = vm,
+                            album = dest.album,
+                            onBack = { pop() },
+                            onExpandPlayer = { push(Dest.NowPlaying) },
                         )
                     }
                 }
