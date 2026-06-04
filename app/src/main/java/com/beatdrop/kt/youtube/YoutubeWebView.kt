@@ -53,6 +53,39 @@ window.__ytCmd={
 };
 </script></body></html>"""
 
+// ─── Autoplay nudge ───────────────────────────────────────────────────────────
+// Mobile Chromium denies the first autoplay() unless the page has user
+// activation. The embed player's first play() call after onPageFinished is
+// always denied; subsequent calls — triggered by retry timers or media
+// events — usually succeed. We brute-force this by calling play() every
+// 200ms for the first 5 seconds, on every <video> element AND on the
+// YT.Player API if it's been wired up.
+private const val NUDGE_AUTOPLAY_JS = """(function(){
+    if (window.__nudged) return; window.__nudged = true;
+    var n = 0;
+    var iv = setInterval(function(){
+        n++;
+        if (n > 25) { clearInterval(iv); return; }
+        try {
+            // 1) Direct <video> play
+            var vids = document.getElementsByTagName('video');
+            for (var i = 0; i < vids.length; i++) {
+                try { var p = vids[i].play(); if (p && p.catch) p.catch(function(){}); } catch(e){}
+            }
+            // 2) IFrame API
+            if (window.__ytPlayer && window.__ytPlayer.playVideo) {
+                try { window.__ytPlayer.playVideo(); } catch(e){}
+            }
+            // 3) Click the visible play button
+            var btn = document.querySelector('.ytp-large-play-button')
+                   || document.querySelector('.ytp-play-button')
+                   || document.querySelector('button[aria-label*="Play"]')
+                   || document.querySelector('button[title*="Play"]');
+            if (btn) { try { btn.click(); } catch(e){} }
+        } catch(e){}
+    }, 200);
+})();true;"""
+
 // ─── JS fallback hook (secondary — shouldInterceptRequest is primary) ─────────
 private fun makeExtractJs(videoId: String): String = """(function(){
     if (window.__hooked) return;
@@ -174,10 +207,15 @@ object YoutubeExtractor {
         pendingVideoId = videoId
 
         mainHandler.post {
-            // autoplay=1 triggers the player to start loading its stream immediately,
-            // which is what fires the googlevideo.com CDN requests we intercept
+            // autoplay=1 + playsinline=1 + mute=1 — the trio that satisfies
+            // Chromium's mobile autoplay policy. mute=1 is crucial: without
+            // it, autoplay is denied on mobile and the CDN request never
+            // fires. We intercept the URL before any audio actually plays,
+            // so the user never hears the muted preview either way.
             webView?.loadUrl(
-                "https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1&origin=https://www.youtube.com"
+                "https://www.youtube.com/embed/$videoId" +
+                "?autoplay=1&enablejsapi=1&playsinline=1&mute=1" +
+                "&origin=https://www.youtube.com"
             )
         }
         return try {
@@ -217,17 +255,19 @@ object YoutubeExtractor {
 }
 
 // ─── Checks if a CDN URL is a usable media stream ─────────────────────────────
-// Loosened to accept BOTH audio-only AND progressive muxed video+audio formats.
-// ExoPlayer can play the audio track out of a muxed mp4 without issue, and
-// progressive itags (18, 22, etc.) are far less likely to be PO-token-gated
-// than the audio-only adaptive formats in 2026 — so accepting them dramatically
-// raises the WebView extractor's hit rate.
+// Broadened in 2026 to accept the full surface of googlevideo URLs that the
+// embed player produces:
+//   /videoplayback  — classic GET range URL (most common)
+//   /initplayback   — used by some SABR cohorts to fetch init segments
+//   /redirector     — sometimes a 302 hop before the real stream URL
+// ExoPlayer can play the audio track out of progressive muxed mp4s too, so we
+// don't require audio-only formats — any itag will do.
 private fun isAudioStreamUrl(url: String): Boolean {
-    if (!url.contains("googlevideo.com/videoplayback")) return false
-    // Reject init segments or pings if they are clearly not the main stream
-    if (url.contains("&rn=0") && url.contains("ump=1")) return false
-    
-    // As long as it has an itag, we can play it. ExoPlayer handles muxed or audio.
+    if (!url.contains("googlevideo.com")) return false
+    if (!(url.contains("/videoplayback") ||
+          url.contains("/initplayback") ||
+          url.contains("/redirector"))) return false
+    // Reject obvious non-stream pings (e.g. ad heartbeats with no itag).
     return url.contains("itag=")
 }
 
@@ -243,12 +283,24 @@ private fun extractorWebViewClient() = object : WebViewClient() {
      */
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
-        if (YoutubeExtractor.pendingRef.get() != null && isAudioStreamUrl(url)) {
-            YoutubeExtractor.onStreamResult(url)
-            return WebResourceResponse(
-                "audio/mp4", "UTF-8", 204, "No Content",
-                emptyMap(), ByteArrayInputStream(ByteArray(0))
-            )
+        val extracting = YoutubeExtractor.pendingRef.get() != null
+        if (extracting) {
+            // Diagnostic: see what's ACTUALLY firing during an extraction
+            // attempt. Log anything that looks media-adjacent so we can tell
+            // the difference between "no requests at all" (autoplay broken)
+            // and "wrong URL shape" (filter too tight).
+            if (url.contains("googlevideo.com") ||
+                url.contains("/youtubei/v1/player") ||
+                url.contains("/youtubei/v1/reel")) {
+                com.beatdrop.kt.DebugLog.d("webview", "saw ${request.method} ${com.beatdrop.kt.DebugLog.shortUrl(url)}")
+            }
+            if (isAudioStreamUrl(url)) {
+                YoutubeExtractor.onStreamResult(url)
+                return WebResourceResponse(
+                    "audio/mp4", "UTF-8", 204, "No Content",
+                    emptyMap(), ByteArrayInputStream(ByteArray(0))
+                )
+            }
         }
         return null
     }
@@ -264,6 +316,11 @@ private fun extractorWebViewClient() = object : WebViewClient() {
         super.onPageFinished(view, url)
         val vid = YoutubeExtractor.pendingVideoId ?: return
         view.evaluateJavascript(makeExtractJs(vid), null)
+        // Aggressive autoplay nudge — Chromium's autoplay policy denies the
+        // first play() call on mobile if the page hasn't had user activation.
+        // We keep poking the video element until it plays. Each play() call
+        // that succeeds fires the CDN request we intercept.
+        view.evaluateJavascript(NUDGE_AUTOPLAY_JS, null)
     }
 
     override fun onReceivedError(v: WebView, req: WebResourceRequest, err: WebResourceError) {
@@ -375,8 +432,14 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
     val wvWidth = 320
     val wvHeight = 568
     val container = android.widget.FrameLayout(activity).apply {
+        // Must be VISIBLE with full alpha — Chromium suspends media playback
+        // (and the autoplay request that triggers our CDN intercept) when the
+        // owning View is alpha < ~0.1 or INVISIBLE. We hide it from the user by
+        // positioning off-screen instead. The WebView is 1x1 in layout but
+        // composites fully so YouTube's player JS thinks the page is visible
+        // and proceeds to load the stream URL.
         visibility = android.view.View.VISIBLE
-        alpha = 0.01f
+        alpha = 1.0f
     }
 
     // IFrame player WebView
@@ -411,14 +474,45 @@ fun initHiddenYoutubeWebViews(activity: ComponentActivity): () -> Unit {
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(YoutubeExtractor, "AndroidBridge")
         webViewClient = extractorWebViewClient()
-        // Mute the extractor WebView natively via WebChromeClient so it never plays an ad out loud
-        webChromeClient = object : android.webkit.WebChromeClient() {}
+        // Real WebChromeClient — YouTube's embed player calls into us via
+        // PermissionRequest (autoplay), onShowCustomView (fullscreen probe),
+        // and onConsoleMessage. If we don't respond to PermissionRequest,
+        // the embed player times out the autoplay flow and never fires the
+        // CDN request that we depend on for stream extraction.
+        webChromeClient = object : android.webkit.WebChromeClient() {
+            // Grant whatever the embed player asks for — its CDN requests
+            // (the only thing we care about) are gated behind this.
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+                try { request.grant(request.resources) } catch (_: Throwable) { request.deny() }
+            }
+            // Some embed-player paths probe for "can I get user media" on
+            // mobile to decide whether to start playback. Returning null
+            // tells WebView "denied" cleanly instead of hanging.
+            override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                val msg = m.message() ?: return true
+                // Surface YouTube-side errors to our debug log so the next
+                // failure tells us WHY the embed is bailing.
+                if (msg.contains("ERROR", ignoreCase = true) ||
+                    msg.contains("blocked", ignoreCase = true) ||
+                    msg.contains("autoplay", ignoreCase = true) ||
+                    msg.contains("UMP", ignoreCase = true)) {
+                    com.beatdrop.kt.DebugLog.d("webview", "[${m.messageLevel()}] $msg")
+                }
+                return true
+            }
+        }
         YoutubeExtractor.webView = this
     }
     container.addView(extractWv, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
 
-    // 320x568 so YouTube's embed player loads its JS engine and fires CDN requests.
-    activity.addContentView(container, android.view.ViewGroup.LayoutParams(wvWidth, wvHeight))
+    // 320x568 so YouTube's embed player loads its JS engine and fires CDN
+    // requests. The container is full-alpha (Chromium suspends media if alpha
+    // is too low) but positioned ABOVE the screen with negative Y so users
+    // never see it. Translation doesn't affect Chromium's visibility heuristic.
+    activity.addContentView(container, android.widget.FrameLayout.LayoutParams(wvWidth, wvHeight).apply {
+        // Push the whole container above the visible area
+        topMargin = -(wvHeight + 1000)
+    })
 
     return {
         container.removeAllViews()
