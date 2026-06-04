@@ -43,8 +43,10 @@ import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2

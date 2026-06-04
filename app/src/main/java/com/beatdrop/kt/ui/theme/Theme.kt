@@ -54,6 +54,9 @@ data class AppColors(
     val glassShadowStrong: Color,      // Strong shadow for elevated elements
     val glassGlow: Color,              // Accent glow color
     val glassAmbient: Color,           // Ambient background glow
+    // ── Floating Glass (search bar, pills) ─────────────────────────────────
+    val glassFloating: Color,           // Search bar, floating pills (blur 28px)
+    val glassFloatingBorder: Color,
     // ── Elevated / Floating Glass ────────────────────────────────────────────
     val glassCardElevated: Color,       // Floating cards (blur 24-32px)
     val glassCardElevatedBorder: Color,
@@ -63,6 +66,8 @@ data class AppColors(
     val glassPlayerBorder: Color,
     val glassModal: Color,              // Modals / sheets (blur 60px)
     val glassModalBorder: Color,
+    // ── Sheet Background ───────────────────────────────────────────────────
+    val glassSheetBackground: Color,    // Bottom sheet background
     // ── Standard Colors ──────────────────────────────────────────────────────
     val green: Color, val blue: Color, val orange: Color, val red: Color,
     val isDark: Boolean,
@@ -121,6 +126,10 @@ val DarkColors = AppColors(
     glassModal      = Color(0xF00A0A10),
     glassModalBorder = Color(0x3DFFFFFF),
 
+    glassFloating       = Color(0x20FFFFFF),
+    glassFloatingBorder  = Color(0x28FFFFFF),
+    glassSheetBackground = Color(0xE00A0A10),
+
     green  = Color(0xFF21FF6B),
     blue   = Color(0xFF234A93),
     orange = Color(0xFFFF9F0A),
@@ -175,6 +184,10 @@ val LightColors = AppColors(
 
     glassModal      = Color(0xF0FFFFFF),
     glassModalBorder = Color(0x28000000),
+
+    glassFloating       = Color(0xCCFFFFFF),
+    glassFloatingBorder  = Color(0x18000000),
+    glassSheetBackground = Color(0xEEFFFFFF),
 
     green  = Color(0xFF1DB954),
     blue   = Color(0xFF007AFF),
