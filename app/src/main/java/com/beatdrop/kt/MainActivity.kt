@@ -307,9 +307,9 @@ fun MainScaffold(vm: PlayerViewModel) {
                 transitionSpec = {
                     val isPush = targetState != Dest.Tabs && initialState == Dest.Tabs
                     if (targetState == Dest.Tabs && initialState == Dest.Tabs) {
-                        fadeIn(tween(180)) togetherWith fadeOut(tween(120)) // ✅ UX2 Fixed
+                        fadeIn(tween(240)) togetherWith fadeOut(tween(200)) // Spotify-smooth tab transition // ✅ UX2 Fixed
                     } else if (isPush) {
-                        (slideInHorizontally(tween(280)) { it } + fadeIn(tween(200))) togetherWith fadeOut(tween(120))
+                        (slideInHorizontally(tween(340)) { it / 3 } + fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.96f)) togetherWith (fadeOut(tween(200)) + scaleOut(tween(220), targetScale = 0.98f)) // Premium Spotify-like push
                     } else {
                         fadeIn(tween(180)) togetherWith (slideOutHorizontally(tween(220)) { it } + fadeOut(tween(120)))
                     }
