@@ -2,10 +2,6 @@ package com.beatdrop.kt.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.IconPuck
@@ -50,7 +47,7 @@ fun ClipUrlScreen(
 
     ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.18f) {
         Column(Modifier.fillMaxSize()) {
-            GlassHeader(title = "Link Detected", onBack = onBack, leadingIcon = Icons.Outlined.Link)
+            GlassHeader(title = "Link Detected", onBack = onBack, leadingIcon = Ic.Link)
             Column(
                 Modifier
                     .fillMaxSize()
@@ -58,7 +55,7 @@ fun ClipUrlScreen(
                     .padding(top = 24.dp, bottom = 180.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                IconPuck(icon = Icons.Outlined.Link, contentDescription = null, size = 84.dp, tint = C.accent)
+                IconPuck(icon = Ic.Link, contentDescription = null, size = 84.dp, tint = C.accent)
                 Spacer(Modifier.height(20.dp))
 
                 // URL card
@@ -93,7 +90,7 @@ fun ClipUrlScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Outlined.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Icon(Ic.Play, null, tint = Color.White, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Play", color = Color.White, style = Type.headline)
                             }
@@ -107,7 +104,7 @@ fun ClipUrlScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Download, null, tint = C.text, modifier = Modifier.size(20.dp))
+                                Icon(Ic.Download, null, tint = C.text, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Download", color = C.text, style = Type.headline)
                             }

@@ -1,8 +1,5 @@
 package com.beatdrop.kt.ui.components
 
-import android.graphics.RenderEffect
-import android.graphics.Shader
-import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,10 +7,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.SkipNext
+import com.beatdrop.kt.ui.components.Ic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -24,7 +18,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -87,21 +80,9 @@ fun MiniPlayer(
                 if (C.isDark) Color(0xCC0A0A10)
                 else Color(0xD8F2F2F7)
             )
-            // ── Backdrop blur (50px — player level, higher than nav) ─────────
-            .then(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    Modifier.graphicsLayer {
-                        renderEffect = RenderEffect.createChainEffect(
-                            RenderEffect.createColorFilterEffect(
-                                android.graphics.ColorMatrixColorFilter(
-                                    android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                )
-                            ),
-                            RenderEffect.createBlurEffect(50f, 50f, Shader.TileMode.CLAMP),
-                        ).asComposeRenderEffect()
-                    }
-                } else Modifier
-            )
+            // Self-blur removed — was smearing the track title/artist text.
+            // Real backdrop blur will be added via Modifier.hazeGlass once
+            // dev.chrisbanes.haze is wired up at the app root.
             // ── Top reflection gradient ──────────────────────────────────────
             .drawWithContent {
                 drawContent()
@@ -209,7 +190,7 @@ fun MiniPlayer(
                     cornerRadius = 20.dp,
                 ) {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        imageVector = if (isPlaying) Ic.TransportPause else Ic.TransportPlay,
                         contentDescription = null,
                         tint         = Color.White,
                         modifier     = Modifier.size(20.dp),
@@ -220,7 +201,7 @@ fun MiniPlayer(
             // ── Skip next ───────────────────────────────────────────────────
             IconButton(onClick = onNext) {
                 Icon(
-                    imageVector = Icons.Outlined.SkipNext,
+                    imageVector = Ic.SkipNext,
                     contentDescription = null,
                     tint         = C.text,
                     modifier     = Modifier.size(22.dp),

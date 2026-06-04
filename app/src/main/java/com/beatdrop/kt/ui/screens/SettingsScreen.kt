@@ -5,31 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.outlined.Album
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.ColorLens
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Favorite
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.Nightlight
-import androidx.compose.material.icons.outlined.NetworkCheck
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PhoneAndroid
-import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.SettingsBrightness
-import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material.icons.outlined.TouchApp
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,6 +20,9 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ambientGlow
+import com.beatdrop.kt.ui.components.noiseOverlay
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.GlassCard
@@ -70,6 +49,13 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
 
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(C.bg0)
+            .ambientGlow(C.glassAmbient)
+            .noiseOverlay(),
+    ) {
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 160.dp),
@@ -81,7 +67,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = C.text)
+                    Icon(Ic.Back, "Back", tint = C.text)
                 }
                 Spacer(Modifier.width(4.dp))
                 Text("Settings", color = C.text, fontWeight = FontWeight.Black, fontSize = 28.sp)
@@ -89,13 +75,13 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         // ── APPEARANCE ───────────────────────────────────────────────────────
-        item { SectionHeader("APPEARANCE", Icons.Outlined.ColorLens) }
+        item { SectionHeader("APPEARANCE", Ic.Palette) }
         item {
             GlassCard {
                 Text("Theme", color = C.text, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("system" to Icons.Outlined.SettingsBrightness, "dark" to Icons.Outlined.DarkMode, "light" to Icons.Outlined.LightMode).forEach { (t, icon) ->
+                    listOf("system" to Ic.AutoMode, "dark" to Ic.DarkMode, "light" to Ic.LightMode).forEach { (t, icon) ->
                         GlassChip(t.replaceFirstChar { it.uppercase() }, theme == t, icon) { vm.setTheme(t) }
                     }
                 }
@@ -103,18 +89,18 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         // ── PLAYBACK ─────────────────────────────────────────────────────────
-        item { SectionHeader("PLAYBACK", Icons.Outlined.PlayCircle) }
+        item { SectionHeader("PLAYBACK", Ic.Play) }
         item {
             GlassCard {
-                ToggleRow("Haptic feedback", Icons.Outlined.TouchApp, haptics) { vm.setHaptics(it) }
+                ToggleRow("Haptic feedback", Ic.Touch, haptics) { vm.setHaptics(it) }
                 GlassDivider()
-                ToggleRow("Shuffle by default", Icons.Outlined.Shuffle, defaultShuffle) { vm.setDefaultShuffle(it) }
+                ToggleRow("Shuffle by default", Ic.Shuffle, defaultShuffle) { vm.setDefaultShuffle(it) }
                 GlassDivider()
-                ToggleRow("Auto-Mix (smart crossfade)", Icons.Outlined.AutoAwesome, autoDj) { vm.setAutoDjEnabled(it) }
+                ToggleRow("Auto-Mix (smart crossfade)", Ic.Sparkles, autoDj) { vm.setAutoDjEnabled(it) }
                 if (autoDj) {
                     GlassDivider()
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                        Icon(Ic.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(12.dp))
                         Text("Crossfade length", color = C.text, modifier = Modifier.weight(1f))
                         Text("${crossfadeMs / 1000}s", color = C.accent, fontWeight = FontWeight.Bold)
@@ -139,10 +125,10 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         // ── STREAMING ────────────────────────────────────────────────────────
-        item { SectionHeader("STREAMING", Icons.Outlined.NetworkCheck) }
+        item { SectionHeader("STREAMING", Ic.Network) }
         item {
             GlassCard {
-                ToggleRow("Music-only search", Icons.Outlined.MusicNote, musicSearch) {
+                ToggleRow("Music-only search", Ic.MusicNote, musicSearch) {
                     vm.setMusicSearchEnabled(it)
                 }
                 Text(
@@ -153,7 +139,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 )
                 GlassDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Ic.Tune, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Stream quality", color = C.text, modifier = Modifier.weight(1f))
                 }
@@ -180,7 +166,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
                 )
                 GlassDivider()
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Cloud, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Ic.Cloud, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Resolver backend (optional)", color = C.text, modifier = Modifier.weight(1f))
                 }
@@ -229,19 +215,19 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
 
         item {
             GlassCard {
-                NavRow("Equalizer", Icons.Outlined.GraphicEq, onOpenEq)
+                NavRow("Equalizer", Ic.Equalizer, onOpenEq)
             }
         }
         item {
             GlassCard {
-                NavRow("Debug Log (diagnose playback)", Icons.Outlined.Code, onOpenDebug)
+                NavRow("Debug Log (diagnose playback)", Ic.Code, onOpenDebug)
             }
         }
 
         item {
             GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Nightlight, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Ic.DarkMode, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Sleep timer", color = C.text, modifier = Modifier.weight(1f))
                     Text(
@@ -261,35 +247,35 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         // ── LIBRARY STATS ────────────────────────────────────────────────────
-        item { SectionHeader("LIBRARY", Icons.Outlined.LibraryMusic) }
+        item { SectionHeader("LIBRARY", Ic.Library) }
         item {
             GlassCard {
-                StatRow(Icons.Outlined.MusicNote, "Songs", "${tracks.size}")
+                StatRow(Ic.MusicNote, "Songs", "${tracks.size}")
                 GlassDivider()
-                StatRow(Icons.Outlined.Favorite, "Liked", "${liked.size}")
+                StatRow(Ic.Heart, "Liked", "${liked.size}")
                 GlassDivider()
-                StatRow(Icons.Outlined.Album, "Albums", "${vm.albums().size}")
+                StatRow(Ic.Album, "Albums", "${vm.albums().size}")
                 GlassDivider()
-                StatRow(Icons.Outlined.Person, "Artists", "${vm.artists().size}")
+                StatRow(Ic.Person, "Artists", "${vm.artists().size}")
             }
         }
 
         // ── ABOUT ────────────────────────────────────────────────────────────
-        item { SectionHeader("ABOUT", Icons.Outlined.Info) }
+        item { SectionHeader("ABOUT", Ic.Info) }
         item {
             val uriHandler = LocalUriHandler.current
             GlassCard {
-                StatRow(Icons.Outlined.PhoneAndroid, "App", "BeatDrop Premium")
+                StatRow(Ic.Phone, "App", "BeatDrop Premium")
                 GlassDivider()
-                StatRow(Icons.Outlined.Tune, "Engine", "Media3 / ExoPlayer")
+                StatRow(Ic.Tune, "Engine", "Media3 / ExoPlayer")
                 GlassDivider()
-                StatRow(Icons.Outlined.AutoAwesome, "Design", "Liquid Glass")
+                StatRow(Ic.Sparkles, "Design", "Liquid Glass")
                 GlassDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Outlined.Code, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                    Icon(Ic.Code, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Created by", color = C.text, modifier = Modifier.weight(1f))
                     Text(
@@ -306,6 +292,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
         }
 
         item { Spacer(Modifier.height(24.dp)) }
+    }
     }
 }
 
@@ -362,7 +349,7 @@ private fun NavRow(label: String, icon: ImageVector, onClick: () -> Unit) {
         Icon(icon, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Text(label, color = C.text, modifier = Modifier.weight(1f))
-        Icon(Icons.Outlined.ChevronRight, null, tint = C.textTertiary, modifier = Modifier.size(20.dp))
+        Icon(Ic.ChevronRight, null, tint = C.textTertiary, modifier = Modifier.size(20.dp))
     }
 }
 

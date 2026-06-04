@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -54,7 +51,7 @@ fun PlaylistDownloadScreen(
                 title = info?.title?.ifBlank { "Playlist" } ?: "Playlist",
                 subtitle = info?.let { "${it.videos.size} videos" } ?: playlistId,
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.QueueMusic,
+                leadingIcon = Ic.Playlist,
             )
 
             // Batch controls
@@ -91,7 +88,7 @@ fun PlaylistDownloadScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Spacer(Modifier.width(12.dp))
-                                Icon(Icons.Outlined.Download, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Ic.Download, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     "Download ${selectedIds.size}",
@@ -147,7 +144,7 @@ fun PlaylistDownloadScreen(
                                 )
                             }
                             IconButton(onClick = { vm.playOnline(result) }, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Outlined.PlayArrow, "Play", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+                                Icon(Ic.Play, "Play", tint = C.textTertiary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }

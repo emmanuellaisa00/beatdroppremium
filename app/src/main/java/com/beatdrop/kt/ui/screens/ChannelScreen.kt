@@ -7,10 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Subscriptions
 import com.beatdrop.kt.ui.components.GlassHeader
@@ -101,7 +98,7 @@ fun ChannelScreen(
                                 contentDescription = null, contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize().clip(CircleShape),
                             )
-                        } ?: Icon(Icons.Outlined.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
+                        } ?: Icon(Ic.Person, null, tint = Color.White, modifier = Modifier.size(36.dp))
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
@@ -171,7 +168,7 @@ fun ChannelScreen(
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Outlined.PlayArrow, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
+                            Icon(Ic.Play, null, tint = C.textSecondary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(
@@ -184,7 +181,7 @@ fun ChannelScreen(
                                 )
                             }
                             IconButton(onClick = { vm.downloadOnline(result) }, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Outlined.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+                                Icon(Ic.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }

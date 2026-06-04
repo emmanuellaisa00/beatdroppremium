@@ -10,11 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.DebugLog
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -53,19 +49,19 @@ fun DebugLogScreen(vm: PlayerViewModel, onBack: () -> Unit) {
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = C.text) }
+            IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }
             Text("Debug Log", color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f).padding(start = 4.dp))
             Text("${entries.size}", color = C.textTertiary, fontSize = 13.sp,
                 modifier = Modifier.padding(end = 6.dp))
             IconButton(onClick = { copyToClipboard(ctx, vm.dumpDebugLog()) }) {
-                Icon(Icons.Outlined.ContentCopy, "Copy", tint = C.text)
+                Icon(Ic.Copy, "Copy", tint = C.text)
             }
             IconButton(onClick = { shareText(ctx, vm.dumpDebugLog()) }) {
-                Icon(Icons.Outlined.Share, "Share", tint = C.text)
+                Icon(Ic.Share, "Share", tint = C.text)
             }
             IconButton(onClick = { vm.clearDebugLog() }) {
-                Icon(Icons.Outlined.Delete, "Clear", tint = C.text)
+                Icon(Ic.Delete, "Clear", tint = C.text)
             }
         }
 

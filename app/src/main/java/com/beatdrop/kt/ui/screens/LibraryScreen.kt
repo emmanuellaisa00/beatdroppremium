@@ -16,9 +16,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ambientGlow
+import com.beatdrop.kt.ui.components.noiseOverlay
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Track
 import com.beatdrop.kt.data.SortMode
@@ -68,7 +68,13 @@ fun LibraryScreen(
     val tracks  by vm.tracks.collectAsState()
     var tab     by remember { mutableStateOf(LibTab.SONGS) }
 
-    Column(Modifier.fillMaxSize()) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(C.bg0)
+            .ambientGlow(C.glassAmbient)
+            .noiseOverlay(),
+    ) {
         // ── Top bar: "BeatDrop" logo with accent green ──────────────────────
         Row(
             Modifier
@@ -82,9 +88,9 @@ fun LibraryScreen(
                 Text("Beat", style = Type.largeTitle, color = C.accent)   // Spotify Green
                 Text("Drop", style = Type.largeTitle, color = C.text)
             }
-            HeaderIcon(Icons.Outlined.QueueMusic, "Playlists", onOpenPlaylists)
-            HeaderIcon(Icons.Outlined.BarChart,   "Stats",     onOpenStats)
-            HeaderIcon(Icons.Outlined.Explore,    "Discover",  onOpenLocalDiscover)
+            HeaderIcon(Ic.Playlist, "Playlists", onOpenPlaylists)
+            HeaderIcon(Ic.Stats,   "Stats",     onOpenStats)
+            HeaderIcon(Ic.Discover,    "Discover",  onOpenLocalDiscover)
         }
 
         // ── Search field — Glass stadium pill (blur 28px) ────────────────────
@@ -119,7 +125,7 @@ fun LibraryScreen(
                 .padding(horizontal = 18.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
+            Icon(Ic.Search, null, tint = C.textTertiary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(10.dp))
             Box(Modifier.weight(1f)) {
                 if (query.isEmpty()) Text("Search your library", style = Type.body, color = C.textTertiary)
@@ -214,10 +220,10 @@ private fun SongsList(vm: PlayerViewModel) {
                     .padding(horizontal = Spacing.lg, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ActionPill("Play", Icons.Filled.PlayArrow, C.accent, Color.White, Modifier.weight(1f)) {
+                ActionPill("Play", Ic.TransportPlay, C.accent, Color.White, Modifier.weight(1f)) {
                     if (list.isNotEmpty()) vm.playList(list, list.first().id)
                 }
-                ActionPill("Shuffle", Icons.Outlined.Shuffle, C.bg3, C.text, Modifier.weight(1f)) {
+                ActionPill("Shuffle", Ic.Shuffle, C.bg3, C.text, Modifier.weight(1f)) {
                     if (list.isNotEmpty()) vm.shuffleAll()
                 }
             }
@@ -391,7 +397,7 @@ private fun SongRow(song: Track, isCurrent: Boolean, onClick: () -> Unit, onLong
             )
             // Music note placeholder
             Icon(
-                Icons.Outlined.MusicNote, null,
+                Ic.MusicNote, null,
                 tint = C.textTertiary.copy(alpha = 0.5f),
                 modifier = Modifier.size(22.dp),
             )
@@ -429,7 +435,7 @@ private fun EmptyLibrary() {
         verticalArrangement   = Arrangement.Center,
         horizontalAlignment   = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Outlined.MusicNote, null, tint = C.textTertiary, modifier = Modifier.size(56.dp))
+        Icon(Ic.MusicNote, null, tint = C.textTertiary, modifier = Modifier.size(56.dp))
         Spacer(Modifier.height(12.dp))
         Text("No music found", style = Type.title3, color = C.text)
         Text("Add audio files to your device.", style = Type.footnote, color = C.textSecondary)
@@ -478,7 +484,7 @@ private fun SortMenu(current: SortMode, onPick: (SortMode) -> Unit) {
                 .padding(horizontal = 12.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Outlined.SwapVert, null, tint = C.textSecondary, modifier = Modifier.size(18.dp))
+            Icon(Ic.Sort, null, tint = C.textSecondary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(current.label, style = Type.caption, color = C.text)
         }

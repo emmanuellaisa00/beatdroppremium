@@ -6,10 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.data.DownloadHistory
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.IconPuck
@@ -92,13 +89,13 @@ fun PrivateFolderScreen(
         // PIN entry screen
         ScreenScaffold(ambientColor = C.glassGlow, ambientIntensity = 0.16f) {
             Column(Modifier.fillMaxSize()) {
-                GlassHeader(title = "Private Folder", onBack = onBack, leadingIcon = Icons.Outlined.Lock)
+                GlassHeader(title = "Private Folder", onBack = onBack, leadingIcon = Ic.Lock)
                 Column(
                     Modifier.fillMaxSize().padding(horizontal = Spacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Spacer(Modifier.height(48.dp))
-                    IconPuck(icon = Icons.Outlined.Lock, contentDescription = null, size = 96.dp, tint = C.accent)
+                    IconPuck(icon = Ic.Lock, contentDescription = null, size = 96.dp, tint = C.accent)
                     Spacer(Modifier.height(20.dp))
                     Text("Private Folder", style = Type.title1, color = C.text)
                     Spacer(Modifier.height(8.dp))
@@ -143,14 +140,14 @@ fun PrivateFolderScreen(
                 GlassHeader(
                     title = "Private Folder",
                     onBack = { isUnlocked = false; onBack() },
-                    leadingIcon = Icons.Outlined.LockOpen,
+                    leadingIcon = Ic.LockOpen,
                 )
 
                 val privateDownloads = DownloadHistory.getAll().filter { it.status == "completed" }
                 if (privateDownloads.isEmpty()) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconPuck(icon = Icons.Outlined.Lock, contentDescription = null, size = 84.dp, tint = C.textTertiary)
+                            IconPuck(icon = Ic.Lock, contentDescription = null, size = 84.dp, tint = C.textTertiary)
                             Spacer(Modifier.height(16.dp))
                             Text("No private downloads yet", style = Type.headline, color = C.textSecondary)
                             Text(
@@ -173,7 +170,7 @@ fun PrivateFolderScreen(
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Outlined.MusicNote, null, tint = C.accent, modifier = Modifier.size(20.dp))
+                                Icon(Ic.MusicNote, null, tint = C.accent, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(record.title, style = Type.callout, color = C.text, fontWeight = FontWeight.Medium)

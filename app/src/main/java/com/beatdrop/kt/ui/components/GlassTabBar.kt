@@ -1,8 +1,5 @@
 package com.beatdrop.kt.ui.components
 
-import android.graphics.RenderEffect
-import android.graphics.Shader
-import android.os.Build
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,7 +21,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -113,21 +109,8 @@ fun GlassTabBar2(
                         ),
                     )
                 }
-                // ── Backdrop blur (40px = heavy level) ────────────────────────
-                .then(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        Modifier.graphicsLayer {
-                            renderEffect = RenderEffect.createChainEffect(
-                                RenderEffect.createColorFilterEffect(
-                                    android.graphics.ColorMatrixColorFilter(
-                                        android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                    )
-                                ),
-                                RenderEffect.createBlurEffect(40f, 40f, Shader.TileMode.CLAMP),
-                            ).asComposeRenderEffect()
-                        }
-                    } else Modifier
-                )
+                // Self-blur removed — was smearing tab labels and active-puck
+                // icon. Real backdrop blur via Modifier.hazeGlass once wired.
                 // ── Specular highlight (device tilt) ──────────────────────────
                 .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.06f, radius = 320f)
                 // ── Rim light (Fresnel top-edge) ─────────────────────────────
@@ -216,21 +199,8 @@ private fun LiquidTabItem(
                         color  = if (C.isDark) Color.White.copy(alpha = 0.15f)
                                  else Color.White.copy(alpha = 0.30f),
                         shape  = puckShape,
-                    )
-                    .then(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Modifier.graphicsLayer {
-                                renderEffect = RenderEffect.createChainEffect(
-                                    RenderEffect.createColorFilterEffect(
-                                        android.graphics.ColorMatrixColorFilter(
-                                            android.graphics.ColorMatrix().apply { setSaturation(1.8f) }
-                                        )
-                                    ),
-                                    RenderEffect.createBlurEffect(30f, 30f, Shader.TileMode.CLAMP),
-                                ).asComposeRenderEffect()
-                            }
-                        } else Modifier
                     ),
+                    // Self-blur removed (was smearing the puck icon).
                 contentAlignment = Alignment.Center,
             ) {
                 // Green accent glow inside puck

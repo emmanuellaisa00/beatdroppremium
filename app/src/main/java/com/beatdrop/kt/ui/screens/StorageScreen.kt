@@ -5,11 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material.icons.outlined.SdCard
-import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.data.DownloadHistory
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -49,7 +45,7 @@ fun StorageScreen(onBack: () -> Unit) {
                 title = "Storage",
                 subtitle = StorageHelper.formatSize(totalDownloadSize),
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.Storage,
+                leadingIcon = Ic.Storage,
             )
             Column(
                 Modifier.fillMaxSize().verticalScroll(scrollState)
@@ -89,7 +85,7 @@ fun StorageScreen(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF453A)),
                 ) {
-                    Icon(Icons.Outlined.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                    Icon(Ic.DeleteSweep, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Clear All Downloads", style = Type.callout)
                 }
@@ -102,7 +98,7 @@ fun StorageScreen(onBack: () -> Unit) {
                         shape = RoundedCornerShape(Radius.md),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Outlined.Restore, null, modifier = Modifier.size(18.dp))
+                        Icon(Ic.Restore, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Recover $deletedCount Deleted Downloads", style = Type.callout)
                     }
@@ -140,7 +136,7 @@ private fun StorageLocationCard(storage: StorageHelper.StorageInfo) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (storage.isRemovable) Icons.Outlined.SdCard else Icons.Outlined.Storage,
+                    if (storage.isRemovable) Ic.SdCard else Ic.Storage,
                     null, tint = C.accent, modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(10.dp))

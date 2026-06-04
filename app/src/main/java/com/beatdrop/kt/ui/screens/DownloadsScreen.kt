@@ -6,15 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.Pause
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.data.DownloadHistory
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -56,7 +48,7 @@ fun DownloadsScreen(
                 title = "Downloads",
                 subtitle = StorageHelper.formatSize(DownloadHistory.totalDownloadSize()),
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.Download,
+                leadingIcon = Ic.Download,
             )
 
             // Tab selector — glass chips
@@ -188,19 +180,19 @@ private fun ActiveDownloadRow(job: com.beatdrop.kt.youtube.DownloadJobV2) {
                 when (job.status) {
                     com.beatdrop.kt.youtube.DownloadStatusV2.DOWNLOADING -> {
                         IconButton(onClick = { DownloadManagerV2.pause(job.videoId) }) {
-                            Icon(Icons.Outlined.Pause, "Pause", tint = C.accent, modifier = Modifier.size(20.dp))
+                            Icon(Ic.Pause, "Pause", tint = C.accent, modifier = Modifier.size(20.dp))
                         }
                     }
                     com.beatdrop.kt.youtube.DownloadStatusV2.PAUSED -> {
                         IconButton(onClick = { DownloadManagerV2.resume(job.videoId, app) }) {
-                            Icon(Icons.Outlined.PlayArrow, "Resume", tint = C.accent, modifier = Modifier.size(20.dp))
+                            Icon(Ic.Play, "Resume", tint = C.accent, modifier = Modifier.size(20.dp))
                         }
                     }
                     com.beatdrop.kt.youtube.DownloadStatusV2.FAILED -> {
                         IconButton(onClick = {
                             job.result?.let { DownloadManagerV2.retry(it, app) }
                         }) {
-                            Icon(Icons.Outlined.Refresh, "Retry", tint = C.accent, modifier = Modifier.size(20.dp))
+                            Icon(Ic.Refresh, "Retry", tint = C.accent, modifier = Modifier.size(20.dp))
                         }
                     }
                     else -> {}
@@ -209,7 +201,7 @@ private fun ActiveDownloadRow(job: com.beatdrop.kt.youtube.DownloadJobV2) {
                     job.status == com.beatdrop.kt.youtube.DownloadStatusV2.QUEUED ||
                     job.status == com.beatdrop.kt.youtube.DownloadStatusV2.PAUSED) {
                     IconButton(onClick = { DownloadManagerV2.cancel(job.videoId, app) }) {
-                        Icon(Icons.Outlined.Close, "Cancel", tint = C.textTertiary, modifier = Modifier.size(18.dp))
+                        Icon(Ic.Close, "Cancel", tint = C.textTertiary, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -240,7 +232,7 @@ private fun HistoryRow(record: DownloadHistory.DownloadRecord) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            if (record.isVideo) Icons.Outlined.Videocam else Icons.Outlined.MusicNote,
+            if (record.isVideo) Ic.Video else Ic.MusicNote,
             null, tint = C.accent, modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(10.dp))
@@ -256,12 +248,12 @@ private fun HistoryRow(record: DownloadHistory.DownloadRecord) {
                 val file = File(record.filePath)
                 if (file.exists()) ShareHelper.shareFile(ctx, file, record.title)
             }) {
-                Icon(Icons.Outlined.Share, "Share", tint = C.textTertiary, modifier = Modifier.size(18.dp))
+                Icon(Ic.Share, "Share", tint = C.textTertiary, modifier = Modifier.size(18.dp))
             }
         }
         if (record.status == "deleted") {
             IconButton(onClick = { DownloadManagerV2.redownload(record, app) }) {
-                Icon(Icons.Outlined.Refresh, "Re-download", tint = C.accent, modifier = Modifier.size(18.dp))
+                Icon(Ic.Refresh, "Re-download", tint = C.accent, modifier = Modifier.size(18.dp))
             }
         }
     }

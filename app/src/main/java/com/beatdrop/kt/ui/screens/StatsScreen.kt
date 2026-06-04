@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -52,7 +51,7 @@ fun StatsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}) {
                 title = "Your Stats",
                 subtitle = "$totalPlays total plays",
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.QueryStats,
+                leadingIcon = Ic.Stats,
             )
             LazyColumn(
                 Modifier.fillMaxSize(),

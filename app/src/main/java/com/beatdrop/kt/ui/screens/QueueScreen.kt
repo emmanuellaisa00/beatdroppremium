@@ -7,11 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DragHandle
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -61,7 +57,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                 onBack = null,
                 trailing = {
                     IconButton(onClick = onClose) {
-                        Icon(Icons.Outlined.KeyboardArrowDown, "Close", tint = C.text)
+                        Icon(Ic.ChevronDown, "Close", tint = C.text)
                     }
                 },
             )
@@ -96,7 +92,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                     ) {
                         // Drag handle — long-press then drag to reorder
                         Icon(
-                            Icons.Outlined.DragHandle, "Reorder", tint = C.textTertiary,
+                            Ic.DragHandle, "Reorder", tint = C.textTertiary,
                             modifier = Modifier
                                 .size(28.dp)
                                 .pointerInput(index, queue.size) {
@@ -141,10 +137,10 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                             )
                         }
                         if (isCurrent) {
-                            Icon(Icons.Outlined.GraphicEq, "Now playing", tint = C.accent, modifier = Modifier.size(18.dp))
+                            Icon(Ic.Equalizer, "Now playing", tint = C.accent, modifier = Modifier.size(18.dp))
                         } else {
                             IconButton(onClick = { vm.removeFromQueue(index) }) {
-                                Icon(Icons.Outlined.Close, "Remove", tint = C.textTertiary, modifier = Modifier.size(16.dp))
+                                Icon(Ic.Close, "Remove", tint = C.textTertiary, modifier = Modifier.size(16.dp))
                             }
                         }
                     }

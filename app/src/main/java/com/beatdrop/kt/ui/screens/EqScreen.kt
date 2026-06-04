@@ -5,9 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ambientGlow
+import com.beatdrop.kt.ui.components.noiseOverlay
 import com.beatdrop.kt.playback.EqEngine
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.GlassCard
@@ -36,11 +36,18 @@ fun EqScreen(onBack: () -> Unit) {
     val presets by EqEngine.presets.collectAsState()
     val bass by EqEngine.bassStrength.collectAsState()
 
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(C.bg0)
+            .ambientGlow(C.glassAmbient)
+            .noiseOverlay(),
+    ) {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = C.text) }
-                Icon(Icons.Outlined.GraphicEq, null, tint = C.accent, modifier = Modifier.size(24.dp))
+                IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }
+                Icon(Ic.Equalizer, null, tint = C.accent, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Equalizer", color = C.text, fontWeight = FontWeight.Black, fontSize = 22.sp, modifier = Modifier.weight(1f))
                 Switch(checked = enabled, onCheckedChange = { EqEngine.setEnabled(it) },
@@ -120,6 +127,7 @@ fun EqScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

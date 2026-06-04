@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -30,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 import com.beatdrop.kt.ui.theme.Spacing
@@ -152,7 +151,7 @@ fun IconPuck(
             .glassShadow(elevation = 12.dp, shape = CircleShape, isDark = C.isDark)
             .clip(CircleShape)
             .background(C.glassFloating)
-            .glassBlur(30f)
+            // .glassBlur removed — was smearing the puck icon
             .drawWithContent {
                 drawContent()
                 // Top rim — inset 0 1px 0 rgba(255,255,255,.15)
@@ -208,7 +207,7 @@ fun GlassHeader(
                 .glassShadow(elevation = 14.dp, shape = RoundedCornerShape(Radius.xl), isDark = C.isDark)
                 .clip(RoundedCornerShape(Radius.xl))
                 .background(C.glassFloating)
-                .glassBlur(Blur.heavy)
+                // .glassBlur removed — was smearing GlassHeader title
                 .drawWithContent {
                     drawContent()
                     drawRect(
@@ -238,7 +237,7 @@ fun GlassHeader(
         ) {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = C.text)
+                    Icon(Ic.Back, "Back", tint = C.text)
                 }
             } else {
                 Spacer(Modifier.width(Spacing.md))

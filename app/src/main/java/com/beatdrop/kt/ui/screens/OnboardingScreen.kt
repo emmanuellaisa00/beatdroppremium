@@ -5,12 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.Lyrics
-import androidx.compose.material.icons.outlined.MusicNote
-import androidx.compose.material.icons.outlined.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
@@ -75,7 +70,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Outlined.MusicNote,
+                    Ic.MusicNote,
                     null,
                     tint = Color.White,
                     modifier = Modifier.size(56.dp)
@@ -106,13 +101,13 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             Spacer(Modifier.height(32.dp))
 
             // Feature list with cards
-            FeatureCard(Icons.Outlined.MusicNote, "Your Local Library", "Instantly plays every song already on your phone.", Color(0xFFC77DFF), C.isDark)
+            FeatureCard(Ic.MusicNote, "Your Local Library", "Instantly plays every song already on your phone.", Color(0xFFC77DFF), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Outlined.Lyrics, "Synced Lyrics", "Drop a .lrc file next to a track and sing along in real-time.", Color(0xFF0A84FF), C.isDark)
+            FeatureCard(Ic.Lyrics, "Synced Lyrics", "Drop a .lrc file next to a track and sing along in real-time.", Color(0xFF0A84FF), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Outlined.QueueMusic, "Playlists & Queue", "Create playlists, reorder your queue, and manage your music.", Color(0xFF30D158), C.isDark)
+            FeatureCard(Ic.Playlist, "Playlists & Queue", "Create playlists, reorder your queue, and manage your music.", Color(0xFF30D158), C.isDark)
             Spacer(Modifier.height(10.dp))
-            FeatureCard(Icons.Outlined.AutoAwesome, "Auto-Mix", "Smart crossfade between tracks — matches BPM, key, and your taste.", Color(0xFFFF9F0A), C.isDark)
+            FeatureCard(Ic.Sparkles, "Auto-Mix", "Smart crossfade between tracks — matches BPM, key, and your taste.", Color(0xFFFF9F0A), C.isDark)
 
             Spacer(Modifier.weight(1f))
 

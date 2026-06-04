@@ -15,17 +15,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.Podcasts
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.GraphicEq
-import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.Podcasts
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2
@@ -176,10 +166,10 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 }
 
 private val TABS = listOf(
-    TabSpec2("library",  "Library",  Icons.Outlined.LibraryMusic, Icons.Outlined.LibraryMusic),
-    TabSpec2("discover", "Discover", Icons.Outlined.Explore,      Icons.Outlined.Explore),
-    TabSpec2("radio",    "Radio",    Icons.Outlined.Podcasts,     Icons.Outlined.Podcasts),
-    TabSpec2("settings", "Settings", Icons.Outlined.Settings,     Icons.Outlined.Settings),
+    TabSpec2("library",  "Library",  Ic.Library, Ic.Library),
+    TabSpec2("discover", "Discover", Ic.Discover,      Ic.Discover),
+    TabSpec2("radio",    "Radio",    Ic.Podcast,     Ic.Podcast),
+    TabSpec2("settings", "Settings", Ic.Settings,     Ic.Settings),
 )
 
 private sealed interface Dest {

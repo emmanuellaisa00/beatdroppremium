@@ -6,9 +6,6 @@ import android.content.res.Configuration
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +20,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.theme.LocalAppColors
 
@@ -95,7 +93,7 @@ fun VideoPlayerScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, null, tint = Color.White)
+                Icon(Ic.Back, null, tint = Color.White)
             }
             Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f), maxLines = 1)
@@ -110,7 +108,7 @@ fun VideoPlayerScreen(
                         activity.enterPictureInPictureMode(params)
                     } catch (_: Exception) { }
                 }) {
-                    Icon(Icons.Outlined.PictureInPicture, "PiP", tint = Color.White)
+                    Icon(Ic.PictureInPicture, "PiP", tint = Color.White)
                 }
             }
         }

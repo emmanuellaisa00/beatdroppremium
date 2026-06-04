@@ -68,8 +68,11 @@ fun rememberDeviceTilt(): State<Offset> {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Real backdrop-blur + saturation boost (API 31+).
- * Pre-31: no-op fallback.
+ * Self-blur (API 31+). **WARNING**: this is NOT backdrop blur — it blurs
+ * the element AND its children. Use [com.beatdrop.kt.ui.components.hazeGlass]
+ * for real backdrop-blur. Kept for compatibility with surfaces that have
+ * no child content (e.g. ambient overlays), but glass cards / rows /
+ * headers / sheets MUST NOT use this — text and icons get smeared.
  */
 @SuppressLint("NewApi")
 fun Modifier.glassBlur(radiusPx: Float = 36f): Modifier =
@@ -125,8 +128,10 @@ fun Modifier.masterGlass(
                 endY = Float.POSITIVE_INFINITY,
             )
         )
-        // ── Backdrop Blur (API 31+) ─────────────────────────────────────────
-        .glassBlur(blur)
+        // NOTE: Backdrop blur is intentionally NOT applied here. Compose's
+        // RenderEffect blurs the element AND its children, which smears
+        // text/icons. Real backdrop blur lives in `Modifier.hazeGlass(...)`;
+        // call it on the parent surface BEFORE content is composed in.
         // ── Noise (organic / premium) ──────────────────────────────────────
         .noiseOverlay(opacity = 0.03f)
         // ── Top Reflection (Fresnel rim light) ─────────────────────────────
@@ -305,6 +310,7 @@ fun TintedGlassButton(
  * Renders the full stack per spec §2:
  *   Shadow → Surface → Blur → Noise → Reflection → Inner shadow → Border.
  */
+@Suppress("UNUSED_PARAMETER")
 @SuppressLint("NewApi")
 @Composable
 fun Modifier.glassCard(
@@ -317,7 +323,10 @@ fun Modifier.glassCard(
         .glassShadow(elevation = 15.dp, shape = shape, isDark = C.isDark)
         .clip(shape)
         .background(C.glassCardElevated)
-        .glassBlur(blur)
+        // Backdrop blur deliberately omitted (would smear card content).
+        // Surface tint + noise + reflection + inner-shadow + border carry
+        // the glass look; real blur is added via hazeGlass(...) once haze
+        // is wired up at the page root.
         .noiseOverlay(opacity = 0.025f)
         .drawWithContent {
             drawContent()
@@ -351,6 +360,7 @@ fun Modifier.glassCard(
  * Glass row — list-row variant of glassCard with smaller radius/blur,
  * tuned for 60fps in long LazyColumns.
  */
+@Suppress("UNUSED_PARAMETER")
 @SuppressLint("NewApi")
 @Composable
 fun Modifier.glassRow(
@@ -362,7 +372,7 @@ fun Modifier.glassRow(
     return this
         .clip(shape)
         .background(C.glassCardElevated.copy(alpha = 0.85f))
-        .glassBlur(blur)
+        // Backdrop blur deliberately omitted — see glassCard().
         .drawWithContent {
             drawContent()
             drawRect(
@@ -391,7 +401,7 @@ fun Modifier.glassSheet(radius: Dp = Radius.lg): Modifier {
     return this
         .clip(RoundedCornerShape(radius))
         .background(C.glassModal)
-        .glassBlur(60f)
+        // Backdrop blur deliberately omitted — see glassCard().
         .noiseOverlay(opacity = 0.03f)
         .drawWithContent {
             drawContent()

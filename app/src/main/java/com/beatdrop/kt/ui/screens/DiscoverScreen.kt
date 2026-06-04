@@ -12,10 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -39,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ambientGlow
+import com.beatdrop.kt.ui.components.noiseOverlay
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Track
 import com.beatdrop.kt.ui.components.SectionHeader
@@ -81,6 +80,13 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     }
 
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(C.bg0)
+            .ambientGlow(C.glassAmbient)
+            .noiseOverlay(),
+    ) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 170.dp),
@@ -126,7 +132,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
                         .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
                     Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
+                    Icon(Ic.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -178,6 +184,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
                 }
             }
         }
+    }
     }
 }
 
@@ -233,7 +240,7 @@ private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
                 .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
             Alignment.Center,
         ) {
-            Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(Ic.TransportPlay, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
         }
     }
 }
@@ -351,7 +358,7 @@ private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (Onl
                                 .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
                             Alignment.Center,
                         ) {
-                            Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Ic.TransportPlay, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -384,6 +391,13 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
     val quickGrid  = remember(tracks) { tracks.shuffled().take(6) }
 
     val topPaddingLocal = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(C.bg0)
+            .ambientGlow(C.glassAmbient)
+            .noiseOverlay(),
+    ) {
     LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 170.dp)) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
@@ -393,7 +407,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                     .padding(start = Spacing.lg, end = Spacing.lg, top = 10.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = C.text) }
+                IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }
                 Text("Local Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
 
                 // Glass search button
@@ -427,7 +441,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                         .pressableScale(onClick = onOpenSearch, scaleTo = 0.85f),
                     Alignment.Center,
                 ) {
-                    Icon(Icons.Outlined.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
+                    Icon(Ic.Search, "Search online", tint = C.text, modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -447,6 +461,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
         if (mostPlayed.isNotEmpty()) item { LocalCarousel("Most Played", mostPlayed, vm) }
         item { LocalCarousel("Recently Added", recent, vm) }
         item { LocalCarousel("Jump Back In", jumpBackIn, vm) }
+    }
     }
 }
 
@@ -491,7 +506,7 @@ private fun LocalFeaturedHero(track: Track, onPlay: () -> Unit) {
                 .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp)),
             Alignment.Center,
         ) {
-            Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(Ic.TransportPlay, "Play", tint = Color.White, modifier = Modifier.size(28.dp))
         }
     }
 }
@@ -563,7 +578,7 @@ private fun LocalCarousel(title: String, list: List<Track>, vm: PlayerViewModel)
                                 .border(0.5.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp)),
                             Alignment.Center,
                         ) {
-                            Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Ic.TransportPlay, "Play", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                     Spacer(Modifier.height(8.dp))

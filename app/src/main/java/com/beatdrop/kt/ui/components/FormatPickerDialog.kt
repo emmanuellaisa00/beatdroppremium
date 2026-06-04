@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.youtube.FormatKind
 import com.beatdrop.kt.youtube.FormatOption
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -128,7 +127,7 @@ private fun FormatRow(format: FormatOption, isAudio: Boolean, onClick: () -> Uni
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            imageVector = if (isAudio) Icons.Outlined.MusicNote else Icons.Outlined.Videocam,
+            imageVector = if (isAudio) Ic.MusicNote else Ic.Video,
             contentDescription = null,
             tint = C.accent,
             modifier = Modifier.size(20.dp),

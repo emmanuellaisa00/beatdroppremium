@@ -6,13 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.LibraryMusic
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.QueueMusic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -47,10 +41,10 @@ fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (Strin
                 title = "Playlists",
                 subtitle = "${playlists.size + 1} libraries",
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.LibraryMusic,
+                leadingIcon = Ic.Library,
                 trailing = {
                     IconButton(onClick = { showCreate = true }) {
-                        Icon(Icons.Outlined.Add, "New playlist", tint = C.accent)
+                        Icon(Ic.Add, "New playlist", tint = C.accent)
                     }
                 },
             )
@@ -74,7 +68,7 @@ fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (Strin
                             Modifier.size(48.dp).clip(RoundedCornerShape(Radius.sm)).background(C.accentSoft),
                             Alignment.Center,
                         ) {
-                            Icon(Icons.Outlined.FavoriteBorder, null, tint = C.accent, modifier = Modifier.size(24.dp))
+                            Icon(Ic.Heart, null, tint = C.accent, modifier = Modifier.size(24.dp))
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
@@ -96,7 +90,7 @@ fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (Strin
                             Modifier.size(48.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3),
                             Alignment.Center,
                         ) {
-                            Icon(Icons.Outlined.QueueMusic, null, tint = C.textSecondary)
+                            Icon(Ic.Playlist, null, tint = C.textSecondary)
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
@@ -108,7 +102,7 @@ fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (Strin
                             Text("${playlists[name]?.size ?: 0} songs", style = Type.footnote, color = C.textSecondary)
                         }
                         IconButton(onClick = { vm.deletePlaylist(name) }) {
-                            Icon(Icons.Outlined.Delete, "Delete", tint = C.textTertiary, modifier = Modifier.size(18.dp))
+                            Icon(Ic.Delete, "Delete", tint = C.textTertiary, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
@@ -154,7 +148,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
                 title = title,
                 subtitle = "${tracks.size} songs",
                 onBack = onBack,
-                leadingIcon = if (isLiked) Icons.Outlined.FavoriteBorder else Icons.Outlined.QueueMusic,
+                leadingIcon = if (isLiked) Ic.Heart else Ic.Playlist,
             )
             LazyColumn(
                 Modifier.fillMaxSize(),
@@ -176,7 +170,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Outlined.PlayArrow, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
+                                Icon(Ic.Play, null, tint = androidx.compose.ui.graphics.Color.White, modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Play", color = androidx.compose.ui.graphics.Color.White, style = Type.headline)
                             }
@@ -219,7 +213,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
                         }
                         if (!isLiked) {
                             IconButton(onClick = { vm.removeFromPlaylist(name, t.id) }) {
-                                Icon(Icons.Outlined.Delete, "Remove", tint = C.textTertiary, modifier = Modifier.size(16.dp))
+                                Icon(Ic.Delete, "Remove", tint = C.textTertiary, modifier = Modifier.size(16.dp))
                             }
                         }
                     }

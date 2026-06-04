@@ -6,8 +6,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Radio
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +15,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.ui.components.glassCard
@@ -85,7 +84,7 @@ fun RadioScreen(vm: PlayerViewModel) {
                         ) {
                             Column(Modifier.align(Alignment.BottomStart)) {
                                 Icon(
-                                    Icons.Outlined.Radio, null,
+                                    Ic.Radio, null,
                                     tint = Color.White.copy(alpha = 0.92f),
                                     modifier = Modifier.size(22.dp),
                                 )

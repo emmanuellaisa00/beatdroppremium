@@ -10,12 +10,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.AppleLyrics
 import com.beatdrop.kt.ui.components.TintedGlassButton
@@ -210,7 +205,7 @@ fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        Icons.Outlined.AutoAwesome,
+                        Ic.Sparkles,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(14.dp),
@@ -295,14 +290,14 @@ fun NowPlayingScreen(
                             val isFav = liked.contains(t.id)
                             IconButton(onClick = { vm.toggleLike(t.id) }) {
                                 Icon(
-                                    if (isFav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                                    Ic.Star,
                                     "Favourite",
                                     tint     = if (isFav) Color(0xFFFFCC00) else Color.White.copy(alpha = 0.80f),
                                     modifier = Modifier.size(22.dp),
                                 )
                             }
                             IconButton(onClick = { }) {
-                                Icon(Icons.Outlined.MoreHoriz, "More",
+                                Icon(Ic.More, "More",
                                     tint = Color.White.copy(alpha = 0.80f), modifier = Modifier.size(22.dp))
                             }
                         }
@@ -352,14 +347,14 @@ fun NowPlayingScreen(
                     val isFav = liked.contains(t.id)
                     IconButton(onClick = { vm.toggleLike(t.id) }) {
                         Icon(
-                            if (isFav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            Ic.Star,
                             "Favourite",
                             tint     = if (isFav) Color(0xFFFFCC00) else Color.White.copy(alpha = 0.85f),
                             modifier = Modifier.size(24.dp),
                         )
                     }
                     IconButton(onClick = { showActions = true }) {
-                        Icon(Icons.Outlined.MoreHoriz, "More",
+                        Icon(Ic.More, "More",
                             tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(24.dp))
                     }
                 }
@@ -403,7 +398,7 @@ fun NowPlayingScreen(
             ) {
                 // Previous
                 IconButton(onClick = { vm.prev() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Outlined.SkipPrevious, null, tint = Color.White, modifier = Modifier.size(46.dp))
+                    Icon(Ic.SkipPrev, null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
 
                 // Play / pause — glass circle with green accent
@@ -425,7 +420,7 @@ fun NowPlayingScreen(
                     Alignment.Center,
                 ) {
                     Icon(
-                        if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        if (isPlaying) Ic.TransportPause else Ic.TransportPlay,
                         "Play/Pause",
                         tint     = C.accent,         // Spotify Green icon
                         modifier = Modifier.size(42.dp),
@@ -434,7 +429,7 @@ fun NowPlayingScreen(
 
                 // Next
                 IconButton(onClick = { vm.next() }, modifier = Modifier.size(64.dp)) {
-                    Icon(Icons.Outlined.SkipNext, null, tint = Color.White, modifier = Modifier.size(46.dp))
+                    Icon(Ic.SkipNext, null, tint = Color.White, modifier = Modifier.size(46.dp))
                 }
             }
 
@@ -445,7 +440,7 @@ fun NowPlayingScreen(
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Outlined.VolumeDown, "Min volume",
+                Icon(Ic.VolumeDown, "Min volume",
                     tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
                 Slider(
                     value         = volume,
@@ -458,7 +453,7 @@ fun NowPlayingScreen(
                     ),
                     modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
                 )
-                Icon(Icons.Outlined.VolumeUp, "Max volume",
+                Icon(Ic.VolumeUp, "Max volume",
                     tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
             }
 
@@ -493,7 +488,7 @@ fun NowPlayingScreen(
                 // Lyrics toggle — green accent when active
                 IconButton(onClick = { showLyrics = !showLyrics }) {
                     Icon(
-                        Icons.Outlined.FormatQuote, "Lyrics",
+                        Ic.Lyrics, "Lyrics",
                         tint = if (showLyrics) C.accent else Color.White,
                         modifier = Modifier.size(26.dp),
                     )
@@ -501,13 +496,13 @@ fun NowPlayingScreen(
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // AirPlay
                 IconButton(onClick = { com.beatdrop.kt.playback.AudioOutput.openSwitcher(ctx) }) {
-                    Icon(Icons.Outlined.Airplay, "Audio output",
+                    Icon(Ic.Airplay, "Audio output",
                         tint = Color.White, modifier = Modifier.size(24.dp))
                 }
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // Queue
                 IconButton(onClick = onOpenQueue) {
-                    Icon(Icons.AutoMirrored.Outlined.List, "Queue",
+                    Icon(Ic.Queue, "Queue",
                         tint = Color.White, modifier = Modifier.size(26.dp))
                 }
             }

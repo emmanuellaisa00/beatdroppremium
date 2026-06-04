@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.beatdrop.kt.ui.components.Ic
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.GlassHeader
 import com.beatdrop.kt.ui.components.ScreenScaffold
@@ -66,7 +63,7 @@ fun TrendingScreen(
             GlassHeader(
                 title = "Discover",
                 onBack = onBack,
-                leadingIcon = Icons.Outlined.TrendingUp,
+                leadingIcon = Ic.TrendingUp,
             )
 
             Row(
@@ -155,7 +152,7 @@ private fun TrendingRow(result: OnlineResult, onPlay: () -> Unit, onDownload: ()
                 )
             }
             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Icon(Icons.Outlined.PlayArrow, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
+                Icon(Ic.Play, null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(22.dp))
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -168,7 +165,7 @@ private fun TrendingRow(result: OnlineResult, onPlay: () -> Unit, onDownload: ()
         Text(result.durationText, style = Type.caption, color = C.textTertiary,
             modifier = Modifier.padding(horizontal = 6.dp))
         IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Outlined.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
+            Icon(Ic.Download, "Download", tint = C.textTertiary, modifier = Modifier.size(20.dp))
         }
     }
 }
