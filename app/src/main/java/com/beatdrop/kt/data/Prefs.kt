@@ -75,7 +75,7 @@ class Prefs(private val context: Context) {
     }
 
     // ── settings ──
-    val themeFlow: Flow<String> = context.dataStore.data.map { it[Keys.THEME] ?: "light" }
+    val themeFlow: Flow<String> = context.dataStore.data.map { it[Keys.THEME] ?: "dark" }
     suspend fun setTheme(v: String) { context.dataStore.edit { it[Keys.THEME] = v } }
 
     val hapticsFlow: Flow<Boolean> = context.dataStore.data.map { it[Keys.HAPTICS] ?: false }
