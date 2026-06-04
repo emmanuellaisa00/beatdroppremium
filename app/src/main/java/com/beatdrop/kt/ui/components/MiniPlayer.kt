@@ -75,14 +75,17 @@ fun MiniPlayer(
                 clip = false
             }
             .clip(outerShape)
-            // ── Glass fill (rgba(18,18,22,.45) — card tint from spec) ────────
+            // ── Real backdrop blur (player level — blur 48dp, higher than nav) ─
+            .hazeGlass(
+                shape       = outerShape,
+                tintColor   = if (C.isDark) Color(0xCC0A0A10) else Color(0xD8F2F2F7),
+                blurRadius  = 48.dp,
+            )
+            // ── Glass fill (fallback when no HazeState in scope) ──────────────
             .background(
                 if (C.isDark) Color(0xCC0A0A10)
                 else Color(0xD8F2F2F7)
             )
-            // Self-blur removed — was smearing the track title/artist text.
-            // Real backdrop blur will be added via Modifier.hazeGlass once
-            // dev.chrisbanes.haze is wired up at the app root.
             // ── Top reflection gradient ──────────────────────────────────────
             .drawWithContent {
                 drawContent()

@@ -34,7 +34,61 @@ import com.beatdrop.kt.ui.theme.Radius
 import com.beatdrop.kt.ui.theme.Spacing
 import com.beatdrop.kt.ui.theme.Type
 import com.beatdrop.kt.ui.theme.Blur
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
 import kotlin.random.Random
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Haze backdrop blur — real CSS-style backdrop-filter for Compose.
+//
+//   How this works (chrisbanes/haze 0.7.3):
+//
+//     1. ScreenScaffold creates a HazeState and provides it via LocalHazeState.
+//     2. ScreenScaffold applies `Modifier.haze(state, style)` to its root Box.
+//        That registers the Box as the *source* — everything painted into
+//        the Box is captured into a render node that haze can sample.
+//     3. Any glass surface (card / row / header / mini player / tab bar / sheet)
+//        calls `Modifier.hazeGlass(shape, ...)` which routes to `hazeChild`.
+//        The child reads back the source pixels under its bounds, blurs and
+//        tints them, then draws THAT as the surface background.
+//
+//   Net effect: real backdrop blur. The surface's own children (text, icons)
+//   are NOT blurred — they are painted on top of the blurred-source layer
+//   like normal.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Page-level [HazeState], set by [ScreenScaffold]. Null on screens that don't
+ * use the scaffold (Splash, Onboarding, VideoPlayer, NowPlaying transport).
+ * [Modifier.hazeGlass] is a no-op when this is null.
+ */
+val LocalHazeState = staticCompositionLocalOf<HazeState?> { null }
+
+/**
+ * Real backdrop blur on a glass surface. Resolves to a no-op when no
+ * [LocalHazeState] is in scope (so it's always safe to chain on).
+ *
+ * Call this BEFORE `.background(...)` in the modifier chain so the tinted
+ * surface paints on top of the blurred backdrop, not under it.
+ */
+@Composable
+fun Modifier.hazeGlass(
+    shape: Shape,
+    tintColor: Color,
+    blurRadius: Dp = 28.dp,
+    noiseFactor: Float = HazeDefaults.noiseFactor,
+): Modifier {
+    val state = LocalHazeState.current ?: return this
+    val style = HazeStyle(
+        tint        = tintColor,
+        blurRadius  = blurRadius,
+        noiseFactor = noiseFactor,
+    )
+    return this.hazeChild(state = state, shape = shape, style = style)
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Z-Layer System  (spec §15)
@@ -150,8 +204,8 @@ fun IconPuck(
             .size(size)
             .glassShadow(elevation = 12.dp, shape = CircleShape, isDark = C.isDark)
             .clip(CircleShape)
+            .hazeGlass(shape = CircleShape, tintColor = C.glassFloating, blurRadius = 30.dp)
             .background(C.glassFloating)
-            // .glassBlur removed — was smearing the puck icon
             .drawWithContent {
                 drawContent()
                 // Top rim — inset 0 1px 0 rgba(255,255,255,.15)
@@ -200,14 +254,15 @@ fun GlassHeader(
             .statusBarsPadding()
             .padding(horizontal = Spacing.md, vertical = Spacing.sm),
     ) {
+        val headerShape = RoundedCornerShape(Radius.xl)
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(58.dp)
-                .glassShadow(elevation = 14.dp, shape = RoundedCornerShape(Radius.xl), isDark = C.isDark)
-                .clip(RoundedCornerShape(Radius.xl))
+                .glassShadow(elevation = 14.dp, shape = headerShape, isDark = C.isDark)
+                .clip(headerShape)
+                .hazeGlass(shape = headerShape, tintColor = C.glassFloating, blurRadius = Blur.heavy.dp)
                 .background(C.glassFloating)
-                // .glassBlur removed — was smearing GlassHeader title
                 .drawWithContent {
                     drawContent()
                     drawRect(
@@ -292,14 +347,22 @@ fun ScreenScaffold(
 ) {
     val C = LocalAppColors.current
     val glow = ambientColor ?: C.glassAmbient
-    Box(
-        modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(glow, intensity = ambientIntensity)
-            .then(if (showNoise) Modifier.noiseOverlay(opacity = 0.025f) else Modifier),
-        content = content,
-    )
+    val hazeState = remember { HazeState() }
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+        Box(
+            modifier
+                .fillMaxSize()
+                .background(C.bg0)
+                .ambientGlow(glow, intensity = ambientIntensity)
+                .then(if (showNoise) Modifier.noiseOverlay(opacity = 0.025f) else Modifier)
+                // Register as the haze source — anything painted into this Box
+                // (page content, scrollable bodies, artwork, gradients) becomes
+                // available as the backdrop for any descendant glass surface
+                // that calls Modifier.hazeGlass(...).
+                .haze(state = hazeState),
+            content = content,
+        )
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

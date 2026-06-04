@@ -310,7 +310,6 @@ fun TintedGlassButton(
  * Renders the full stack per spec §2:
  *   Shadow → Surface → Blur → Noise → Reflection → Inner shadow → Border.
  */
-@Suppress("UNUSED_PARAMETER")
 @SuppressLint("NewApi")
 @Composable
 fun Modifier.glassCard(
@@ -322,11 +321,13 @@ fun Modifier.glassCard(
     return this
         .glassShadow(elevation = 15.dp, shape = shape, isDark = C.isDark)
         .clip(shape)
+        // Real backdrop blur (no-op outside ScreenScaffold). Tints the
+        // blurred backdrop with the surface color so we get a single
+        // composited layer instead of stacking transparent surfaces.
+        .hazeGlass(shape = shape, tintColor = C.glassCardElevated, blurRadius = blur.dp)
+        // Background fallback for screens without a HazeState (hazeGlass
+        // is a no-op there) — the tinted glass surface still shows.
         .background(C.glassCardElevated)
-        // Backdrop blur deliberately omitted (would smear card content).
-        // Surface tint + noise + reflection + inner-shadow + border carry
-        // the glass look; real blur is added via hazeGlass(...) once haze
-        // is wired up at the page root.
         .noiseOverlay(opacity = 0.025f)
         .drawWithContent {
             drawContent()
@@ -360,7 +361,6 @@ fun Modifier.glassCard(
  * Glass row — list-row variant of glassCard with smaller radius/blur,
  * tuned for 60fps in long LazyColumns.
  */
-@Suppress("UNUSED_PARAMETER")
 @SuppressLint("NewApi")
 @Composable
 fun Modifier.glassRow(
@@ -371,8 +371,8 @@ fun Modifier.glassRow(
     val shape = RoundedCornerShape(radius)
     return this
         .clip(shape)
+        .hazeGlass(shape = shape, tintColor = C.glassCardElevated.copy(alpha = 0.85f), blurRadius = blur.dp)
         .background(C.glassCardElevated.copy(alpha = 0.85f))
-        // Backdrop blur deliberately omitted — see glassCard().
         .drawWithContent {
             drawContent()
             drawRect(
@@ -398,10 +398,11 @@ fun Modifier.glassRow(
 @Composable
 fun Modifier.glassSheet(radius: Dp = Radius.lg): Modifier {
     val C = LocalAppColors.current
+    val shape = RoundedCornerShape(radius)
     return this
-        .clip(RoundedCornerShape(radius))
+        .clip(shape)
+        .hazeGlass(shape = shape, tintColor = C.glassModal, blurRadius = 60.dp)
         .background(C.glassModal)
-        // Backdrop blur deliberately omitted — see glassCard().
         .noiseOverlay(opacity = 0.03f)
         .drawWithContent {
             drawContent()

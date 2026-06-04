@@ -81,7 +81,10 @@ fun GlassTabBar2(
         Box(
             Modifier
                 .fillMaxWidth()
-                // ── Glass fill (rgba(18,18,22,.45) + gradient top-light) ─────
+                .clip(outerShape)
+                // ── Real backdrop blur (nav level — blur 40dp) ───────────────
+                .hazeGlass(shape = outerShape, tintColor = C.glassNav, blurRadius = 40.dp)
+                // ── Glass fill fallback (no HazeState in scope) ──────────────
                 .background(C.glassNav)
                 .drawWithContent {
                     drawContent()
@@ -186,21 +189,20 @@ private fun LiquidTabItem(
     ) {
         // Active background pill — glass puck with green accent glow
         if (active) {
+            val puckTint = if (C.isDark) Color.White.copy(alpha = 0.08f)
+                           else Color.White.copy(alpha = 0.15f)
             Box(
                 Modifier
                     .size(64.dp)
                     .clip(puckShape)
-                    .background(
-                        if (C.isDark) Color.White.copy(alpha = 0.08f)
-                                     else Color.White.copy(alpha = 0.15f),
-                    )
+                    .hazeGlass(shape = puckShape, tintColor = puckTint, blurRadius = 30.dp)
+                    .background(puckTint)
                     .border(
                         width  = 1.dp,
                         color  = if (C.isDark) Color.White.copy(alpha = 0.15f)
                                  else Color.White.copy(alpha = 0.30f),
                         shape  = puckShape,
                     ),
-                    // Self-blur removed (was smearing the puck icon).
                 contentAlignment = Alignment.Center,
             ) {
                 // Green accent glow inside puck

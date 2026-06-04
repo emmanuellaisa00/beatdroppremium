@@ -36,8 +36,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.ui.components.Ic
-import com.beatdrop.kt.ui.components.ambientGlow
-import com.beatdrop.kt.ui.components.noiseOverlay
+import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -93,13 +92,7 @@ fun SearchScreen(vm: PlayerViewModel, onExpandPlayer: () -> Unit = {}) {
         }
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
         Column(
             Modifier
                 .fillMaxSize()

@@ -85,6 +85,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     // Lucide stroke icons (uniform 2px stroke per Liquid Glass spec §8)
     implementation("com.composables:icons-lucide-android:1.0.0")
+    // Real backdrop blur (CSS backdrop-filter equivalent for Compose).
+    // 0.7.3 is the last version compatible with Compose UI 1.6.x / Kotlin 1.9.24.
+    implementation("dev.chrisbanes.haze:haze-android:0.7.3")
     implementation("androidx.compose.animation:animation")
 
     // Navigation

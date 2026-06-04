@@ -21,8 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.components.Ic
-import com.beatdrop.kt.ui.components.ambientGlow
-import com.beatdrop.kt.ui.components.noiseOverlay
+import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.GlassCard
@@ -49,13 +48,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     val tracks by vm.tracks.collectAsState()
     val liked by vm.liked.collectAsState()
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 160.dp),

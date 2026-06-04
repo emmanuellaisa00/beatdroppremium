@@ -80,13 +80,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     }
 
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 170.dp),
@@ -391,13 +385,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
     val quickGrid  = remember(tracks) { tracks.shuffled().take(6) }
 
     val topPaddingLocal = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
     LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 170.dp)) {
         // ── Header ──────────────────────────────────────────────────────────
         item {

@@ -34,8 +34,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.beatdrop.kt.ui.components.Ic
-import com.beatdrop.kt.ui.components.ambientGlow
-import com.beatdrop.kt.ui.components.noiseOverlay
+import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.data.Track
 import com.beatdrop.kt.data.SortMode
@@ -68,13 +67,8 @@ fun LibraryScreen(
     val tracks  by vm.tracks.collectAsState()
     var tab     by remember { mutableStateOf(LibTab.SONGS) }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
+    Column(Modifier.fillMaxSize()) {
         // ── Top bar: "BeatDrop" logo with accent green ──────────────────────
         Row(
             Modifier
@@ -180,6 +174,7 @@ fun LibraryScreen(
                 LibTab.ARTISTS -> ArtistsList(vm, onOpenArtist)
             }
         }
+    }
     }
 }
 

@@ -18,8 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.components.Ic
-import com.beatdrop.kt.ui.components.ambientGlow
-import com.beatdrop.kt.ui.components.noiseOverlay
+import com.beatdrop.kt.ui.components.ScreenScaffold
 import com.beatdrop.kt.playback.EqEngine
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.components.GlassCard
@@ -36,13 +35,7 @@ fun EqScreen(onBack: () -> Unit) {
     val presets by EqEngine.presets.collectAsState()
     val bass by EqEngine.bassStrength.collectAsState()
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(C.bg0)
-            .ambientGlow(C.glassAmbient)
-            .noiseOverlay(),
-    ) {
+    ScreenScaffold {
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 160.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
