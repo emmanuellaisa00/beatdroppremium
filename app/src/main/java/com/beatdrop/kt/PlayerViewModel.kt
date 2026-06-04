@@ -181,7 +181,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     // Online-played ring — separate from local so cross-source transitions
     // don't mistakenly exclude valid candidates.
     private val onlineRecentlyPlayedIds = ArrayDeque<String>(8)
-    private fun pushRecentOnline(videoId: String) {
+    /**
+     * Records that [videoId] just started playing online. Also feeds the
+     * smart-shuffle CollabGraph with this track's title/artist so the graph
+     * grows as the session goes on (artists who appear together in titles
+     * become linked and start boosting each other in pickNext).
+     */
+    private fun pushRecentOnline(videoId: String, title: String = "", artist: String = "") {
+        if (title.isNotBlank() && artist.isNotBlank()) {
+            runCatching {
+                com.beatdrop.kt.playback.OnlineSmartShuffle.CollabGraph.observe(title, artist)
+            }
+        }
+        if (videoId.isBlank()) return
         if (onlineRecentlyPlayedIds.lastOrNull() == videoId) return
         onlineRecentlyPlayedIds.addLast(videoId)
         while (onlineRecentlyPlayedIds.size > 6) onlineRecentlyPlayedIds.removeFirst()
@@ -963,7 +975,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 _current.value = track; _duration.value = track.durationMs
                 prefetchedNextId = null
                 pushRecent("yt_${track.sourceVideoId}")
-                pushRecentOnline(track.sourceVideoId ?: "")
+                pushRecentOnline(track.sourceVideoId ?: "", track.title, track.artist)
                 loadLyrics(track)
                 prefs.incrementPlayCount("yt_${track.sourceVideoId}")
                 _onlineMessage.value = null
@@ -1289,7 +1301,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             onlineTransitionInProgress = false
             _current.value = track; _duration.value = track.durationMs
             pushRecent("yt_${track.sourceVideoId}")
-            pushRecentOnline(track.sourceVideoId ?: "")
+            pushRecentOnline(track.sourceVideoId ?: "", track.title, track.artist)
             loadLyrics(track)
             _fetchingVideoId.value = null
         }
@@ -1338,7 +1350,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 onlineTransitionInProgress = false
                 _current.value = track; _duration.value = track.durationMs
                 pushRecent("yt_${track.sourceVideoId}")
-                pushRecentOnline(track.sourceVideoId ?: "")
+                pushRecentOnline(track.sourceVideoId ?: "", track.title, track.artist)
                 loadLyrics(track)
                 _fetchingVideoId.value = null
             } else {
