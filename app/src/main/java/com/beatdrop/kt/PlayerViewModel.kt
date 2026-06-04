@@ -25,7 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.minOf
+
 
 class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -618,7 +618,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                         val c = controller
                         if (c != null && c.mediaItemCount > 0) {
                             val at = c.currentMediaItemIndex + 1
-                            if (at <= c.mediaItemCount && c.getMediaItemAt(minOf(at, c.mediaItemCount - 1)).mediaId != nextTrack.id) {
+                            if (at <= c.mediaItemCount && c.getMediaItemAt(at.coerceAtMost(c.mediaItemCount - 1)).mediaId != nextTrack.id) {
                                 c.addMediaItem(at, nextTrack.toMediaItem())
                             }
                         }
