@@ -403,7 +403,7 @@ private fun GlassChip(label: String, active: Boolean, icon: ImageVector? = null,
             }
             .then(
                 if (active) Modifier.border(0.5.dp, C.accent.copy(alpha = 0.35f), shape)
-                else Modifier.border(0.5.dp, C.liquidGlassBorder, shape)
+                else Modifier.border(0.5.dp, C.glassBorder, shape)
             )
             .pressableScale(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp),

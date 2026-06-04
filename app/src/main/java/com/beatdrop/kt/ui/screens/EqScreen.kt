@@ -111,7 +111,7 @@ fun EqScreen(onBack: () -> Unit) {
                     Box(
                         Modifier.clip(shape)
                             .background(if (C.isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.5f))
-                            .border(0.5.dp, C.liquidGlassBorder, shape)
+                            .border(0.5.dp, C.glassBorder, shape)
                             .pressableScale(onClick = { EqEngine.setEnabled(true); EqEngine.applyPreset(i.toShort()) })
                             .padding(horizontal = 16.dp, vertical = 9.dp),
                     ) {
