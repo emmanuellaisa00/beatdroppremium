@@ -62,12 +62,16 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     var hiphopHits by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
     var loading   by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) { vm.getDiscoverData() }
+    LaunchedEffect(Unit) {
+        vm.getDiscoverData()
+        vm.loadMadeForYou()
+    }
 
     val cachedTrending  by vm.cachedTrending.collectAsState()
     val cachedPopHits   by vm.cachedPopHits.collectAsState()
     val cachedHiphop    by vm.cachedHiphop.collectAsState()
     val discoverLoading by vm.discoverLoading.collectAsState()
+    val madeForYou      by vm.madeForYou.collectAsState()
 
     // Show cached data instantly, update when fresh data arrives
     LaunchedEffect(cachedTrending, cachedPopHits, cachedHiphop) {
@@ -147,7 +151,21 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
             }
         }
 
-        // ── Quick-pick grid (glass cards, blur 24-28px) ────────────────────
+        // ── Made For You — curated YT Music playlist tiles ─────────────────
+        // Spotify "Made for You" / "Daily Mix" style. Each card opens its
+        // playlist; tapping it starts playback at track 0 and the full
+        // playlist becomes the onlineContext for next/prev.
+        if (madeForYou.isNotEmpty()) {
+            item { OnlineEyebrow("MADE FOR YOU") }
+            item {
+                MadeForYouCarousel(madeForYou) { preview ->
+                    vm.playFeaturedPlaylist(preview.meta.playlistId)
+                    onExpandPlayer()
+                }
+            }
+        }
+
+        // ── Quick-pick grid (opaque elevated cards) ────────────────────────
         if (quickGrid.isNotEmpty()) {
             item { OnlineEyebrow("HOT TRENDING") }
             item {
@@ -534,6 +552,90 @@ private fun LocalCarousel(title: String, list: List<Track>, vm: PlayerViewModel)
                     Text(t.title,  style = Type.callout, color = C.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(t.artist, style = Type.footnote, color = C.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Made For You carousel — Spotify-style square tiles with a coloured
+ * gradient overlay corner, playlist title, and subtitle. Tap → opens
+ * the playlist (caller decides start track + onlineContext wiring).
+ */
+@Composable
+private fun MadeForYouCarousel(
+    items: List<com.beatdrop.kt.youtube.MadeForYou.PlaylistPreview>,
+    onOpen: (com.beatdrop.kt.youtube.MadeForYou.PlaylistPreview) -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = Spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        items(items) { preview ->
+            val accent = Color(preview.meta.accentHex)
+            Column(
+                Modifier
+                    .width(170.dp)
+                    .pressableScale(onClick = { onOpen(preview) }, scaleTo = 0.96f),
+            ) {
+                Box(
+                    Modifier
+                        .size(170.dp)
+                        .clip(RoundedCornerShape(Radius.md))
+                        .background(accent.copy(alpha = 0.30f)),
+                ) {
+                    if (preview.coverUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(ctx)
+                                .data(preview.coverUrl).crossfade(true).size(512).build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    // Accent-coloured gradient that fades from the bottom-
+                    // left corner so the title-area underneath the tile has
+                    // visual continuity with the cover (Spotify pattern).
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        accent.copy(alpha = 0.0f),
+                                        accent.copy(alpha = 0.55f),
+                                    ),
+                                    start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                    end   = androidx.compose.ui.geometry.Offset(0f, Float.POSITIVE_INFINITY),
+                                ),
+                            ),
+                    )
+                    // Play affordance — small accent pill bottom-right.
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd).padding(10.dp).size(38.dp)
+                            .clip(RoundedCornerShape(19.dp))
+                            .background(C.accent),
+                        Alignment.Center,
+                    ) {
+                        Icon(Ic.TransportPlay, "Play", tint = Color.Black,
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    preview.meta.title,
+                    style = Type.headline, color = C.text,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    preview.meta.subtitle,
+                    style = Type.footnote, color = C.textSecondary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

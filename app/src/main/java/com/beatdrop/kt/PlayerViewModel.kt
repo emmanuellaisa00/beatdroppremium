@@ -240,6 +240,46 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val cachedPopHits: StateFlow<List<com.beatdrop.kt.youtube.OnlineResult>> = _cachedPopHits.asStateFlow()
     private val _cachedHiphop = MutableStateFlow<List<com.beatdrop.kt.youtube.OnlineResult>>(emptyList())
     val cachedHiphop: StateFlow<List<com.beatdrop.kt.youtube.OnlineResult>> = _cachedHiphop.asStateFlow()
+    // "Made for You" curated playlist hub for Discover.
+    private val _madeForYou = MutableStateFlow<List<com.beatdrop.kt.youtube.MadeForYou.PlaylistPreview>>(emptyList())
+    val madeForYou: StateFlow<List<com.beatdrop.kt.youtube.MadeForYou.PlaylistPreview>> = _madeForYou.asStateFlow()
+    private val _madeForYouLoading = MutableStateFlow(false)
+    val madeForYouLoading: StateFlow<Boolean> = _madeForYouLoading.asStateFlow()
+
+    /**
+     * Lazy load the curated "Made for You" playlist tiles. Cached for the
+     * lifetime of the ViewModel; call again only when you genuinely want
+     * a refresh.
+     */
+    fun loadMadeForYou(force: Boolean = false) {
+        if (!force && (_madeForYou.value.isNotEmpty() || _madeForYouLoading.value)) return
+        _madeForYouLoading.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val list = runCatching { com.beatdrop.kt.youtube.MadeForYou.fetchAll() }
+                .getOrDefault(emptyList())
+            _madeForYou.value = list
+            _madeForYouLoading.value = false
+        }
+    }
+
+    /**
+     * Open a curated playlist: fetches its full track list and starts
+     * playback at the first track. Used by the Made-for-You card tap.
+     */
+    fun playFeaturedPlaylist(playlistId: String, startFromTrackId: String? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val info = runCatching {
+                com.beatdrop.kt.youtube.YouTubePlaylist.fetchPlaylist(playlistId, maxItems = 100)
+            }.getOrNull() ?: return@launch
+            if (info.videos.isEmpty()) return@launch
+            val startIdx = if (startFromTrackId != null) {
+                info.videos.indexOfFirst { it.videoId == startFromTrackId }.coerceAtLeast(0)
+            } else 0
+            withContext(Dispatchers.Main) {
+                prepareAndPlayOnline(info.videos[startIdx], info.videos, startIdx)
+            }
+        }
+    }
     private val _discoverLoading = MutableStateFlow(false)
     val discoverLoading: StateFlow<Boolean> = _discoverLoading.asStateFlow()
     private val _discoverLastFetch = MutableStateFlow(0L)
