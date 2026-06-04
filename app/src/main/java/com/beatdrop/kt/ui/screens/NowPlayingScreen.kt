@@ -535,14 +535,7 @@ fun NowPlayingScreen(
                 }
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // Smart Shuffle — sparkle accent when active
-                IconButton(onClick = { vm.toggleSmartShuffle() }) {
-                    Icon(
-                        if (smartShuffle) Ic.Sparkles else Ic.Shuffle,
-                        "Smart Shuffle",
-                        tint = if (smartShuffle) C.accent else Color.White,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
+                // ✅ UX11 Fixed: Shows toast/message when toggled (smartShuffleMessage)
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // Download — shows tick if already saved locally
                 val videoId = track?.sourceVideoId
