@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import com.beatdrop.kt.ui.theme.LocalAppColors
 
 /**
  * DiegeticDownloadIcon — the download button used in the Now Playing controls.
