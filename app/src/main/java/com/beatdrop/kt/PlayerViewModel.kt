@@ -233,8 +233,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun getDiscoverData(forceRefresh: Boolean = false) {
         val now = System.currentTimeMillis()
         if (_discoverLoading.value) return
+        // 5-minute hard cache. If a fresh fetch was attempted in the last
+        // 5 seconds it's almost certainly a rapid tab-switch — drop it.
+        // (B9 fix: dedup rapid repeat calls instead of silently no-op'ing
+        //  through the loading guard.)
         if (!forceRefresh && now - _discoverLastFetch.value < 300_000L && _cachedTrending.value.isNotEmpty()) return
-        if (!forceRefresh && now - _discoverLastFetch.value < 60_000L && _cachedTrending.value.isNotEmpty()) return
+        if (now - _discoverLastFetch.value < 5_000L && _cachedTrending.value.isNotEmpty()) return
         _discoverLoading.value = true
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
@@ -1442,23 +1446,44 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         val videoId = detected.videoId ?: return
         val result = com.beatdrop.kt.youtube.OnlineResult(
             videoId = videoId,
-            title = "Loading…",
+            title = "",
             author = detected.platform,
             thumbnailUrl = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
             durationText = "",
             durationSecs = 0,
             sourcePlatform = detected.platform,
         )
-        // Fetch related results so next/prev work
-        viewModelScope.launch(Dispatchers.IO) {
-            val related = runCatching {
-                OnlineSearch.provider.search(result.title.take(5).ifBlank { result.author })
-            }.getOrDefault(listOf(result))
-            val context = if (related.size > 1) related else listOf(result)
-            onlineContext = context
-            onlineContextIndex = context.indexOfFirst { it.videoId == videoId }.coerceAtLeast(0)
-        }
+        // Start playing immediately — title/duration fill in once resolved.
         playOnline(result)
+        // B11 fix: in the background, build a real "Up Next" context so the
+        // user can skip after a paste. We wait briefly for the real title to
+        // land (via _current updates from prepareAndPlayOnline), then search
+        // on it. Previously this searched on a 5-char prefix of the literal
+        // string "Loading…" which returned garbage.
+        viewModelScope.launch(Dispatchers.IO) {
+            // Poll _current for up to 8s waiting for the real title to populate.
+            var seedTitle = ""
+            var seedAuthor = ""
+            repeat(16) {
+                val cur = _current.value
+                if (cur?.sourceVideoId == videoId && cur.title.isNotBlank() && cur.title != "Loading…") {
+                    seedTitle = cur.title
+                    seedAuthor = cur.artist
+                    return@repeat
+                }
+                kotlinx.coroutines.delay(500)
+            }
+            val seedQuery = "$seedTitle $seedAuthor".trim()
+            if (seedQuery.isBlank()) return@launch
+            val related = runCatching { OnlineSearch.provider.search(seedQuery) }
+                .getOrDefault(emptyList())
+                .filter { it.videoId != videoId }
+            if (related.isEmpty()) return@launch
+            val context = (listOf(result.copy(title = seedTitle, author = seedAuthor)) + related)
+                .distinctBy { it.videoId }
+            onlineContext = context
+            onlineContextIndex = 0
+        }
     }
 
     /**
