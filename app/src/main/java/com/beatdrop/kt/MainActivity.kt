@@ -275,11 +275,11 @@ fun MainScaffold(vm: PlayerViewModel) {
                         )
                         .drawWithContent {
                             drawContent()
-                            // Ambient background glow — Spotify blue/cyan
+                            // Ambient background glow — adapts to theme (Spotify blue=cyan in dark, purple in light)
                             drawRect(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        Color(0x1E1E5080),   // rgba(30,80,200,.12)
+                                        if (C.isDark) Color(0x1E1E5080) else Color(0x141E50C8),  // dark: rgba(30,80,200,.12), light: rgba(30,80,200,.08)
                                         Color.Transparent,
                                     ),
                                     center = Offset(size.width * 0.5f, size.height * 0.2f),

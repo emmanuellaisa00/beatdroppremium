@@ -98,7 +98,7 @@ fun NowPlayingScreen(
     var dragAccum by remember { mutableStateOf(0f) }
     val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
 
-    // ── Full-screen backdrop with ambient glow ───────────────────────────────
+    // ── Full-screen backdrop — theme-aware deep dark gradient ───────────────
     Box(
         Modifier
             .fillMaxSize()
@@ -106,7 +106,7 @@ fun NowPlayingScreen(
                 Brush.verticalGradient(
                     listOf(
                         artColor.copy(alpha = 0.78f),
-                        Color(0xFF050505),
+                        if (C.isDark) Color(0xFF050505) else Color(0xFF1A1A2E),
                     )
                 )
             )
@@ -129,14 +129,21 @@ fun NowPlayingScreen(
                             .createBlurEffect(80f, 80f, Shader.TileMode.CLAMP)
                             .asComposeRenderEffect()
                     }
-                    alpha = 0.40f
+                    alpha = if (C.isDark) 0.40f else 0.30f
                 },
         )
 
-        // Dark overlay for contrast
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
+        // Contrast overlay — adapts to theme
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    if (C.isDark) Color.Black.copy(alpha = 0.35f)
+                    else Color.Black.copy(alpha = 0.50f),
+                )
+        )
 
-        // ── Ambient player glow (rgba(50,120,255,.18) — spec rule) ───────────
+        // ── Ambient player glow — adapts to theme (spec rule) ────────────────
         Box(
             Modifier
                 .fillMaxSize()
@@ -145,7 +152,7 @@ fun NowPlayingScreen(
                     drawRect(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                Color(0x2D3278FF),  // rgba(50,120,255,.18)
+                                if (C.isDark) Color(0x2D3278FF) else Color(0x1A9D4EDD),  // dark: blue, light: purple
                                 Color.Transparent,
                             ),
                             center = Offset(size.width * 0.5f, size.height * 0.3f),

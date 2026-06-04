@@ -117,7 +117,7 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
                         .drawWithContent {
                             drawContent()
                             drawRect(brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = 0.06f), Color.Transparent),
+                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
                                 startY = 0f, endY = size.height * 0.4f,
                             ))
                         }
@@ -270,7 +270,7 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
                             .drawWithContent {
                                 drawContent()
                                 drawRect(brush = Brush.verticalGradient(
-                                    listOf(Color.White.copy(alpha = 0.06f), Color.Transparent),
+                                    listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
                                     startY = 0f, endY = size.height * 0.3f,
                                 ))
                             }
@@ -418,7 +418,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
                         .drawWithContent {
                             drawContent()
                             drawRect(brush = Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = 0.06f), Color.Transparent),
+                                listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
                                 startY = 0f, endY = size.height * 0.4f,
                             ))
                         }
@@ -511,7 +511,7 @@ private fun LocalQuickGrid(list: List<Track>, onPlay: (Track) -> Unit) {
                             .drawWithContent {
                                 drawContent()
                                 drawRect(brush = Brush.verticalGradient(
-                                    listOf(Color.White.copy(alpha = 0.06f), Color.Transparent),
+                                    listOf(Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f), Color.Transparent),
                                     startY = 0f, endY = size.height * 0.3f,
                                 ))
                             }

@@ -132,7 +132,7 @@ fun Modifier.masterGlass(
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        C.glassHighlight.copy(alpha = 0.12f),
+                        C.glassHighlight.copy(alpha = if (C.isDark) 0.12f else 0.22f),
                         Color.Transparent,
                     ),
                     startY = 0f,
@@ -312,11 +312,11 @@ fun Modifier.glassCard(
         .glassBlur(blur)
         .drawWithContent {
             drawContent()
-            // Top reflection
+            // Top reflection — stronger in light mode per spec
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.06f),
+                        Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f),
                         Color.Transparent,
                     ),
                     startY = 0f,
