@@ -21,7 +21,9 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.glassCard
 import com.beatdrop.kt.PlayerViewModel
+import com.beatdrop.kt.ui.theme.Radius
 import com.beatdrop.kt.ui.theme.LocalAppColors
 
 /**
@@ -89,7 +91,7 @@ fun VideoPlayerScreen(
     Column(Modifier.fillMaxSize().background(Color.Black)) {
         // Top bar
         Row(
-            Modifier.fillMaxWidth().padding(8.dp).statusBarsPadding(),
+            Modifier.fillMaxWidth().padding(12.dp).statusBarsPadding().glassCard(radius = Radius.xl).padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.glassCard
 import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
@@ -31,9 +32,9 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
     // ~700 ms. Replaces the previous purple/pink palette which clashed
     // with the new Ocean-Teal accent + Cascade-Drop logo identity.
     val bgStops = if (C.isDark) listOf(
-        Color(0xFF1A1230),   // top — matches logo gradient violet
-        Color(0xFF0E0A1F),   // mid — matches splash
-        Color(0xFF06040E),   // bottom — deepest
+        Color(0xFF090A0D),   // top — concept black ladder
+        Color(0xFF050505),   // mid
+        Color(0xFF030303),   // bottom — deepest
     ) else listOf(
         Color(0xFFE8F4FB),   // top — pale teal wash
         Color(0xFFF5F8FA),   // mid
@@ -165,15 +166,7 @@ private fun FeatureCard(icon: ImageVector, title: String, body: String, accent: 
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(
-                if (isDark) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.55f)
-            )
-            .border(
-                0.8.dp,
-                if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.08f),
-                RoundedCornerShape(14.dp)
-            )
+            .glassCard(radius = Radius.md)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

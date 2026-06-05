@@ -19,7 +19,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.animation.AnimatedVisibility
 import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassCard
 import com.beatdrop.kt.ui.theme.LocalAppColors
+import com.beatdrop.kt.ui.theme.Radius
 
 /**
  * Built-in web browser — SnapTube-style.
@@ -42,10 +45,11 @@ fun BrowserScreen(
     var pageTitle by remember { mutableStateOf("Browser") }
     var detectedDownloadUrl by remember { mutableStateOf<String?>(null) }
 
+    ScreenScaffold(ambientColor = C.glassAmbient) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // Top bar with URL input
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).glassCard(radius = Radius.xl).padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack, modifier = Modifier.size(36.dp)) {
@@ -81,7 +85,7 @@ fun BrowserScreen(
 
         // Navigation buttons
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             // Quick access buttons for popular platforms
@@ -186,6 +190,7 @@ fun BrowserScreen(
                 Icon(Ic.Download, "Download detected video", tint = androidx.compose.ui.graphics.Color.White)
             }
         }
+    }
     }
 }
 

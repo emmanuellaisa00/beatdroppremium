@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.beatdrop.kt.ui.components.Ic
+import com.beatdrop.kt.ui.components.ScreenScaffold
+import com.beatdrop.kt.ui.components.glassCard
 import com.beatdrop.kt.DebugLog
 import com.beatdrop.kt.PlayerViewModel
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -42,6 +44,7 @@ fun DebugLogScreen(vm: PlayerViewModel, onBack: () -> Unit) {
         if (entries.isNotEmpty()) listState.animateScrollToItem(entries.size - 1)
     }
 
+    ScreenScaffold(ambientColor = C.glassAmbient) {
     Column(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 12.dp)
     ) {
@@ -79,8 +82,9 @@ fun DebugLogScreen(vm: PlayerViewModel, onBack: () -> Unit) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize()
-                    .background(Color(0xFF0B0B0F), RoundedCornerShape(10.dp))
-                    .padding(8.dp),
+                    .glassCard(radius = 20.dp)
+                    .background(Color(0xAA0B0B0F), RoundedCornerShape(20.dp))
+                    .padding(10.dp),
                 contentPadding = PaddingValues(bottom = 24.dp),
             ) {
                 items(entries) { e ->
@@ -101,6 +105,7 @@ fun DebugLogScreen(vm: PlayerViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

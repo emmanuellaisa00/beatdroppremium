@@ -352,8 +352,40 @@ fun ScreenScaffold(
         Box(
             modifier
                 .fillMaxSize()
-                .background(C.bg0)
+                // Concept-wide cinematic stage: never flat black. Every screen
+                // starts from a deep vertical black ladder plus a subtle cool
+                // radial glow so glass surfaces have pixels to refract.
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            if (C.isDark) Color(0xFF090A0D) else C.bg0,
+                            if (C.isDark) Color(0xFF050505) else C.bg0,
+                            if (C.isDark) Color(0xFF030303) else C.bg1,
+                        ),
+                    ),
+                )
                 .ambientGlow(glow, intensity = ambientIntensity)
+                .drawBehind {
+                    // Soft top-left cool wash + bottom dock vignette, matching
+                    // the uploaded iOS glass concept across every screen.
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF2C5CFF).copy(alpha = if (C.isDark) 0.075f else 0.045f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(size.width * 0.18f, size.height * 0.06f),
+                            radius = size.maxDimension * 0.62f,
+                        ),
+                    )
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.72f to Color.Transparent,
+                            1f to C.bg0.copy(alpha = if (C.isDark) 0.78f else 0.42f),
+                        ),
+                    )
+                }
                 .then(if (showNoise) Modifier.noiseOverlay(opacity = 0.025f) else Modifier)
                 // Register as the haze source — anything painted into this Box
                 // (page content, scrollable bodies, artwork, gradients) becomes
