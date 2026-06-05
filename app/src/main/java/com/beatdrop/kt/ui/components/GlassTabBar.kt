@@ -81,49 +81,16 @@ fun GlassTabBar2(
         Box(
             Modifier
                 .fillMaxWidth()
-                .clip(outerShape)
-                // ── Real backdrop blur (nav level — blur 40dp) ───────────────
-                .hazeGlass(shape = outerShape, tintColor = C.glassNav, blurRadius = 40.dp)
-                // ── Glass fill fallback (no HazeState in scope) ──────────────
-                .background(C.glassNav)
-                .drawWithContent {
-                    drawContent()
-                    // Top reflection gradient
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.08f),
-                                Color.Transparent,
-                            ),
-                            startY = 0f,
-                            endY = size.height * 0.35f,
-                        ),
-                    )
-                    // Bottom inner glow for depth
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                if (C.isDark) Color.White.copy(alpha = 0.04f)
-                                         else Color.White.copy(alpha = 0.06f),
-                            ),
-                            startY = size.height * 0.70f,
-                            endY = size.height,
-                        ),
-                    )
-                }
-                // Self-blur removed — was smearing tab labels and active-puck
-                // icon. Real backdrop blur via Modifier.hazeGlass once wired.
-                // ── Specular highlight (device tilt) ──────────────────────────
-                .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.06f, radius = 320f)
-                // ── Rim light (Fresnel top-edge) ─────────────────────────────
-                .rimLight(outerRadius)
-                // ── Hairline border ──────────────────────────────────────────
-                .border(
-                    width  = if (C.isDark) 1.dp else 0.7.dp,
-                    color  = C.glassNavBorder,
-                    shape  = outerShape,
-                ),
+                // ── Unified Premium Glass material (spec: 'one material
+                //   everywhere'). Z4_TabBar gives blur 45 + 3-shadow stack
+                //   + 4-layer reflections + 0.5dp border in one call.
+                //   Bespoke hazeGlass/drawWithContent/rimLight/border stack
+                //   removed — was diverging from the spec's unified surface.
+                .premiumGlass(level = GlassLevel.Z4_TabBar, shape = outerShape)
+                // ── Specular highlight (device tilt) — ADDITIVE, kept ───────
+                //   because it's a runtime sensor effect orthogonal to the
+                //   static material stack. Subtle.
+                .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.06f, radius = 320f),
         ) {
             // ── Floating Active Lens (Premium Glass spec) ────────────
             // The lens is a SINGLE glass puck that lives in the parent

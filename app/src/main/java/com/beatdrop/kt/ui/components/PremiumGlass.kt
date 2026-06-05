@@ -117,6 +117,16 @@ fun Modifier.premiumGlass(
             ambientColor = Color.Black.copy(alpha = 0.35f),
             spotColor = Color.Black.copy(alpha = 0.20f),
         )
+        // Contact — small, tight. Anchors the surface to whatever it
+        // sits on. Per spec: 'Three shadows minimum. Ambient + Contact
+        // + Volume.' The contact shadow is what makes the glass feel
+        // PRESSED INTO the screen instead of floating above it.
+        .shadow(
+            elevation = level.contactShadowDp,
+            shape = shape,
+            ambientColor = Color.Black.copy(alpha = 0.50f),
+            spotColor = Color.Black.copy(alpha = 0.40f),
+        )
         // ── Surface clip (Layer 6) ────────────────────────────────────
         .clip(shape)
         // ── Backdrop sampling + blur (Layers 1, 2) ────────────────────
@@ -133,9 +143,18 @@ fun Modifier.premiumGlass(
         // Adds the just-noticeable cool cast that distinguishes our
         // smoked glass from generic dark plastic. Subtle — 3% blue.
         .background(Color(0x66102030).copy(alpha = blueRefractionAlpha), shape)
-        // ── Inner reflection (Layer 7) — top horizontal highlight ─────
+        // ── Reflection system (Layers 7-8) — 4-layer reflection stack ─
+        // Per spec 'Reflection System':
+        //   Top:    Horizontal Reflection  (white, brightest)
+        //   Sides:  Vertical Reflection    (cool blue, sub-pixel)
+        //   Bottom: Diffusion Reflection   (white wash, soft)
+        //   Corners: Radial Reflection      (handled by 0.5dp border)
+        // Total: 4 reflection draws per surface (within the spec's
+        // 4-8 layer budget). Going to 8 doubles overdraw with little
+        // perceptual gain at this surface scale.
         .drawWithContent {
             drawContent()
+            // 1. Top horizontal — bright, primary highlight
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -146,9 +165,32 @@ fun Modifier.premiumGlass(
                     endY = size.height * 0.35f,
                 ),
             )
-            // ── Bottom diffusion reflection ───────────────────────────
-            // Subtle white wash at the bottom edge — adds optical
-            // 'depth' as if light pools at the base of the glass slab.
+            // 2. Left side vertical — cool blue, just-noticeable
+            // Per spec: 'Left: cool blue'. ~1dp-wide gradient against
+            // the inside of the left edge — readable as 'wet glass'.
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color(0xFF80B0FF).copy(alpha = rimAlpha * 0.5f),
+                        Color.Transparent,
+                    ),
+                    startX = 0f,
+                    endX = size.width * 0.06f,
+                ),
+            )
+            // 3. Right side vertical — neutral white, slightly weaker
+            // Per spec: 'Right: neutral'.
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color.White.copy(alpha = rimAlpha * 0.35f),
+                    ),
+                    startX = size.width * 0.94f,
+                    endX = size.width,
+                ),
+            )
+            // 4. Bottom diffusion — white wash pooling at the base
             drawRect(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -180,14 +222,16 @@ enum class GlassLevel(
     val blurPx: Float,
     val ambientShadowDpValue: Float,
     val volumeShadowDpValue: Float,
+    val contactShadowDpValue: Float,
 ) {
-    Z1_List       (Blur.z1,  2f,  0f),
-    Z2_Card       (Blur.z2,  8f,  0f),
-    Z3_MiniPlayer (Blur.z3, 16f, 22f),
-    Z4_TabBar     (Blur.z4, 18f, 26f),
-    Z5_ActiveLens (Blur.z5,  8f, 14f),
-    Z6_Floating   (Blur.z6, 22f, 32f);
+    Z1_List       (Blur.z1,  2f,  0f, 1f),
+    Z2_Card       (Blur.z2,  8f,  0f, 2f),
+    Z3_MiniPlayer (Blur.z3, 16f, 22f, 3f),
+    Z4_TabBar     (Blur.z4, 18f, 26f, 3f),
+    Z5_ActiveLens (Blur.z5,  8f, 14f, 2f),
+    Z6_Floating   (Blur.z6, 22f, 32f, 4f);
 
     val ambientShadowDp: Dp get() = ambientShadowDpValue.dp
     val volumeShadowDp:  Dp get() = volumeShadowDpValue.dp
+    val contactShadowDp: Dp get() = contactShadowDpValue.dp
 }
