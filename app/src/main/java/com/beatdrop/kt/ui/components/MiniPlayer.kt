@@ -58,9 +58,12 @@ fun MiniPlayer(
     val animX by animateFloatAsState(dragX, label = "miniX")
     val animY by animateFloatAsState(dragY.coerceAtMost(0f), label = "miniY")
 
-    // ── Concentric radius system: outer=44dp, inner=36dp (44-8) ──────────────
-    val outerRadius = 44.dp
-    val innerRadius = Radius.inner(outerRadius, 8.dp)  // 44 - 8 = 36dp
+    // ── Premium Glass spec: outer radius 40dp, RadiusFamily.xl ───────
+    // Spec: 'Mini Player Shape — Height 74-80, Radius 38-40. Very soft.
+    // Feels like polished glass stone.' Concentric inner radius for the
+    // album-art inset still derived mathematically.
+    val outerRadius = 40.dp
+    val innerRadius = Radius.inner(outerRadius, 8.dp)  // 40 - 8 = 32dp
     val outerShape  = RoundedCornerShape(outerRadius)
 
     Box(
@@ -70,58 +73,39 @@ fun MiniPlayer(
             .graphicsLayer {
                 translationX = animX
                 translationY = animY
-                shadowElevation = if (C.isDark) 18f else 10f
                 shape = outerShape
                 clip = false
             }
-            .clip(outerShape)
-            // ── Real backdrop blur (player level — blur 48dp, higher than nav) ─
-            .hazeGlass(
-                shape       = outerShape,
-                tintColor   = if (C.isDark) Color(0xCC0A0A10) else Color(0xD8F2F2F7),
-                blurRadius  = 48.dp,
-            )
-            // ── Glass fill (fallback when no HazeState in scope) ──────────────
-            .background(
-                if (C.isDark) Color(0xCC0A0A10)
-                else Color(0xD8F2F2F7)
-            )
-            // ── Top reflection gradient ──────────────────────────────────────
+            // ── Unified Premium Glass material (Z3 — mini player) ────
+            // Replaces the previous bespoke hazeGlass + background +
+            // gradients + rimLight + border stack with the SINGLE
+            // material the rest of the app uses. Per spec rule:
+            // 'never create different glass styles.'
+            .premiumGlass(level = GlassLevel.Z3_MiniPlayer, shape = outerShape)
+            // ── Spec lighting: Left cool blue, Right neutral ─────────
+            // The premiumGlass material already paints top reflection +
+            // bottom diffusion. The mini-player adds an additional
+            // LATERAL lighting pass — cool-blue cast on the left edge,
+            // neutral fade on the right — to give the slab a sense of
+            // 'lit from upper-left' that vertical lighting alone can't
+            // produce. Per spec: 'Left: cool blue / Right: neutral'.
             .drawWithContent {
                 drawContent()
                 drawRect(
-                    brush = Brush.verticalGradient(
+                    brush = Brush.horizontalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = if (C.isDark) 0.08f else 0.14f),
+                            Color(0xFF4080FF).copy(alpha = if (C.isDark) 0.06f else 0.10f),
                             Color.Transparent,
                         ),
-                        startY = 0f,
-                        endY = size.height * 0.35f,
-                    ),
-                )
-                // Bottom inner glow for depth
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            if (C.isDark) Color.White.copy(alpha = 0.04f)
-                                     else Color.White.copy(alpha = 0.05f),
-                        ),
-                        startY = size.height * 0.70f,
-                        endY = size.height,
+                        startX = 0f,
+                        endX = size.width * 0.45f,
                     ),
                 )
             }
-            // ── Specular highlight (device tilt) ──────────────────────────────
+            // ── Specular highlight (device tilt) ──────────────────────
+            // Kept — the mini player is large enough + always on screen,
+            // so the tilt-tracked highlight reads as 'real glass'.
             .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.08f, radius = 220f)
-            // ── Rim light (Fresnel top-edge) ──────────────────────────────────
-            .rimLight(outerRadius)
-            // ── Hairline border ──────────────────────────────────────────────
-            .border(
-                width  = if (C.isDark) 1.dp else 0.7.dp,
-                color  = if (C.isDark) Color(0x33FFFFFF) else Color(0x1A000000),
-                shape  = outerShape,
-            )
             // ── Gestures: tap → expand, swipe left/right → next/prev ─────────
             .pointerInput(track.id) {
                 detectDragGestures(
