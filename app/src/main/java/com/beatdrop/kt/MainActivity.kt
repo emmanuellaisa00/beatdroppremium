@@ -469,8 +469,25 @@ fun MainScaffold(vm: PlayerViewModel) {
                     // Sub-200ms feels instant; sub-300ms feels snappy; over
                     // 300ms feels deliberate-but-noticeable. Pushed
                     // everything one tier down from 'deliberate' to 'snappy'.
+                    val openingNowPlaying = targetState == Dest.NowPlaying
+                    val closingNowPlaying = initialState == Dest.NowPlaying
                     val isPush = targetState != Dest.Tabs && initialState == Dest.Tabs
-                    if (targetState == Dest.Tabs && initialState == Dest.Tabs) {
+                    if (openingNowPlaying) {
+                        // MiniPlayer → NowPlaying: premium bottom-sheet expansion.
+                        // The screen rises from the dock with a small scale settle,
+                        // making the transition feel physically connected to the
+                        // floating MiniPlayer instead of a generic page push.
+                        (slideInVertically(tween(360, easing = FastOutSlowInEasing)) { it } +
+                            fadeIn(tween(180)) +
+                            scaleIn(tween(360, easing = FastOutSlowInEasing), initialScale = 0.94f)) togetherWith
+                            (fadeOut(tween(180)) + scaleOut(tween(220), targetScale = 0.985f))
+                    } else if (closingNowPlaying) {
+                        // NowPlaying → MiniPlayer: collapse back down to the dock.
+                        (fadeIn(tween(160)) + scaleIn(tween(240), initialScale = 0.985f)) togetherWith
+                            (slideOutVertically(tween(300, easing = FastOutSlowInEasing)) { it } +
+                                fadeOut(tween(180)) +
+                                scaleOut(tween(300), targetScale = 0.94f))
+                    } else if (targetState == Dest.Tabs && initialState == Dest.Tabs) {
                         fadeIn(tween(140)) togetherWith fadeOut(tween(110))
                     } else if (isPush) {
                         (slideInHorizontally(tween(220)) { it / 4 } + fadeIn(tween(160)) + scaleIn(tween(160), initialScale = 0.97f)) togetherWith (fadeOut(tween(130)) + scaleOut(tween(140), targetScale = 0.99f))
@@ -556,6 +573,48 @@ fun MainScaffold(vm: PlayerViewModel) {
                     }
                 }
             }
+
+            // ── Global bottom playback chrome ───────────────────────────────
+            // Lives outside TabsHost so active audio is reachable from every
+            // route (album, artist, downloads, queue, settings, etc.). On the
+            // tabs root it stacks MiniPlayer above the glass dock; on pushed
+            // screens it shows only the MiniPlayer above the gesture bar.
+            val showMiniPlayer = current != null && currentDest != Dest.NowPlaying
+            if (showMiniPlayer || currentDest == Dest.Tabs) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .drawBehind {
+                            val scrim = C.bg0
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0f    to Color.Transparent,
+                                    0.25f to scrim.copy(alpha = 0.55f),
+                                    1f    to scrim,
+                                ),
+                            )
+                        }
+                        .navigationBarsPadding()
+                        .padding(bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    current?.takeIf { showMiniPlayer }?.let { t ->
+                        MiniPlayer(
+                            track = t,
+                            isPlaying = isPlaying,
+                            progress = if (dur > 0) pos.toFloat() / dur else 0f,
+                            onToggle = { vm.togglePlay() },
+                            onNext = { vm.next() },
+                            onPrev = { vm.prev() },
+                            onExpand = { push(Dest.NowPlaying) },
+                        )
+                    }
+                    if (currentDest == Dest.Tabs) {
+                        GlassTabBar2(rememberTabs(), tab) { onTab -> tab = onTab }
+                    }
+                }
+            }
         }
     }
     } // CompositionLocalProvider(LocalHapticsEnabled)
@@ -600,43 +659,7 @@ private fun TabsHost(
                 }
             }
         }
-        // ── Bottom dock backdrop scrim ──────────────────────────────────────
-        // The page scrollable above ends at fillMaxSize → its bottom rows
-        // scroll under the MiniPlayer + GlassTabBar. The dock surfaces
-        // sample THAT through their backdrop blur, smearing list text into
-        // the glass. A short vertical-gradient scrim (transparent at top,
-        // bg0 at bottom) sits BEHIND the dock so haze samples the scrim,
-        // not the page content. Doesn't touch MiniPlayer/TabBar internals.
-        Column(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .drawBehind {
-                    val scrim = C.bg0
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            0f    to Color.Transparent,
-                            0.25f to scrim.copy(alpha = 0.55f),
-                            1f    to scrim,
-                        ),
-                    )
-                }
-                .navigationBarsPadding()
-                .padding(bottom = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(Modifier.fillMaxWidth().background(Color.Transparent)) {
-                current?.let { t ->
-                    MiniPlayer(
-                        track = t, isPlaying = isPlaying,
-                        progress = if (dur > 0) pos.toFloat() / dur else 0f,
-                        onToggle = { vm.togglePlay() }, onNext = { vm.next() }, onPrev = { vm.prev() },
-                        onExpand = onExpandPlayer,
-                    )
-                }
-            }
-            GlassTabBar2(rememberTabs(), tab) { onTab(it) }
-        }
+
         StatusBarGlassOverlay()
     }
 }

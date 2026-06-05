@@ -114,7 +114,13 @@ fun NowPlayingScreen(
     )
 
     val artColor = rememberArtworkColor(t.artworkUri)
-    var dragAccum by remember { mutableStateOf(0f) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    val animatedDragOffset by animateFloatAsState(
+        targetValue = dragOffset,
+        animationSpec = spring(stiffness = 360f, dampingRatio = 0.86f),
+        label = "nowPlayingSwipeDown",
+    )
+    val dragProgress = (animatedDragOffset / 420f).coerceIn(0f, 1f)
     val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
 
     // ── Full-screen backdrop — theme-aware deep dark gradient ───────────────
@@ -129,10 +135,32 @@ fun NowPlayingScreen(
                     )
                 )
             )
+            .graphicsLayer {
+                // Gesture-coupled collapse: as the user swipes down, the whole
+                // player follows their finger, gently scales toward the dock,
+                // then the MainScaffold transition finishes the morph into the
+                // MiniPlayer.
+                translationY = animatedDragOffset
+                scaleX = 1f - dragProgress * 0.045f
+                scaleY = 1f - dragProgress * 0.045f
+                alpha = 1f - dragProgress * 0.10f
+            }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragEnd = { if (dragAccum > 180f) onCollapse(); dragAccum = 0f },
-                ) { _, dy -> if (dy > 0) dragAccum += dy }
+                    onDragEnd = {
+                        if (dragOffset > 160f) onCollapse()
+                        dragOffset = 0f
+                    },
+                    onDragCancel = { dragOffset = 0f },
+                ) { change, dy ->
+                    if (dy > 0f) {
+                        change.consume()
+                        dragOffset = (dragOffset + dy).coerceIn(0f, 520f)
+                    } else if (dragOffset > 0f) {
+                        change.consume()
+                        dragOffset = (dragOffset + dy * 0.55f).coerceAtLeast(0f)
+                    }
+                }
             },
     ) {
         // ── Blurred art backdrop ─────────────────────────────────────────────
