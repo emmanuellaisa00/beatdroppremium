@@ -1419,6 +1419,90 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ── Live typed suggestions ──────────────────────────────────────────
+    // A debounced parallel fetch of small song/album/playlist samples so
+    // the search field can show rich, typed result rows while the user is
+    // still typing — Apple-Music / Spotify-iOS pattern. The list is a flat
+    // ordered set: top song, then top album, then top playlist, then a
+    // few more songs. Tap any row → instant play (song) or open detail
+    // (album / playlist). No 'press enter to search' step needed.
+    sealed interface LiveSuggestion {
+        val title: String
+        val subtitle: String
+        val thumbnailUrl: String?
+        data class Song    (val result: OnlineResult)                                  : LiveSuggestion {
+            override val title: String get() = result.title
+            override val subtitle: String get() = "Song · ${result.author}"
+            override val thumbnailUrl: String? get() = result.thumbnailUrl
+        }
+        data class Album   (val album: com.beatdrop.kt.youtube.OnlineAlbum)            : LiveSuggestion {
+            override val title: String get() = album.title
+            override val subtitle: String get() = buildString {
+                append("Album")
+                if (album.artist.isNotBlank()) append(" · ").append(album.artist)
+            }
+            override val thumbnailUrl: String? get() = album.thumbnailUrl
+        }
+        data class Playlist(val playlist: com.beatdrop.kt.youtube.OnlinePlaylist)      : LiveSuggestion {
+            override val title: String get() = playlist.title
+            override val subtitle: String get() = buildString {
+                append("Playlist")
+                if (playlist.author.isNotBlank()) append(" · ").append(playlist.author)
+            }
+            override val thumbnailUrl: String? get() = playlist.thumbnailUrl
+        }
+    }
+
+    private val _liveSuggestions = MutableStateFlow<List<LiveSuggestion>>(emptyList())
+    val liveSuggestions: StateFlow<List<LiveSuggestion>> = _liveSuggestions.asStateFlow()
+    @Volatile private var liveSuggestionsJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Cancel any in-flight typed-suggestions fetch, wait 250 ms (debounce),
+     * then fire songs + albums + playlists in parallel and assemble a
+     * flat ordered list. Called from SearchScreen on every keystroke.
+     */
+    fun loadLiveSuggestions() {
+        val q = _onlineQuery.value.trim()
+        if (q.length < 2) {
+            _liveSuggestions.value = emptyList()
+            liveSuggestionsJob?.cancel()
+            liveSuggestionsJob = null
+            return
+        }
+        liveSuggestionsJob?.cancel()
+        liveSuggestionsJob = viewModelScope.launch {
+            delay(250)   // debounce
+            val songsJob = async(Dispatchers.IO) {
+                runCatching { com.beatdrop.kt.youtube.searchYoutubeMusic(q, maxResults = 6) }
+                    .getOrDefault(emptyList())
+            }
+            val albumsJob = async(Dispatchers.IO) {
+                runCatching { com.beatdrop.kt.youtube.searchYoutubeMusicAlbums(q, maxResults = 3) }
+                    .getOrDefault(emptyList())
+            }
+            val playlistsJob = async(Dispatchers.IO) {
+                runCatching { com.beatdrop.kt.youtube.searchYoutubeMusicPlaylists(q, maxResults = 3) }
+                    .getOrDefault(emptyList())
+            }
+            val songs     = songsJob.await()
+            val albums    = albumsJob.await()
+            val playlists = playlistsJob.await()
+            // Ordered: top song, top album, top playlist, then alternating
+            // songs to fill out to ~8 rows total. Matches the inline-suggestion
+            // pattern Spotify and Apple Music both use.
+            val mixed = buildList {
+                songs.firstOrNull()?.let { add(LiveSuggestion.Song(it)) }
+                albums.firstOrNull()?.let { add(LiveSuggestion.Album(it)) }
+                playlists.firstOrNull()?.let { add(LiveSuggestion.Playlist(it)) }
+                songs.drop(1).take(5).forEach { add(LiveSuggestion.Song(it)) }
+                albums.drop(1).take(2).forEach { add(LiveSuggestion.Album(it)) }
+                playlists.drop(1).take(2).forEach { add(LiveSuggestion.Playlist(it)) }
+            }
+            _liveSuggestions.value = mixed
+        }
+    }
+
     // ── YouTube playback — resolve URL then play via ExoPlayer ────────────────
     // Cache of ytTrack objects so syncCurrent() can find them by mediaId
     // LRU-evicted at 50 entries to prevent unbounded memory growth

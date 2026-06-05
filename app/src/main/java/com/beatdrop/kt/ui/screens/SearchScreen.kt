@@ -153,16 +153,68 @@ fun SearchScreen(
                 value = q,
                 onChange = {
                     vm.setOnlineQuery(it)
-                    if (it.length >= 2) vm.loadSuggestions()
+                    // Two suggestion streams: cheap autocomplete strings
+                    // (fires immediately) + debounced rich typed rows
+                    // (250ms debounce inside the VM).
+                    if (it.length >= 2) {
+                        vm.loadSuggestions()
+                        vm.loadLiveSuggestions()
+                    }
                 },
                 placeholder = "Search songs, artists, albums…",
                 onSubmit = { vm.runOnlineSearch() },
                 submitting = searching,
             )
 
-            // ── Search history or autocomplete suggestions ──────────────────
-            val showHistory    = q.isEmpty() && history.isNotEmpty() && results.isEmpty()
-            val showSuggestions = q.isNotEmpty() && suggestions.isNotEmpty() && results.isEmpty()
+            val liveSuggestions by vm.liveSuggestions.collectAsState()
+
+            // ── Search history or rich typed suggestions ────────────────────
+            val showHistory      = q.isEmpty() && history.isNotEmpty() && results.isEmpty()
+            val showLiveTyped    = q.isNotEmpty() && liveSuggestions.isNotEmpty() && results.isEmpty()
+            val showSuggestions  = q.isNotEmpty() && suggestions.isNotEmpty() && liveSuggestions.isEmpty() && results.isEmpty()
+
+            // ── Rich typed suggestions (Apple Music / Spotify iOS style) ────
+            // When the user is typing AND we have live typed results AND
+            // they haven't submitted yet, show inline rich rows: 40dp
+            // thumbnail + title + type label. Tap = instant (no submit).
+            AnimatedVisibility(visible = showLiveTyped) {
+                LazyColumn(
+                    contentPadding = PaddingValues(top = 8.dp),
+                    modifier = Modifier.heightIn(max = 420.dp),
+                ) {
+                    items(liveSuggestions, key = { s ->
+                        when (s) {
+                            is PlayerViewModel.LiveSuggestion.Song     -> "s:${s.result.videoId}"
+                            is PlayerViewModel.LiveSuggestion.Album    -> "a:${s.album.browseId}"
+                            is PlayerViewModel.LiveSuggestion.Playlist -> "p:${s.playlist.playlistId}"
+                        }
+                    }) { suggestion ->
+                        LiveSuggestionRow(
+                            suggestion = suggestion,
+                            onClick = {
+                                when (suggestion) {
+                                    is PlayerViewModel.LiveSuggestion.Song -> {
+                                        // Instant play.
+                                        vm.prepareAndPlayOnline(suggestion.result,
+                                            liveSuggestions.filterIsInstance<PlayerViewModel.LiveSuggestion.Song>()
+                                                .map { it.result },
+                                            0,
+                                        )
+                                        onExpandPlayer()
+                                    }
+                                    is PlayerViewModel.LiveSuggestion.Album -> {
+                                        onOpenOnlineAlbum(suggestion.album)
+                                    }
+                                    is PlayerViewModel.LiveSuggestion.Playlist -> {
+                                        vm.playFeaturedPlaylist(suggestion.playlist.playlistId)
+                                        onExpandPlayer()
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            }
 
             AnimatedVisibility(visible = showHistory || showSuggestions) {
                 LazyColumn(
@@ -254,6 +306,54 @@ fun SearchScreen(
                         state          = listState,
                         contentPadding = PaddingValues(bottom = 160.dp),
                     ) {
+                        // ── Top Result hero card (Spotify / Apple Music) ────
+                        // Only when no specific section is filtered. Picks the
+                        // single best match across all three result types:
+                        //   1. exact-title album match (most relevant)
+                        //   2. first album in the list (cover-bearing)
+                        //   3. first song
+                        // Tap behaviour matches the type: album → detail,
+                        // song → instant play.
+                        if (filter == SearchFilter.ALL) {
+                            val topAlbum = albums.firstOrNull { it.title.equals(q, ignoreCase = true) }
+                                ?: albums.firstOrNull()
+                            val topSong = results.firstOrNull()
+                            if (topAlbum != null || topSong != null) {
+                                item {
+                                    Text(
+                                        "Top Result",
+                                        color = C.text,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 10.dp, start = 4.dp),
+                                    )
+                                }
+                                item {
+                                    if (topAlbum != null) {
+                                        TopResultHero(
+                                            title = topAlbum.title,
+                                            subtitle = buildString {
+                                                append("Album")
+                                                if (topAlbum.artist.isNotBlank()) append(" · ").append(topAlbum.artist)
+                                            },
+                                            thumbnailUrl = topAlbum.thumbnailUrl,
+                                            onClick = { onOpenOnlineAlbum(topAlbum) },
+                                        )
+                                    } else if (topSong != null) {
+                                        TopResultHero(
+                                            title = topSong.title,
+                                            subtitle = "Song · ${topSong.author}",
+                                            thumbnailUrl = topSong.thumbnailUrl,
+                                            onClick = {
+                                                vm.prepareAndPlayOnline(topSong, results, 0)
+                                                onExpandPlayer()
+                                            },
+                                        )
+                                    }
+                                    Spacer(Modifier.height(20.dp))
+                                }
+                            }
+                        }
                         // ── Albums section (Spotify-style horizontal carousel) ──
                         if (showAlbums && albums.isNotEmpty()) {
                             item {
@@ -699,6 +799,134 @@ private fun Chip(
                 color    = if (active) Color.Black.copy(alpha = 0.65f) else C.textSecondary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
+            )
+        }
+    }
+}
+
+// ─── Live typed suggestion rows ───────────────────────────────────────────────
+
+@Composable
+private fun LiveSuggestionRow(
+    suggestion: PlayerViewModel.LiveSuggestion,
+    onClick: () -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    // Albums use a slightly rounded square thumbnail, playlists too,
+    // songs use a fully circular thumbnail — visually distinguishes the
+    // three types at a glance even before the user reads the subtitle.
+    val isSong = suggestion is PlayerViewModel.LiveSuggestion.Song
+    val cornerRadius = if (isSong) 22.dp else 6.dp
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .pressableScale(onClick = onClick, scaleTo = 0.98f)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(cornerRadius))
+                .background(C.bg3),
+        ) {
+            if (suggestion.thumbnailUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx)
+                        .data(suggestion.thumbnailUrl).crossfade(true).size(128).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                suggestion.title,
+                color = C.text,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                suggestion.subtitle,
+                color = C.textSecondary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            Ic.ChevronRight,
+            null,
+            tint = C.textTertiary,
+            modifier = Modifier.size(16.dp),
+        )
+    }
+    androidx.compose.material3.HorizontalDivider(
+        color = C.separator.copy(alpha = 0.5f),
+        thickness = 0.5.dp,
+        modifier = Modifier.padding(start = 56.dp),
+    )
+}
+
+// ─── Top Result hero card ─────────────────────────────────────────────────────
+
+@Composable
+private fun TopResultHero(
+    title: String,
+    subtitle: String,
+    thumbnailUrl: String?,
+    onClick: () -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(C.bg2.copy(alpha = if (C.isDark) 0.55f else 0.92f))
+            .pressableScale(onClick = onClick, scaleTo = 0.97f)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(C.bg3),
+        ) {
+            if (thumbnailUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx)
+                        .data(thumbnailUrl).crossfade(true).size(384).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                color = C.text,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                subtitle,
+                color = C.textSecondary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
