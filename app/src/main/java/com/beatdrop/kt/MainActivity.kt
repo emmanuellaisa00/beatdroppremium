@@ -88,12 +88,11 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: android.content.Intent?) {
         when (intent?.action) {
             android.content.Intent.ACTION_SEND -> {
-                val sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT) ?: return
-                // The clipboard watcher will detect this URL and show the dialog
+                intent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+                    ?.let { PendingIncomingUrl.submit(it) }
             }
             android.content.Intent.ACTION_VIEW -> {
-                val data = intent.data ?: return
-                // Will be handled by clipboard detection in Root composable
+                intent.data?.toString()?.let { PendingIncomingUrl.submit(it) }
             }
             "com.beatdrop.kt.PLAY_DOWNLOADED" -> {
                 // Tap on a 'download complete' notification. The Intent
@@ -127,6 +126,12 @@ object PendingDownloadPlay {
     private val events = kotlinx.coroutines.channels.Channel<String>(capacity = kotlinx.coroutines.channels.Channel.BUFFERED)
     val flow: kotlinx.coroutines.flow.Flow<String> = events.receiveAsFlow()
     fun submit(videoId: String) { events.trySend(videoId) }
+}
+
+object PendingIncomingUrl {
+    private val events = kotlinx.coroutines.channels.Channel<String>(capacity = kotlinx.coroutines.channels.Channel.BUFFERED)
+    val flow: kotlinx.coroutines.flow.Flow<String> = events.receiveAsFlow()
+    fun submit(url: String) { events.trySend(url) }
 }
 
 private val audioPermission: String
@@ -166,6 +171,12 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         PendingDownloadPlay.flow.collect { videoId ->
             vm.playOnlineByVideoId(videoId)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        PendingIncomingUrl.flow.collect { url ->
+            vm.playOnlineByUrl(url)
         }
     }
 
@@ -262,11 +273,10 @@ fun Root(vm: PlayerViewModel = viewModel()) {
  */
 @Composable
 private fun rememberTabs(): List<TabSpec2> = listOf(
-    TabSpec2("library",  stringResource(R.string.tab_library),  Ic.Library,  Ic.Library),
     TabSpec2("discover", stringResource(R.string.tab_discover), Ic.Discover, Ic.Discover),
     TabSpec2("search",   stringResource(R.string.tab_search),   Ic.Search,   Ic.Search),
-    TabSpec2("radio",    stringResource(R.string.tab_radio),    Ic.Podcast,  Ic.Podcast),
-    TabSpec2("settings", stringResource(R.string.tab_settings), Ic.Settings, Ic.Settings),
+    TabSpec2("library",  stringResource(R.string.tab_library),  Ic.Library,  Ic.Library),
+    TabSpec2("radio",    stringResource(R.string.tab_radio),    Ic.Radio,    Ic.Radio),
 )
 
 private sealed interface Dest {
@@ -308,7 +318,7 @@ private sealed interface Dest {
 fun MainScaffold(vm: PlayerViewModel) {
     val C = LocalAppColors.current
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableStateOf("library") }
+    var tab by rememberSaveable { mutableStateOf("discover") }
     val stack = remember { mutableStateListOf<Dest>() }
     val currentDest: Dest = stack.lastOrNull() ?: Dest.Tabs
     fun push(d: Dest) { stack.add(d) }
@@ -354,7 +364,7 @@ fun MainScaffold(vm: PlayerViewModel) {
         }
     }
 
-    val touchedNetworkTab = tab == "discover" || tab == "search" || tab == "radio"
+    val touchedNetworkTab = tab == "discover" || tab == "search"
     if (needsTerms && touchedNetworkTab) {
         com.beatdrop.kt.ui.components.TermsSheet(
             onAccept = {
@@ -505,6 +515,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onOpenLocalDiscover = { push(Dest.LocalDiscover) },
                             onOpenPlaylists     = { push(Dest.Playlists) },
                             onOpenStats         = { push(Dest.Stats) },
+                            onOpenSettings      = { push(Dest.Settings) },
                             onOpenSearch        = { push(Dest.Search) },
                             onExpandPlayer      = { push(Dest.NowPlaying) },
                             onOpenEq            = { push(Dest.Eq) },
@@ -577,8 +588,10 @@ fun MainScaffold(vm: PlayerViewModel) {
             // route (album, artist, downloads, queue, settings, etc.). On the
             // tabs root it stacks MiniPlayer above the glass dock; on pushed
             // screens it shows only the MiniPlayer above the gesture bar.
+            val hideDock = currentDest == Dest.NowPlaying || currentDest is Dest.VideoPlayer || currentDest == Dest.Browser
             val showMiniPlayer = current != null && currentDest != Dest.NowPlaying
-            if (showMiniPlayer || currentDest == Dest.Tabs) {
+            val showDock = !hideDock
+            if (showMiniPlayer || showDock) {
                 Column(
                     Modifier
                         .align(Alignment.BottomCenter)
@@ -608,8 +621,11 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onExpand = { push(Dest.NowPlaying) },
                         )
                     }
-                    if (currentDest == Dest.Tabs) {
-                        GlassTabBar2(rememberTabs(), tab) { onTab -> tab = onTab }
+                    if (showDock) {
+                        GlassTabBar2(rememberTabs(), tab) { onTab ->
+                            tab = onTab
+                            stack.clear()
+                        }
                     }
                 }
             }
@@ -624,7 +640,7 @@ private fun TabsHost(
     current: com.beatdrop.kt.data.Track?, isPlaying: Boolean, pos: Long, dur: Long,
     onOpenAlbum: (String, String) -> Unit, onOpenArtist: (String) -> Unit,
     onOpenLocalDiscover: () -> Unit, onOpenPlaylists: () -> Unit,
-    onOpenStats: () -> Unit, onOpenSearch: () -> Unit, onExpandPlayer: () -> Unit,
+    onOpenStats: () -> Unit, onOpenSettings: () -> Unit, onOpenSearch: () -> Unit, onExpandPlayer: () -> Unit,
     onOpenEq: () -> Unit, onOpenDebug: () -> Unit,
     onOpenDownloads: () -> Unit, onOpenTrending: () -> Unit,
     onOpenBrowser: () -> Unit, onOpenStorage: () -> Unit, onOpenPrivateFolder: () -> Unit,
@@ -636,7 +652,8 @@ private fun TabsHost(
             Box(Modifier.weight(1f)) {
                 when (tab) {
                     "library"  -> LibraryScreen(vm, onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist,
-                        onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
+                        onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats,
+                        onOpenSettings = onOpenSettings)
                     "discover" -> DiscoverScreen(
                         vm,
                         onOpenSearch = onOpenSearch,
@@ -653,7 +670,6 @@ private fun TabsHost(
                         onOpenOnlineCollection = onOpenOnlineCollection,
                     )
                     "radio"    -> RadioScreen(vm)
-                    "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDebug = onOpenDebug)
                 }
             }
         }

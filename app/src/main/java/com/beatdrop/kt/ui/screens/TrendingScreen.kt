@@ -90,7 +90,7 @@ fun TrendingScreen(
                     } else {
                         LazyColumn(
                             Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
-                            contentPadding = PaddingValues(bottom = 180.dp),
+                            contentPadding = PaddingValues(bottom = 240.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             itemsIndexed(items, key = { _, r -> r.videoId }) { idx, result ->

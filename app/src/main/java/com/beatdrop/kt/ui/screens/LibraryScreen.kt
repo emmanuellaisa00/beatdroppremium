@@ -62,6 +62,7 @@ fun LibraryScreen(
     onOpenLocalDiscover: () -> Unit = {},
     onOpenPlaylists: () -> Unit = {},
     onOpenStats: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val C       = LocalAppColors.current
     val query   by vm.query.collectAsState()
@@ -86,7 +87,7 @@ fun LibraryScreen(
             }
             HeaderIcon(Ic.Playlist, "Playlists", onOpenPlaylists)
             HeaderIcon(Ic.Stats,   "Stats",     onOpenStats)
-            HeaderIcon(Ic.Discover,    "Discover",  onOpenLocalDiscover)
+            HeaderIcon(Ic.Settings, "Settings",  onOpenSettings)
         }
 
         // ── Search field — unified BeatDropSearchField ─────────────────────
@@ -98,7 +99,7 @@ fun LibraryScreen(
             BeatDropSearchField(
                 value = query,
                 onChange = vm::setQuery,
-                placeholder = "Search library or online…",
+                placeholder = "Search your library",
                 onSubmit = null,            // live-filter, no submit affordance
             )
         }
@@ -182,7 +183,7 @@ private fun SongsList(vm: PlayerViewModel) {
     val sort   by vm.sort.collectAsState()
     var sheetTrack by remember { mutableStateOf<Track?>(null) }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 170.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 240.dp)) {
         // Play All / Shuffle action bar
         item {
             Row(
@@ -309,7 +310,7 @@ private fun ArtistsList(vm: PlayerViewModel, onOpen: (String) -> Unit) {
     val C      = LocalAppColors.current
     val artists by vm.artistGroups.collectAsState()
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 170.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 240.dp)) {
         itemsIndexed(artists, key = { _, ar -> ar.artist }) { _, ar ->
             Row(
                 Modifier
@@ -419,29 +420,6 @@ private fun EmptyLibrary() {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(20.dp))
-        Row(
-            Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(C.accent.copy(alpha = 0.2f))
-                .border(0.5.dp, C.accent.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                .pressableScale(onClick = {
-                    try {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(android.content.Intent.CATEGORY_OPENABLE)
-                            type = "audio/*"
-                            putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, true)
-                        }
-                        ctx.startActivity(intent)
-                    } catch (_: Exception) {}
-                })
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Ic.Add, null, tint = C.accent, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Add music files", color = C.accent, style = Type.headline, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(10.dp))
         Text(
             "Or search and download songs from YouTube.",
             style = Type.footnote, color = C.textTertiary,

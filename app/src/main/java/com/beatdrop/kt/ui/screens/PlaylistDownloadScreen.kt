@@ -111,7 +111,7 @@ fun PlaylistDownloadScreen(
                 }
                 else -> LazyColumn(
                     Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
-                    contentPadding = PaddingValues(bottom = 180.dp),
+                    contentPadding = PaddingValues(bottom = 240.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     items(info.videos, key = { it.videoId }) { result ->

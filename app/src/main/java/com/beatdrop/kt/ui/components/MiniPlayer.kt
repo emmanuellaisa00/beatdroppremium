@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.beatdrop.kt.ui.components.Ic
 import androidx.compose.material3.Icon
@@ -63,7 +64,7 @@ fun MiniPlayer(
     // blur from the global HazeState provided by MainScaffold.
     val outerRadius = 42.dp
     val outerShape  = RoundedCornerShape(outerRadius)
-    val artShape    = RoundedCornerShape(29.dp)
+    val artShape    = CircleShape
 
     Box(
         Modifier

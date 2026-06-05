@@ -50,7 +50,7 @@ fun StorageScreen(onBack: () -> Unit) {
             Column(
                 Modifier.fillMaxSize().verticalScroll(scrollState)
                     .padding(horizontal = Spacing.lg)
-                    .padding(bottom = 180.dp),
+                    .padding(bottom = 240.dp),
             ) {
                 Spacer(Modifier.height(8.dp))
 

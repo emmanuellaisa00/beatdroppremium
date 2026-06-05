@@ -51,7 +51,7 @@ fun PlaylistsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpen: (Strin
             )
             LazyColumn(
                 contentPadding = PaddingValues(
-                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 180.dp,
+                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 240.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -154,7 +154,7 @@ fun PlaylistDetailScreen(vm: PlayerViewModel, name: String, onBack: () -> Unit) 
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 180.dp,
+                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 240.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {

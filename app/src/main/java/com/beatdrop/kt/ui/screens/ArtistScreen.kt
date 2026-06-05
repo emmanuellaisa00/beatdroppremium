@@ -53,7 +53,7 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 180.dp,
+                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 240.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {

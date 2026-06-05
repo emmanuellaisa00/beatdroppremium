@@ -195,7 +195,7 @@ fun OnlineAlbumScreen(
             // ── Foreground content ───────────────────────────────────────
             LazyColumn(
                 Modifier.fillMaxSize().statusBarsPadding(),
-                contentPadding = PaddingValues(bottom = 180.dp),
+                contentPadding = PaddingValues(bottom = 240.dp),
             ) {
                 // Top bar
                 item {

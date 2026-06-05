@@ -105,7 +105,7 @@ fun DiscoverScreen(
     ScreenScaffold {
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 170.dp),
+        contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 240.dp),
     ) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
@@ -432,7 +432,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
 
     val topPaddingLocal = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     ScreenScaffold {
-    LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 170.dp)) {
+    LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 240.dp)) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
             Row(
@@ -648,17 +648,6 @@ private fun MadeForYouCarousel(
                                 ),
                             ),
                     )
-                    // Play affordance — small accent pill bottom-right.
-                    Box(
-                        Modifier
-                            .align(Alignment.BottomEnd).padding(10.dp).size(38.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .background(C.accent),
-                        Alignment.Center,
-                    ) {
-                        Icon(Ic.TransportPlay, "Play", tint = Color.Black,
-                            modifier = Modifier.size(20.dp))
-                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(

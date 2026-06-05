@@ -2170,6 +2170,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun playOnlineByVideoId(videoId: String) {
         if (videoId.isBlank()) return
+        // If the video is already downloaded, notification/deep-link taps must
+        // play the local file instantly/offline instead of re-resolving and
+        // streaming the same video again.
+        downloadedTrackFor(videoId)?.let { local ->
+            play(local)
+            return
+        }
         // First look in the download history for the real title/artist —
         // that gives the optimistic Now Playing the correct metadata
         // immediately instead of the placeholder.

@@ -159,7 +159,7 @@ fun PrivateFolderScreen(
                 } else {
                     LazyColumn(
                         Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
-                        contentPadding = PaddingValues(bottom = 180.dp),
+                        contentPadding = PaddingValues(bottom = 240.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         items(privateDownloads, key = { it.videoId }) { record ->
