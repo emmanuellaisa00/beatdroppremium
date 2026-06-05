@@ -140,6 +140,11 @@ fun Root(vm: PlayerViewModel = viewModel()) {
     if (showSplash) { SplashScreen(onDone = { showSplash = false }); return }
 
     LaunchedEffect(Unit) { vm.connect() }
+    // Always surface downloaded tracks in the library — they live in
+    // app-private storage so no permission is required. Without this
+    // the user's downloads vanished after every cold start when audio
+    // permission was denied or not yet granted.
+    LaunchedEffect(Unit) { vm.loadDownloadsOnly() }
     LaunchedEffect(perm.status.isGranted) {
         if (perm.status.isGranted) {
             vm.loadLibrary()

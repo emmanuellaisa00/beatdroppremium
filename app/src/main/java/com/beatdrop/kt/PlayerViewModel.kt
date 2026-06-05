@@ -759,6 +759,37 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     @Volatile private var libraryLoadStarted = false
+    @Volatile private var downloadsOnlyLoadDone = false
+
+    /**
+     * Show downloads in the library EVEN WITHOUT audio permission.
+     *
+     * Bug fixed: the previous loadLibrary() was the only path that
+     * surfaced downloaded tracks, and it was gated on the audio
+     * permission grant (because it also runs the MediaStore scan).
+     * Users who denied audio permission — or hadn't granted it yet on
+     * the very first launch — saw their downloads vanish on app
+     * restart, because the merge never ran.
+     *
+     * Downloads live in app-private storage (no permission needed) and
+     * are tracked in DownloadHistory regardless of MediaStore.
+     * Surfacing them is independent of the permission state.
+     *
+     * Call this from MainActivity unconditionally on first frame; call
+     * loadLibrary() on permission grant for the full MediaStore merge.
+     */
+    fun loadDownloadsOnly() {
+        if (downloadsOnlyLoadDone || libraryLoadStarted) return
+        downloadsOnlyLoadDone = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val merged = mergeWithDownloads(emptyList())
+            if (merged.isNotEmpty()) {
+                _tracks.value = merged
+                _loaded.value = true
+            }
+        }
+    }
+
     fun loadLibrary() {
         if (libraryLoadStarted) return
         libraryLoadStarted = true
@@ -771,6 +802,22 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 _tracks.value = mergeWithDownloads(batch)
                 if (!_loaded.value) _loaded.value = true
             }
+        }
+    }
+
+    /**
+     * Re-merge DownloadHistory into the current _tracks snapshot.
+     * Called after a download completes (via trackReady) so the new
+     * file shows up in Library immediately without waiting for a
+     * MediaStore scan to pick it up.
+     */
+    fun refreshDownloadsInLibrary() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Strip any previously-synthesised dl_* entries then re-merge
+            // — this way a deleted download disappears too.
+            val withoutDl = _tracks.value.filterNot { it.id.startsWith("dl_") }
+            _tracks.value = mergeWithDownloads(withoutDl)
+            if (!_loaded.value) _loaded.value = true
         }
     }
 

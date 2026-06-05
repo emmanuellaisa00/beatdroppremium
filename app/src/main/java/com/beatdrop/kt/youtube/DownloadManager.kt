@@ -62,9 +62,57 @@ object DownloadManager {
                 updateJob(DownloadJob(vid, result.title, DownloadStatus.COMPLETED, 100, track))
                 _trackReady.tryEmit(track)
                 DownloadService.notifyComplete(context, result.title, result.videoId)
+
+                // ── Persist to DownloadHistory ─────────────────────────
+                // This used to be missing — only DownloadManagerV2
+                // recorded to history, but the live PlayerViewModel
+                // download path went through this V1 enqueue. Result:
+                // downloads completed fine, played fine, then DISAPPEARED
+                // from the library after every app restart because the
+                // mergeWithDownloads() pass had no history records to
+                // merge. This single record() call fixes the user-reported
+                // 'downloaded songs aren't saved in library when app
+                // exits and comes back' bug.
+                runCatching {
+                    com.beatdrop.kt.data.DownloadHistory.record(
+                        com.beatdrop.kt.data.DownloadHistory.DownloadRecord(
+                            videoId      = result.videoId,
+                            title        = result.title,
+                            artist       = result.author,
+                            thumbnailUrl = result.thumbnailUrl,
+                            durationSecs = result.durationSecs,
+                            filePath     = track.data,
+                            fileSize     = track.data?.let { java.io.File(it).length() } ?: 0L,
+                            format       = track.data?.substringAfterLast('.', "m4a") ?: "m4a",
+                            quality      = "auto",
+                            downloadedAt = System.currentTimeMillis(),
+                            status       = "completed",
+                        ),
+                    )
+                }
             }.onFailure { err ->
                 if (err !is CancellationException) {
                     updateJob(DownloadJob(vid, result.title, DownloadStatus.FAILED, 0, null, err.message))
+                    // Also record failures so the UI's 'Failed' tab
+                    // reflects actual history vs in-memory state.
+                    runCatching {
+                        com.beatdrop.kt.data.DownloadHistory.record(
+                            com.beatdrop.kt.data.DownloadHistory.DownloadRecord(
+                                videoId      = result.videoId,
+                                title        = result.title,
+                                artist       = result.author,
+                                thumbnailUrl = result.thumbnailUrl,
+                                durationSecs = result.durationSecs,
+                                filePath     = null,
+                                fileSize     = 0L,
+                                format       = "m4a",
+                                quality      = "auto",
+                                downloadedAt = System.currentTimeMillis(),
+                                status       = "failed",
+                                error        = err.message,
+                            ),
+                        )
+                    }
                 }
             }
 
