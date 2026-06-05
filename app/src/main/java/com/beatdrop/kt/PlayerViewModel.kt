@@ -1375,6 +1375,29 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     val searchConfigured: Boolean get() = OnlineSearch.isConfigured
 
+    // ── Local library search ─────────────────────────────────────────────
+    // Cheap in-memory filter over _tracks. The hybrid SearchScreen mode
+    // calls this in parallel with runOnlineSearch so users see their own
+    // library results above the YT catalog matches.
+    private val _localSearchResults = MutableStateFlow<List<Track>>(emptyList())
+    val localSearchResults: StateFlow<List<Track>> = _localSearchResults.asStateFlow()
+
+    fun runLocalSearch(query: String) {
+        val q = query.trim().lowercase()
+        if (q.isBlank()) {
+            _localSearchResults.value = emptyList()
+            return
+        }
+        _localSearchResults.value = _tracks.value.asSequence()
+            .filter { t ->
+                t.title.contains(q, ignoreCase = true) ||
+                    t.artist.contains(q, ignoreCase = true) ||
+                    t.album.contains(q, ignoreCase = true)
+            }
+            .take(20)
+            .toList()
+    }
+
     fun runOnlineSearch() {
         val q = _onlineQuery.value.trim()
         if (q.isBlank()) return

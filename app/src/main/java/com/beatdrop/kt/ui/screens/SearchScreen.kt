@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,18 +56,29 @@ import com.beatdrop.kt.youtube.OnlineResult
 // Glass search bar with blur 28px
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Two flavours of SearchScreen depending on entry point:
+ *   • HYBRID      — bottom-tab Search. Shows BOTH local library matches
+ *                   (your downloaded / sideloaded songs) AND YT catalog.
+ *   • ONLINE_ONLY — Discover → search button. YT catalog only, since the
+ *                   user is already in 'browse new music' context.
+ */
+enum class SearchMode { HYBRID, ONLINE_ONLY }
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     vm: PlayerViewModel,
     onExpandPlayer: () -> Unit = {},
     onOpenOnlineAlbum: (com.beatdrop.kt.youtube.OnlineAlbum) -> Unit = {},
+    mode: SearchMode = SearchMode.HYBRID,
 ) {
     val C = LocalAppColors.current
     val q          by vm.onlineQuery.collectAsState()
     val results    by vm.onlineResults.collectAsState()
     val albums     by vm.albumResults.collectAsState()
     val playlists  by vm.playlistResults.collectAsState()
+    val localHits  by vm.localSearchResults.collectAsState()
     val searching  by vm.isSearching.collectAsState()
     val message    by vm.onlineMessage.collectAsState()
     val suggestions by vm.suggestions.collectAsState()
@@ -154,15 +166,19 @@ fun SearchScreen(
                 value = q,
                 onChange = {
                     vm.setOnlineQuery(it)
-                    // Two suggestion streams: cheap autocomplete strings
-                    // (fires immediately) + debounced rich typed rows
-                    // (250ms debounce inside the VM).
+                    // HYBRID mode = bottom-tab Search → also filter local
+                    // library so the user sees their own downloads /
+                    // sideloaded files above YT catalog matches.
+                    if (mode == SearchMode.HYBRID) vm.runLocalSearch(it)
                     if (it.length >= 2) {
                         vm.loadSuggestions()
                         vm.loadLiveSuggestions()
                     }
                 },
-                placeholder = "Search songs, artists, albums…",
+                placeholder = if (mode == SearchMode.HYBRID)
+                    "Search your library or YouTube…"
+                else
+                    "Search songs, artists, albums…",
                 onSubmit = { vm.runOnlineSearch() },
                 submitting = searching,
             )
@@ -290,7 +306,7 @@ fun SearchScreen(
                     rowCount = 6,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-                results.isNotEmpty() || albums.isNotEmpty() || playlists.isNotEmpty() -> {
+                results.isNotEmpty() || albums.isNotEmpty() || playlists.isNotEmpty() || localHits.isNotEmpty() -> {
                     val showSongs     = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
                     val showAlbums    = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
                     val showPlaylists = filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS
@@ -321,6 +337,27 @@ fun SearchScreen(
                                     onSelect = { filter = it },
                                 )
                             }
+                        }
+                        // ── HYBRID-mode library matches ─────────────────────
+                        // When the bottom-tab Search finds local-library hits
+                        // they appear above the YT catalog rows: it's nearly
+                        // always what the user means when they search a
+                        // song they've already downloaded. Filtered out in
+                        // ONLINE_ONLY mode (Discover → search).
+                        if (mode == SearchMode.HYBRID && localHits.isNotEmpty() && showSongs) {
+                            item {
+                                SectionEyebrow("In Your Library", count = localHits.size)
+                            }
+                            items(localHits, key = { "lib:" + it.id }) { local ->
+                                LibraryHitRow(
+                                    track = local,
+                                    onPlay = {
+                                        vm.play(local)
+                                        onExpandPlayer()
+                                    },
+                                )
+                            }
+                            item { Spacer(Modifier.height(16.dp)) }
                         }
                         // ── Top Result hero card (Spotify / Apple Music) ────
                         // Only when no specific section is filtered. Picks the
@@ -673,15 +710,18 @@ private fun CatalogRow(
             modifier  = Modifier.padding(horizontal = 8.dp),
         )
 
-        // Save action — Spotify Green when saved
+        // Download action — iOS / Spotify style: outline down-arrow at rest,
+        // filled accent check when already on device. Mirrors the look users
+        // expect from Spotify's 'download for offline' button rather than
+        // the older bookmark/ribbon save metaphor.
         IconButton(
             onClick   = onSave,
             modifier  = Modifier.size(36.dp),
         ) {
             Icon(
-                Ic.Bookmark,
-                if (isSaved) "Saved to library" else "Save to library",
-                tint     = if (isSaved) C.accent else C.textTertiary,   // Green when saved
+                if (isSaved) Ic.Check else Ic.Download,
+                if (isSaved) "Downloaded" else "Download",
+                tint     = if (isSaved) C.accent else C.textSecondary,
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -1077,5 +1117,66 @@ private fun BrowseCategoryCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.align(Alignment.TopStart),
         )
+    }
+}
+
+// ─── Local-library hit row (HYBRID-mode search) ───────────────────────────────
+
+@Composable
+private fun LibraryHitRow(
+    track: com.beatdrop.kt.data.Track,
+    onPlay: () -> Unit,
+) {
+    val C = LocalAppColors.current
+    val ctx = LocalContext.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .pressableScale(onClick = onPlay, scaleTo = 0.98f)
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(C.bg3),
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(ctx).data(track.artworkUri)
+                    .crossfade(true).size(128).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                track.title,
+                color = C.text,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "${track.artist} · From your library",
+                color = C.accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        // Tiny green dot indicating 'already on device'.
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(C.accent),
+        )
+        Spacer(Modifier.width(8.dp))
     }
 }

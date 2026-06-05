@@ -393,6 +393,8 @@ fun MainScaffold(vm: PlayerViewModel) {
                             vm,
                             onExpandPlayer = { push(Dest.NowPlaying) },
                             onOpenOnlineAlbum = { push(Dest.OnlineAlbum(it)) },
+                            // Entered via Discover → online-only catalog.
+                            mode = com.beatdrop.kt.ui.screens.SearchMode.ONLINE_ONLY,
                         )
                         Dest.NowPlaying      -> NowPlayingScreen(vm, onCollapse = { pop() }, onOpenQueue = { push(Dest.Queue) })
                         Dest.Queue           -> QueueScreen(vm, onClose = { pop() })
@@ -456,7 +458,12 @@ private fun TabsHost(
                     "library"  -> LibraryScreen(vm, onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist,
                         onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
                     "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch, onExpandPlayer = onExpandPlayer)
-                    "search"   -> SearchScreen(vm, onExpandPlayer = onExpandPlayer)
+                    "search"   -> SearchScreen(
+                        vm,
+                        onExpandPlayer = onExpandPlayer,
+                        // Bottom tab → hybrid (local library + YT catalog).
+                        mode = com.beatdrop.kt.ui.screens.SearchMode.HYBRID,
+                    )
                     "radio"    -> RadioScreen(vm)
                     "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDebug = onOpenDebug)
                 }
