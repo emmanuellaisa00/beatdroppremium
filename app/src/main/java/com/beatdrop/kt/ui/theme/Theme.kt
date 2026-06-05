@@ -85,13 +85,17 @@ val DarkColors = AppColors(
     bg4 = Color(0xFF242424),
     bg5 = Color(0xFF2E2E2E),
 
-    // Accent — Spotify Green (#21FF6B)
-    accent     = Color(0xFF21FF6B),
-    accentDark = Color(0xFF1AD95A),
+    // Accent — Ocean Teal (#0EA5E9). Replaces the previous green so we
+    // don't read as a Spotify clone. Ocean teal is distinct from every
+    // major music app's signature colour (Spotify=green, Apple Music=
+    // red-pink, YouTube Music=red, SoundCloud=orange, Tidal=cyan-but-
+    // ours is bluer, Amazon=teal-but-ours is bluer).
+    accent     = Color(0xFF0EA5E9),
+    accentDark = Color(0xFF0284C7),
     purple     = Color(0xFF234A93),
 
-    accentSoft  = Color(0x1A21FF6B),
-    accentBorder = Color(0x8021FF6B),
+    accentSoft  = Color(0x1A0EA5E9),
+    accentBorder = Color(0x800EA5E9),
 
     // Text — high contrast white
     text         = Color(0xFFE8E8E8),
@@ -148,12 +152,14 @@ val LightColors = AppColors(
     bg4 = Color(0xFFD8D8DE),
     bg5 = Color(0xFFC8C8CE),
 
-    accent     = Color(0xFF1DB954),
-    accentDark = Color(0xFF1AA848),
+    // Same ocean-teal accent in light mode, slightly darkened for AA
+    // contrast over white surfaces.
+    accent     = Color(0xFF0284C7),
+    accentDark = Color(0xFF0369A1),
     purple     = Color(0xFF1E6AB8),
 
-    accentSoft   = Color(0x1F1DB954),
-    accentBorder = Color(0x601DB954),
+    accentSoft   = Color(0x1F0284C7),
+    accentBorder = Color(0x600284C7),
 
     text         = Color(0xFF000000),
     textSecondary = Color(0x8C000000),
