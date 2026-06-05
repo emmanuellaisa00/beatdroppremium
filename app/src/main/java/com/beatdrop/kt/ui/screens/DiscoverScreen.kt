@@ -54,7 +54,6 @@ import com.beatdrop.kt.youtube.OnlineResult
 // Accent: #21FF6B (Spotify Green), glass cards blur 24-32px
 // ═══════════════════════════════════════════════════════════════════════════════
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandPlayer: () -> Unit = {}) {
     val C = LocalAppColors.current
@@ -91,20 +90,11 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
     }
 
     val topPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    // Pull-to-refresh — drag down from the top to force a fresh fetch.
-    // discoverLoading flips the spinner; vm.getDiscoverData(forceRefresh
-    // = true) bypasses the 5-min cache window.
-    val pullState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
+    // Manual refresh — tap the title to re-fetch. PullToRefreshBox
+    // would be ideal here but it requires Compose BOM 2024.09+, and
+    // we're on 2024.06. Until BOM bump, tap-to-refresh is the
+    // pragmatic alternative. See header item below.
     ScreenScaffold {
-    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-        isRefreshing = discoverLoading,
-        onRefresh = {
-            vm.getDiscoverData(forceRefresh = true)
-            vm.loadMadeForYou(force = true)
-        },
-        state = pullState,
-        modifier = Modifier.fillMaxSize(),
-    ) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 170.dp),
@@ -117,7 +107,24 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
                     .padding(start = Spacing.lg, end = Spacing.lg, top = 10.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Discover", style = Type.largeTitle, color = C.text, modifier = Modifier.weight(1f))
+                // Tap-the-title to refresh — substitute for the real
+                // PullToRefreshBox we'd use if Compose BOM was 2024.09+.
+                // Forces a fresh fetch bypassing the 5-min cache window.
+                Text(
+                    "Discover",
+                    style = Type.largeTitle,
+                    color = C.text,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pressableScale(
+                            onClick = {
+                                vm.getDiscoverData(forceRefresh = true)
+                                vm.loadMadeForYou(force = true)
+                            },
+                            scaleTo = 0.98f,
+                            enableGlow = false,
+                        ),
+                )
 
                 // Unified opaque search button — guarantees icon contrast in
                 // every theme (the legacy glassRow + tint = 0xDDFFFFFF in
@@ -217,7 +224,6 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
             }
         }
     }
-    }   // PullToRefreshBox
     }   // ScreenScaffold
 }
 
