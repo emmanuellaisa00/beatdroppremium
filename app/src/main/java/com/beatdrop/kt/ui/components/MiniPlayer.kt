@@ -144,12 +144,31 @@ fun MiniPlayer(
             }
             Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp), 
                 verticalAlignment = Alignment.CenterVertically) {
-            // ── Artwork — concentric inner radius (36dp) ─────────────────────
+            // ── Artwork — Premium Glass 'Album Art Inset Architecture' ──
+            // Per spec the artwork is not a flat image — it's a layered
+            // jewel with:
+            //   1. Outer shadow  — sits BELOW the surrounding glass so
+            //                       the art appears pressed into the slab
+            //                       (negative elevation cue).
+            //   2. Inner highlight — 1px white halo just inside the clip
+            //                       boundary; reads as 'mounted under
+            //                       glass' rather than 'painted on'.
+            //   3. Album image    — the asset, cropped to the inner shape.
+            //   4. Micro reflection — soft white top-edge gradient over
+            //                       the image (≤6% opacity) so the
+            //                       artwork inherits the slab's lighting.
+            // Implementation: a single Box that owns all 4 layers, then
+            // the AsyncImage stays a simple crop inside.
+            val artShape = RoundedCornerShape(innerRadius)
             Box(
                 Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(innerRadius))
-                    .background(C.bg3)
+                    // Outer (inset) shadow — drawn as a faint dark border
+                    // OUTSIDE the clip boundary so the art appears to sit
+                    // 1px below the surface plane.
+                    .border(1.dp, Color.Black.copy(alpha = 0.35f), artShape)
+                    .clip(artShape)
+                    .background(C.bg3),
             ) {
                 AsyncImage(
                     model  = ImageRequest.Builder(ctx)
@@ -160,6 +179,34 @@ fun MiniPlayer(
                     contentDescription = null,
                     contentScale       = ContentScale.Crop,
                     modifier           = Modifier.fillMaxSize(),
+                )
+                // Inner highlight — 0.5dp white halo just inside the
+                // clip edge. Sells the 'under glass' effect.
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .border(0.5.dp, Color.White.copy(alpha = 0.18f), artShape),
+                )
+                // Micro reflection — top-edge gradient over the artwork
+                // so the album image picks up the same lighting direction
+                // as the glass slab around it. Sub-perceptual on its own,
+                // but the absence of it reads as 'sticker on glass'.
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.06f),
+                                        Color.Transparent,
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height * 0.40f,
+                                ),
+                            )
+                        },
                 )
             }
 
