@@ -44,17 +44,18 @@ object DebugLog {
     @Synchronized
     private fun log(level: Level, tag: String, msg: String) {
         if (!enabled) return
-        val e = Entry(System.currentTimeMillis(), level, tag, msg)
+        val safeMsg = sanitize(msg)
+        val e = Entry(System.currentTimeMillis(), level, tag, safeMsg)
         val cur = _entries.value
         val next = if (cur.size >= MAX) cur.subList(cur.size - MAX + 1, cur.size) + e else cur + e
         _entries.value = next
         // Mirror to logcat too, harmless if unread.
         try {
             when (level) {
-                Level.D -> android.util.Log.d("BeatDrop/$tag", msg)
-                Level.I -> android.util.Log.i("BeatDrop/$tag", msg)
-                Level.W -> android.util.Log.w("BeatDrop/$tag", msg)
-                Level.E -> android.util.Log.e("BeatDrop/$tag", msg)
+                Level.D -> android.util.Log.d("BeatDrop/$tag", safeMsg)
+                Level.I -> android.util.Log.i("BeatDrop/$tag", safeMsg)
+                Level.W -> android.util.Log.w("BeatDrop/$tag", safeMsg)
+                Level.E -> android.util.Log.e("BeatDrop/$tag", safeMsg)
             }
         } catch (_: Throwable) {}
     }
@@ -69,10 +70,22 @@ object DebugLog {
         }
     }
 
-    /** Redacts long googlevideo URLs so the shared log isn't enormous / leaky. */
-    fun shortUrl(url: String): String {
-        if (url.length <= 120) return url
-        val host = runCatching { android.net.Uri.parse(url).host }.getOrNull() ?: "?"
-        return "$host/…(${url.length} chars)…"
+    /** Redacts stream URLs / credentials before logs are stored, copied, or shared. */
+    fun sanitize(raw: String): String {
+        var out = raw
+        out = URL_RE.replace(out) { m -> shortUrl(m.value) }
+        out = TOKEN_RE.replace(out) { r -> "${r.groupValues[1]}=<redacted>" }
+        return out
     }
+
+    /** Redacts long/signed URLs so shared diagnostics are useful but not leaky. */
+    fun shortUrl(url: String): String {
+        val uri = runCatching { android.net.Uri.parse(url) }.getOrNull()
+        val host = uri?.host ?: return if (url.length <= 80) url else "<url:${url.length} chars>"
+        val path = uri.path?.take(40).orEmpty()
+        return "$host$path…<redacted:${url.length} chars>"
+    }
+
+    private val URL_RE = Regex("https?://[^\s)\]\}\"']+")
+    private val TOKEN_RE = Regex("(?i)(sig|signature|lsig|token|key|cookie|authorization|po[_-]?token|params)=([^\s&]+)")
 }

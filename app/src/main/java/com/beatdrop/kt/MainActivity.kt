@@ -46,6 +46,7 @@ import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2
 import com.beatdrop.kt.ui.components.MiniPlayer
 import com.beatdrop.kt.ui.components.LocalHazeState
+import com.beatdrop.kt.ui.components.LocalDeviceTilt
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import com.beatdrop.kt.ui.screens.*
@@ -55,6 +56,7 @@ import com.beatdrop.kt.youtube.initHiddenYoutubeWebViews
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.flow.receiveAsFlow
 
 class MainActivity : ComponentActivity() {
     private var cleanupWebViews: (() -> Unit)? = null
@@ -96,11 +98,10 @@ class MainActivity : ComponentActivity() {
             "com.beatdrop.kt.PLAY_DOWNLOADED" -> {
                 // Tap on a 'download complete' notification. The Intent
                 // extra `play_video_id` carries the just-downloaded
-                // track's videoId; stash it in PendingDownloadPlay so
-                // the composable Root() picks it up on its next pass
-                // and routes through PlayerViewModel.playOnlineByVideoId.
+                // track's videoId; publish it to Root through a buffered event
+                // channel so cold-start and warm-resume taps are consumed once.
                 intent.getStringExtra("play_video_id")?.let { videoId ->
-                    PendingDownloadPlay.videoId = videoId
+                    PendingDownloadPlay.submit(videoId)
                 }
             }
         }
@@ -123,7 +124,9 @@ class MainActivity : ComponentActivity() {
  * notifications should land on the second one).
  */
 object PendingDownloadPlay {
-    @Volatile var videoId: String? = null
+    private val events = kotlinx.coroutines.channels.Channel<String>(capacity = kotlinx.coroutines.channels.Channel.BUFFERED)
+    val flow: kotlinx.coroutines.flow.Flow<String> = events.receiveAsFlow()
+    fun submit(videoId: String) { events.trySend(videoId) }
 }
 
 private val audioPermission: String
@@ -157,18 +160,12 @@ fun Root(vm: PlayerViewModel = viewModel()) {
 
     // Pick up a 'play this downloaded track' request landing from a
     // completed-download notification tap. handleIncomingIntent
-    // (called from onCreate / onNewIntent) writes the videoId into
-    // PendingDownloadPlay; we consume it here once and route through
-    // playOnlineByVideoId. Wrapped in a tight poll so the effect
-    // catches both cold-start (notif tap launches app) and warm-
-    // resume (notif tap on an already-running app) cases.
+    // (called from onCreate / onNewIntent) emits into PendingDownloadPlay;
+    // this collector consumes each event exactly once and routes through
+    // PlayerViewModel.playOnlineByVideoId.
     LaunchedEffect(Unit) {
-        while (true) {
-            PendingDownloadPlay.videoId?.let { videoId ->
-                PendingDownloadPlay.videoId = null
-                vm.playOnlineByVideoId(videoId)
-            }
-            kotlinx.coroutines.delay(250)
+        PendingDownloadPlay.flow.collect { videoId ->
+            vm.playOnlineByVideoId(videoId)
         }
     }
 
@@ -393,6 +390,7 @@ fun MainScaffold(vm: PlayerViewModel) {
 
     androidx.compose.runtime.CompositionLocalProvider(
         com.beatdrop.kt.ui.components.LocalHapticsEnabled provides hapticsOn,
+        LocalDeviceTilt provides tilt,
         LocalHazeState provides hazeState,
     ) {
     Surface(Modifier.fillMaxSize(), color = Color.Transparent) {

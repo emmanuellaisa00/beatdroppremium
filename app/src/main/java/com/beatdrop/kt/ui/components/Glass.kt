@@ -31,6 +31,15 @@ import com.beatdrop.kt.ui.theme.Blur
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 
+
+/**
+ * App-wide device tilt state. MainScaffold provides one sensor listener for the
+ * whole visible app so every glass surface can share the same specular-light
+ * vector instead of each MiniPlayer/card/sheet registering its own accelerometer
+ * listener.
+ */
+val LocalDeviceTilt = staticCompositionLocalOf<State<Offset>?> { null }
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Device Tilt Sensor — Specular Highlights
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -41,6 +50,7 @@ import com.beatdrop.kt.ui.theme.Radius
  */
 @Composable
 fun rememberDeviceTilt(): State<Offset> {
+    LocalDeviceTilt.current?.let { return it }
     val context = LocalContext.current
     val tilt = remember { mutableStateOf(Offset.Zero) }
 

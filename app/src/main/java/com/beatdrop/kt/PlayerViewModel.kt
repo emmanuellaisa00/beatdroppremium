@@ -609,7 +609,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun artists(): List<ArtistGroup> = artistGroups.value.ifEmpty { repo.groupArtists(_tracks.value) }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
+    @Volatile private var connected = false
+
     fun connect() {
+        if (connected) return
+        connected = true
         com.beatdrop.kt.util.NetworkMonitor.init(getApplication())
         observePrefs()
         observeDownloadCompletions()
