@@ -4,7 +4,7 @@
     <string name="app_name">BeatDrop</string>
 
     <string name="tab_library">Bibliothek</string>
-    <string name="tab_discover">Entdecken</string>
+    <string name="tab_discover">Start</string>
     <string name="tab_search">Suchen</string>
     <string name="tab_radio">Radio</string>
     <string name="tab_settings">Einstellungen</string>

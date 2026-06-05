@@ -4,7 +4,7 @@
     <string name="app_name">BeatDrop</string>
 
     <string name="tab_library">المكتبة</string>
-    <string name="tab_discover">اكتشف</string>
+    <string name="tab_discover">الرئيسية</string>
     <string name="tab_search">بحث</string>
     <string name="tab_radio">راديو</string>
     <string name="tab_settings">الإعدادات</string>

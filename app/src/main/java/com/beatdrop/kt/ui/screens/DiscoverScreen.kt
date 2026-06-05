@@ -119,7 +119,7 @@ fun DiscoverScreen(
                 // PullToRefreshBox we'd use if Compose BOM was 2024.09+.
                 // Forces a fresh fetch bypassing the 5-min cache window.
                 Text(
-                    "Discover",
+                    "Home",
                     style = Type.largeTitle,
                     color = C.text,
                     modifier = Modifier

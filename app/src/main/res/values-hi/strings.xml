@@ -4,7 +4,7 @@
     <string name="app_name">BeatDrop</string>
 
     <string name="tab_library">लाइब्रेरी</string>
-    <string name="tab_discover">खोजें</string>
+    <string name="tab_discover">होम</string>
     <string name="tab_search">सर्च</string>
     <string name="tab_radio">रेडियो</string>
     <string name="tab_settings">सेटिंग्स</string>

@@ -96,17 +96,15 @@ val DarkColors = AppColors(
     bg4 = Color(0xFF111114),
     bg5 = Color(0xFF18181B),
 
-    // Accent — Ocean Teal (#0EA5E9). Replaces the previous green so we
-    // don't read as a Spotify clone. Ocean teal is distinct from every
-    // major music app's signature colour (Spotify=green, Apple Music=
-    // red-pink, YouTube Music=red, SoundCloud=orange, Tidal=cyan-but-
-    // ours is bluer, Amazon=teal-but-ours is bluer).
-    accent     = Color(0xFF0EA5E9),
-    accentDark = Color(0xFF0284C7),
+    // Accent — concept green (#21FF6B), matching the uploaded iOS glass
+    // reference. This becomes the single BeatDrop action colour across dark
+    // and light mode.
+    accent     = Color(0xFF21FF6B),
+    accentDark = Color(0xFF13C94F),
     purple     = Color(0xFF234A93),
 
-    accentSoft  = Color(0x1A0EA5E9),
-    accentBorder = Color(0x800EA5E9),
+    accentSoft  = Color(0x1A21FF6B),
+    accentBorder = Color(0x8021FF6B),
 
     // ── Text (one colour, four opacities) ────────────────────────────
     // Per Premium Glass spec: typography hierarchy comes from opacity
@@ -166,14 +164,14 @@ val LightColors = AppColors(
     bg4 = Color(0xFFD8D8DE),
     bg5 = Color(0xFFC8C8CE),
 
-    // Same ocean-teal accent in light mode, slightly darkened for AA
-    // contrast over white surfaces.
-    accent     = Color(0xFF0284C7),
-    accentDark = Color(0xFF0369A1),
+    // Same concept green in light mode, darkened slightly for legibility
+    // against milky glass surfaces.
+    accent     = Color(0xFF16C957),
+    accentDark = Color(0xFF0E9F42),
     purple     = Color(0xFF1E6AB8),
 
-    accentSoft   = Color(0x1F0284C7),
-    accentBorder = Color(0x600284C7),
+    accentSoft   = Color(0x1F16C957),
+    accentBorder = Color(0x6016C957),
 
     text         = Color(0xFF000000),
     textSecondary = Color(0x8C000000),
