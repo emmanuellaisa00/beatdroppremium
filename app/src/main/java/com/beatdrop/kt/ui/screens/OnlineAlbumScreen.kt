@@ -170,7 +170,7 @@ fun OnlineAlbumScreen(
                         }
                     }
                 }
-                // Title + artist + year
+                // Title + artist row (with circular avatar) + Play / Shuffle / Download
                 item {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
@@ -184,18 +184,45 @@ fun OnlineAlbumScreen(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            buildString {
-                                append(album.artist)
-                                if (album.year.isNotBlank()) append(" · ").append(album.year)
-                            },
-                            color = Color.White.copy(alpha = 0.78f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
+                        Spacer(Modifier.height(10.dp))
+                        // Artist row — circular avatar + name (+ year as suffix).
+                        // Avatar uses the album cover (square) cropped into a
+                        // 28dp circle. Real per-artist art isn't fetched (no
+                        // login) so cover-art-as-avatar is the safe, always-
+                        // available stand-in. Reads cleanly: title above,
+                        // artist row below with a visual anchor.
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(C.bg3),
+                            ) {
+                                if (album.thumbnailUrl != null) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(ctx).data(album.thumbnailUrl)
+                                            .crossfade(true).size(96).build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                buildString {
+                                    append(album.artist)
+                                    if (album.year.isNotBlank()) append(" · ").append(album.year)
+                                },
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Spacer(Modifier.height(18.dp))
-                        // Play + Shuffle buttons.
+                        // Play / Shuffle / Download-Album buttons.
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -240,6 +267,28 @@ fun OnlineAlbumScreen(
                                 Icon(Ic.Shuffle, "Shuffle", tint = Color.White,
                                     modifier = Modifier.size(22.dp))
                             }
+                            // Download whole album — enqueues every track.
+                            // Disabled while the album's track list is still
+                            // resolving (would download nothing). After tap,
+                            // each track's own row shows its diegetic ring.
+                            IconButton(
+                                onClick = {
+                                    tracks.forEach { vm.downloadOnline(it) }
+                                },
+                                enabled = tracks.isNotEmpty(),
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.12f)),
+                            ) {
+                                Icon(
+                                    Ic.Download,
+                                    "Download album",
+                                    tint = if (tracks.isNotEmpty()) Color.White
+                                           else Color.White.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
                         }
                         Spacer(Modifier.height(24.dp))
                     }
@@ -255,14 +304,10 @@ fun OnlineAlbumScreen(
                 } else {
                     itemsIndexed(tracks, key = { _, t -> t.videoId }) { idx, track ->
                         AlbumTrackRow(
+                            vm = vm,
                             index = idx + 1,
-                            title = track.title,
-                            artist = if (track.author != album.artist) track.author else null,
-                            duration = track.durationText.ifBlank {
-                                if (track.durationSecs > 0)
-                                    "%d:%02d".format(track.durationSecs / 60, track.durationSecs % 60)
-                                else ""
-                            },
+                            track = track,
+                            artistOverride = if (track.author != album.artist) track.author else null,
                             onPlay = {
                                 vm.playAlbum(album, startVideoId = track.videoId)
                                 onExpandPlayer()
@@ -277,38 +322,50 @@ fun OnlineAlbumScreen(
 
 @Composable
 private fun AlbumTrackRow(
+    vm: PlayerViewModel,
     index: Int,
-    title: String,
-    artist: String?,
-    duration: String,
+    track: OnlineResult,
+    artistOverride: String?,
     onPlay: () -> Unit,
 ) {
-    val C = LocalAppColors.current
+    val jobs by vm.downloadJobs.collectAsState()
+    val job = jobs[track.videoId]
+    val isDownloaded = vm.isOnlineDownloaded(track.videoId)
+    val isDownloading = job?.status == com.beatdrop.kt.youtube.DownloadStatus.DOWNLOADING
+
+    val duration = track.durationText.ifBlank {
+        if (track.durationSecs > 0)
+            "%d:%02d".format(track.durationSecs / 60, track.durationSecs % 60)
+        else ""
+    }
+
     Row(
         Modifier
             .fillMaxWidth()
             .pressableScale(onClick = onPlay, scaleTo = 0.98f)
-            .padding(horizontal = Spacing.lg, vertical = 10.dp),
+            .padding(start = Spacing.lg, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Track index — fixed-width column so titles align across the list.
         Text(
             index.toString(),
             color = Color.White.copy(alpha = 0.55f),
             fontSize = 14.sp,
             modifier = Modifier.width(28.dp),
         )
+        // Title (+ subtitle artist if differs from album artist).
         Column(Modifier.weight(1f)) {
             Text(
-                title,
+                track.title,
                 color = Color.White,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!artist.isNullOrBlank()) {
+            if (!artistOverride.isNullOrBlank()) {
                 Text(
-                    artist,
+                    artistOverride,
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 12.sp,
                     maxLines = 1,
@@ -316,12 +373,24 @@ private fun AlbumTrackRow(
                 )
             }
         }
+        // Duration column — fixed minimum width so the download icon below
+        // it always lines up vertically across rows even when one row's
+        // duration is '3:42' and another is '12:08'.
         if (duration.isNotBlank()) {
             Text(
                 duration,
                 color = Color.White.copy(alpha = 0.55f),
                 fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 8.dp),
             )
         }
+        // Per-track download — diegetic progress ring (no spinner). Same
+        // composable used in NowPlaying so the visual language is identical.
+        com.beatdrop.kt.ui.components.DiegeticDownloadIcon(
+            isDownloaded = isDownloaded,
+            isDownloading = isDownloading,
+            progressPercent = job?.progress ?: 0,
+            onClick = { vm.downloadOnline(track) },
+        )
     }
 }
