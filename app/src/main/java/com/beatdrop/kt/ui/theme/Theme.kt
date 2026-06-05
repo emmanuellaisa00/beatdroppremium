@@ -78,12 +78,23 @@ data class AppColors(
 // ═══════════════════════════════════════════════════════════════════════════════
 val DarkColors = AppColors(
     // Backgrounds — near-black with subtle depth
-    bg0 = Color(0xFF050505),
-    bg1 = Color(0xFF0B0B0B),
-    bg2 = Color(0xFF121218),
-    bg3 = Color(0xFF1A1A1A),
-    bg4 = Color(0xFF242424),
-    bg5 = Color(0xFF2E2E2E),
+    // ── Black ladder (per Premium Glass spec) ─────────────────────────
+    // Never #000000 — flat black kills the optical illusion of
+    // smoked-glass hardware. Use a graduated ladder so each successive
+    // surface has just enough delta to read as 'physical, deeper'.
+    //
+    //   bg0  #040404 — page background (deepest)
+    //   bg1  #060606 — list backdrop
+    //   bg2  #080808 — card backdrop
+    //   bg3  #0B0B0B — elevated card
+    //   bg4  #111114 — modal / sheet
+    //   bg5  #18181B — extreme elevation (pickers, dropdowns)
+    bg0 = Color(0xFF040404),
+    bg1 = Color(0xFF060606),
+    bg2 = Color(0xFF080808),
+    bg3 = Color(0xFF0B0B0B),
+    bg4 = Color(0xFF111114),
+    bg5 = Color(0xFF18181B),
 
     // Accent — Ocean Teal (#0EA5E9). Replaces the previous green so we
     // don't read as a Spotify clone. Ocean teal is distinct from every
@@ -97,10 +108,13 @@ val DarkColors = AppColors(
     accentSoft  = Color(0x1A0EA5E9),
     accentBorder = Color(0x800EA5E9),
 
-    // Text — high contrast white
-    text         = Color(0xFFE8E8E8),
-    textSecondary = Color(0x8CFFFFFF),
-    textTertiary  = Color(0x61FFFFFF),
+    // ── Text (one colour, four opacities) ────────────────────────────
+    // Per Premium Glass spec: typography hierarchy comes from opacity
+    // on a SINGLE white, never from different greys. 100/65/45/30 %
+    // tiers map to: track title / artist / metadata / disabled.
+    text          = Color(0xFFFFFFFF),         // 100% — primary content
+    textSecondary = Color.White.copy(alpha = 0.65f), // 65%  — supporting
+    textTertiary  = Color.White.copy(alpha = 0.45f), // 45%  — metadata
 
     border    = Color(0x12FFFFFF),
     separator = Color(0x0DFFFFFF),
@@ -231,15 +245,100 @@ object Spacing {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Blur Budget (60fps target)
+// Blur Budget — Depth-driven (Premium Glass spec)
 // ═══════════════════════════════════════════════════════════════════════════════
+// Each successive z-level uses a stronger blur. Higher object = stronger
+// blur = more apparent depth. Spec exact values:
+//   z0 background       =  0
+//   z1 lists            =  ~6
+//   z2 album cards      = 20
+//   z3 mini player      = 40
+//   z4 tab bar          = 45
+//   z5 active lens      = 55
+//   z6 floating buttons = 60
+// Legacy named tokens (subtle/light/…) kept as aliases so existing call
+// sites compile during the rollout — they all just delegate to a z-level.
 object Blur {
-    val subtle = 8f    // List rows, dense small-text surfaces (Search/Trending/etc.)
-    val light  = 16f   // Cards, compact elements
-    val medium = 28f   // Medium cards, elevated surfaces
-    val heavy  = 40f   // Navigation bar
-    val player = 48f   // Mini player (higher than nav for elevation)
-    val ultra  = 60f   // Modals, sheets, full overlays
+    // ── Depth-named (canonical) ────────────────────────────────────────
+    val z0 = 0f
+    val z1 = 6f
+    val z2 = 20f
+    val z3 = 40f
+    val z4 = 45f
+    val z5 = 55f
+    val z6 = 60f
+
+    // ── Legacy aliases ─────────────────────────────────────────────────
+    val subtle = z1
+    val light  = z2
+    val medium = z2
+    val heavy  = z4
+    val player = z3
+    val ultra  = z6
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Spring Family — Premium Glass spec
+// ═══════════════════════════════════════════════════════════════════════════════
+// One spring system across the entire app, three named presets. NEVER use
+// raw androidx.compose.animation.core.tween() for press/release/transition
+// motion — that's how Material-stock apps end up feeling cheap. Tween is
+// fine for one-shot fades that aren't a press response (e.g. content
+// crossfades on a load).
+//
+//   Snap   — fast, lightly bouncy. Tab lens motion, chip press, button release.
+//   Settle — medium, well-damped. Most card-press / sheet-open / item-enter.
+//   Drift  — slow, very damped. Long content reposition (auto-scroll into view).
+//
+// Mass is always 1 (Compose's default). Differences come from stiffness +
+// damping ratio. Numbers match the spec's tab-lens recipe (Stiffness 400,
+// Damping 30, normalised to Compose's dampingRatio 0..1 scale).
+object Springs {
+    /** Press release — 100→96 / 96→100 motion. */
+    val Snap = androidx.compose.animation.core.spring<Float>(
+        stiffness = 400f,
+        dampingRatio = 0.75f,
+    )
+    /** Most card / sheet / element-enter motion. */
+    val Settle = androidx.compose.animation.core.spring<Float>(
+        stiffness = 220f,
+        dampingRatio = 0.82f,
+    )
+    /** Long reposition (lyric auto-scroll, queue settle). */
+    val Drift = androidx.compose.animation.core.spring<Float>(
+        stiffness = 110f,
+        dampingRatio = 0.95f,
+    )
+
+    // Dp-typed variants for size/position animations.
+    val SnapDp = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(
+        stiffness = 400f, dampingRatio = 0.75f,
+    )
+    val SettleDp = androidx.compose.animation.core.spring<androidx.compose.ui.unit.Dp>(
+        stiffness = 220f, dampingRatio = 0.82f,
+    )
+
+    // IntOffset variants for layout-position animations (the active tab lens).
+    val SnapOffset = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(
+        stiffness = 400f, dampingRatio = 0.75f,
+    )
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Radius Family — Premium Glass spec
+// ═══════════════════════════════════════════════════════════════════════════════
+// All radii derived mathematically from a base unit. No random values.
+// Spec: 8, 16, 24, 40. Add 6 and 56 for completeness (smaller chips,
+// massive sheets). The existing `Radius` object stays for backward
+// compatibility; RadiusFamily is the spec-aligned ladder we prefer for
+// new surfaces.
+object RadiusFamily {
+    val xs = 6.dp     // dense chip
+    val sm = 8.dp     // small button
+    val md = 16.dp    // card
+    val lg = 24.dp    // large card / sheet
+    val xl = 40.dp    // mini player / tab bar
+    val xxl = 56.dp   // modal
 }
 
 val LocalAppColors = staticCompositionLocalOf { DarkColors }
