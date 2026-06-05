@@ -121,4 +121,17 @@ object DownloadHistory {
     /** Count of downloads by status. */
     fun countByStatus(status: String): Int =
         records.values.count { it.status == status }
+
+    /**
+     * All download records whose status is 'completed' AND whose file
+     * still exists on disk. Used by PlayerViewModel.loadLibrary() to
+     * make sure downloaded tracks survive a restart even when the
+     * device's MediaStore doesn't index them (e.g. the user picked an
+     * app-private download folder, or the file is in a hidden
+     * directory MediaStore skips).
+     */
+    fun completedRecords(): List<DownloadRecord> =
+        records.values
+            .filter { it.status == "completed" && it.filePath != null && File(it.filePath).exists() }
+            .sortedByDescending { it.downloadedAt }
 }

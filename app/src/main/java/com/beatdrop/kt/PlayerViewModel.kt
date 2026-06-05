@@ -723,10 +723,44 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         libraryLoadStarted = true
         viewModelScope.launch(Dispatchers.IO) {
             repo.loadTracksStreaming(batchSize = 60) { batch ->
-                _tracks.value = batch
+                // Merge persistent download history into the library so
+                // tracks the user downloaded NEVER disappear after restart,
+                // even when the download lives in an app-private folder
+                // that the system MediaStore doesn't index.
+                _tracks.value = mergeWithDownloads(batch)
                 if (!_loaded.value) _loaded.value = true
             }
         }
+    }
+
+    /**
+     * Take the MediaStore scan result and union it with the persisted
+     * DownloadHistory.completedRecords() — synthesising Track entries
+     * for downloads whose file path doesn't appear in the MediaStore
+     * batch. Deduped by file path so a download that lives in the
+     * Music/ folder (which MediaStore does index) is only counted once.
+     */
+    private fun mergeWithDownloads(scanned: List<Track>): List<Track> {
+        val knownPaths = scanned.mapNotNull { it.data }.toHashSet()
+        val downloads = com.beatdrop.kt.data.DownloadHistory.completedRecords()
+        if (downloads.isEmpty()) return scanned
+        val synthesised = downloads.mapNotNull { rec ->
+            val path = rec.filePath ?: return@mapNotNull null
+            if (path in knownPaths) return@mapNotNull null
+            Track(
+                id = "dl_${rec.videoId}",
+                uri = android.net.Uri.fromFile(java.io.File(path)),
+                title = rec.title,
+                artist = rec.artist,
+                album = rec.artist,           // album metadata isn't tracked per-download
+                albumId = 0L,
+                durationMs = rec.durationSecs * 1000L,
+                data = path,
+                dateAdded = rec.downloadedAt / 1000L,   // store as Unix seconds to match MediaStore
+                artworkOverride = rec.thumbnailUrl,
+            )
+        }
+        return scanned + synthesised
     }
 
     // ── Playback ──────────────────────────────────────────────────────────────

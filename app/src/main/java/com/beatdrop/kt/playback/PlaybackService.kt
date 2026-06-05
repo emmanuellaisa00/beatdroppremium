@@ -16,6 +16,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import android.net.Uri
+import com.beatdrop.kt.R
 import java.io.File
 
 /**
@@ -144,6 +145,19 @@ class PlaybackService : MediaSessionService() {
 
         EqEngine.attach(player.audioSessionId)
         session = MediaSession.Builder(this, player).build()
+
+        // Use BeatDrop's branded teardrop silhouette as the playback
+        // notification's small icon. Without this Media3 defaults to
+        // the app's launcher icon, which Android desaturates into a
+        // shapeless white blob on Android 12+. Our drawable/ic_notification
+        // is a hand-tuned monochrome vector at 24×24 that survives the
+        // tint cleanly.
+        setMediaNotificationProvider(
+            androidx.media3.session.DefaultMediaNotificationProvider.Builder(this)
+                .setChannelName(R.string.app_name)
+                .build()
+                .apply { setSmallIcon(R.drawable.ic_notification) }
+        )
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session

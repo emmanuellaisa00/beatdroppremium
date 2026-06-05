@@ -64,7 +64,10 @@ class DownloadService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             return NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                // Branded teardrop silhouette instead of Android's
+                // generic stat_sys_download (which is a system arrow icon
+                // not tied to our identity).
+                .setSmallIcon(com.beatdrop.kt.R.drawable.ic_notification)
                 .setContentTitle("BeatDrop")
                 .setContentText(text)
                 .setContentIntent(tapIntent)

@@ -552,21 +552,41 @@ fun NowPlayingScreen(
                     )
                 }
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
-                // Smart Shuffle — sparkle accent when active
-                // ✅ UX11 Fixed: Shows toast/message when toggled (smartShuffleMessage)
+                // Shuffle toggle — accent when on. Previously this slot
+                // was empty (only a separator + comment existed) so users
+                // reported the shuffle icon as 'missing'.
+                IconButton(onClick = { vm.toggleShuffle() }) {
+                    val shuffleOn by vm.shuffle.collectAsState()
+                    Icon(
+                        Ic.Shuffle, "Shuffle",
+                        tint = if (shuffleOn) C.accent else Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
                 Box(Modifier.height(22.dp).width(0.8.dp).background(Color.White.copy(alpha = 0.22f)))
                 // Download — diegetic progress ring drawn around the glyph.
-                // No spinner, no progress bar — the ring is the indicator.
+                // Streaming tracks: tap to download (ring fills as bytes
+                // arrive, morphs to a green check when done).
+                // Local tracks (no videoId): always show the green check
+                // — they're inherently 'on this device' since they came
+                // from the local library scan or a completed download.
                 val videoId = track?.sourceVideoId
-                val isDownloaded = videoId != null && vm.isOnlineDownloaded(videoId)
+                val isLocalFile = track != null && videoId == null
+                val isDownloaded = isLocalFile ||
+                    (videoId != null && vm.isOnlineDownloaded(videoId))
                 val dlJob = videoId?.let { vm.downloadJobFor(it) }
                 val isDownloading = dlJob?.status == com.beatdrop.kt.youtube.DownloadStatus.DOWNLOADING
-                if (videoId != null) {
+                if (track != null) {
                     com.beatdrop.kt.ui.components.DiegeticDownloadIcon(
                         isDownloaded = isDownloaded,
                         isDownloading = isDownloading,
                         progressPercent = dlJob?.progress ?: 0,
-                        onClick = { vm.downloadOnlineWithMetadata(videoId) },
+                        onClick = {
+                            // No-op for local files (they're already here).
+                            if (videoId != null && !isDownloaded && !isDownloading) {
+                                vm.downloadOnlineWithMetadata(videoId)
+                            }
+                        },
                     )
                     // Smart Shuffle tooltip
                     val shuffleMsg by vm.smartShuffleMessage.collectAsState()
