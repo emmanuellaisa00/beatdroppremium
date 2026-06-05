@@ -45,6 +45,9 @@ import com.beatdrop.kt.ui.components.specularHighlight
 import com.beatdrop.kt.ui.components.GlassTabBar2
 import com.beatdrop.kt.ui.components.TabSpec2
 import com.beatdrop.kt.ui.components.MiniPlayer
+import com.beatdrop.kt.ui.components.LocalHazeState
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import com.beatdrop.kt.ui.screens.*
 import com.beatdrop.kt.ui.theme.BeatDropTheme
 import com.beatdrop.kt.ui.theme.LocalAppColors
@@ -386,12 +389,14 @@ fun MainScaffold(vm: PlayerViewModel) {
 
     val tilt = com.beatdrop.kt.ui.components.rememberDeviceTilt()
     val hapticsOn by vm.haptics.collectAsState()
+    val hazeState = remember { HazeState() }
 
     androidx.compose.runtime.CompositionLocalProvider(
         com.beatdrop.kt.ui.components.LocalHapticsEnabled provides hapticsOn,
+        LocalHazeState provides hazeState,
     ) {
     Surface(Modifier.fillMaxSize(), color = Color.Transparent) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().haze(state = hazeState)) {
             // ── Global blurred artwork background ────────────────────────────
             if (current != null) {
                 AsyncImage(
@@ -410,7 +415,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                                     .createBlurEffect(150f, 150f, android.graphics.Shader.TileMode.CLAMP)
                                     .asComposeRenderEffect()
                             }
-                            alpha = if (C.isDark) 0.55f else 0.38f
+                            alpha = if (C.isDark) 0.38f else 0.24f
                         },
                 )
             } else {
@@ -443,7 +448,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                 Modifier
                     .fillMaxSize()
                     .background(
-                        if (C.isDark) Color(0xE0050505)
+                        if (C.isDark) Color(0xE9050505)
                         else Color(0xE8FFFFFF),
                     )
                     .specularHighlight(
@@ -616,7 +621,9 @@ private fun TabsHost(
                         ),
                     )
                 }
-                .navigationBarsPadding(),
+                .navigationBarsPadding()
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(Modifier.fillMaxWidth().background(Color.Transparent)) {
                 current?.let { t ->

@@ -58,55 +58,45 @@ fun MiniPlayer(
     val animX by animateFloatAsState(dragX, label = "miniX")
     val animY by animateFloatAsState(dragY.coerceAtMost(0f), label = "miniY")
 
-    // ── Premium Glass spec: outer radius 40dp, RadiusFamily.xl ───────
-    // Spec: 'Mini Player Shape — Height 74-80, Radius 38-40. Very soft.
-    // Feels like polished glass stone.' Concentric inner radius for the
-    // album-art inset still derived mathematically.
-    val outerRadius = 40.dp
-    val innerRadius = Radius.inner(outerRadius, 8.dp)  // 40 - 8 = 32dp
+    // Concept target: floating iOS-style glass capsule sitting above the dock.
+    // Larger art, calmer controls, no handle, stronger rim, and real backdrop
+    // blur from the global HazeState provided by MainScaffold.
+    val outerRadius = 42.dp
     val outerShape  = RoundedCornerShape(outerRadius)
+    val artShape    = RoundedCornerShape(29.dp)
 
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+            .height(84.dp)
+            .padding(horizontal = 16.dp)
             .graphicsLayer {
                 translationX = animX
                 translationY = animY
                 shape = outerShape
                 clip = false
             }
-            // ── Unified Premium Glass material (Z3 — mini player) ────
-            // Replaces the previous bespoke hazeGlass + background +
-            // gradients + rimLight + border stack with the SINGLE
-            // material the rest of the app uses. Per spec rule:
-            // 'never create different glass styles.'
-            .premiumGlass(level = GlassLevel.Z3_MiniPlayer, shape = outerShape)
-            // ── Spec lighting: Left cool blue, Right neutral ─────────
-            // The premiumGlass material already paints top reflection +
-            // bottom diffusion. The mini-player adds an additional
-            // LATERAL lighting pass — cool-blue cast on the left edge,
-            // neutral fade on the right — to give the slab a sense of
-            // 'lit from upper-left' that vertical lighting alone can't
-            // produce. Per spec: 'Left: cool blue / Right: neutral'.
+            .premiumGlass(
+                level = GlassLevel.Z3_MiniPlayer,
+                shape = outerShape,
+                tintBoost = if (C.isDark) 0.04f else 0f,
+            )
+            // Blue refraction on the left edge, matching the uploaded concept's
+            // cool smoked-glass MiniPlayer.
             .drawWithContent {
                 drawContent()
                 drawRect(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
-                            Color(0xFF4080FF).copy(alpha = if (C.isDark) 0.06f else 0.10f),
+                            Color(0xFF5B8CFF).copy(alpha = if (C.isDark) 0.08f else 0.10f),
                             Color.Transparent,
                         ),
                         startX = 0f,
-                        endX = size.width * 0.45f,
+                        endX = size.width * 0.46f,
                     ),
                 )
             }
-            // ── Specular highlight (device tilt) ──────────────────────
-            // Kept — the mini player is large enough + always on screen,
-            // so the tilt-tracked highlight reads as 'real glass'.
-            .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.08f, radius = 220f)
-            // ── Gestures: tap → expand, swipe left/right → next/prev ─────────
+            .specularHighlight(tilt, intensity = if (C.isDark) 0.10f else 0.07f, radius = 240f)
             .pointerInput(track.id) {
                 detectDragGestures(
                     onDragEnd = {
@@ -124,158 +114,123 @@ fun MiniPlayer(
                     else dragY += amount.y
                 }
             }
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = { onExpand() })
-            },
+            .pointerInput(Unit) { detectTapGestures(onTap = { onExpand() }) },
     ) {
-        Column {
-            // ── Drag handle hint ──────────────────────────────────────────
-            Box(
-                Modifier.fillMaxWidth().padding(top = 4.dp),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Box(
-                    Modifier
-                        .width(36.dp)
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White.copy(alpha = 0.3f))
-                )
-            }
-            Row(Modifier.padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp), 
-                verticalAlignment = Alignment.CenterVertically) {
-            // ── Artwork — Premium Glass 'Album Art Inset Architecture' ──
-            // Per spec the artwork is not a flat image — it's a layered
-            // jewel with:
-            //   1. Outer shadow  — sits BELOW the surrounding glass so
-            //                       the art appears pressed into the slab
-            //                       (negative elevation cue).
-            //   2. Inner highlight — 1px white halo just inside the clip
-            //                       boundary; reads as 'mounted under
-            //                       glass' rather than 'painted on'.
-            //   3. Album image    — the asset, cropped to the inner shape.
-            //   4. Micro reflection — soft white top-edge gradient over
-            //                       the image (≤6% opacity) so the
-            //                       artwork inherits the slab's lighting.
-            // Implementation: a single Box that owns all 4 layers, then
-            // the AsyncImage stays a simple crop inside.
-            val artShape = RoundedCornerShape(innerRadius)
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(start = 12.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Artwork inset: rounded jewel under the glass surface.
             Box(
                 Modifier
-                    .size(46.dp)
-                    // Outer (inset) shadow — drawn as a faint dark border
-                    // OUTSIDE the clip boundary so the art appears to sit
-                    // 1px below the surface plane.
-                    .border(1.dp, Color.Black.copy(alpha = 0.35f), artShape)
+                    .size(60.dp)
+                    .border(1.dp, Color.Black.copy(alpha = 0.42f), artShape)
                     .clip(artShape)
                     .background(C.bg3),
             ) {
                 AsyncImage(
-                    model  = ImageRequest.Builder(ctx)
+                    model = ImageRequest.Builder(ctx)
                         .data(track.artworkUri)
                         .crossfade(true)
-                        .size(coil.size.Size(96, 96))
+                        .size(coil.size.Size(140, 140))
                         .build(),
                     contentDescription = null,
-                    contentScale       = ContentScale.Crop,
-                    modifier           = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
-                // Inner highlight — 0.5dp white halo just inside the
-                // clip edge. Sells the 'under glass' effect.
                 Box(
                     Modifier
                         .matchParentSize()
-                        .border(0.5.dp, Color.White.copy(alpha = 0.18f), artShape),
-                )
-                // Micro reflection — top-edge gradient over the artwork
-                // so the album image picks up the same lighting direction
-                // as the glass slab around it. Sub-perceptual on its own,
-                // but the absence of it reads as 'sticker on glass'.
-                Box(
-                    Modifier
-                        .matchParentSize()
+                        .border(0.6.dp, Color.White.copy(alpha = 0.18f), artShape)
                         .drawWithContent {
                             drawContent()
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = 0.06f),
+                                        Color.White.copy(alpha = 0.08f),
                                         Color.Transparent,
                                     ),
                                     startY = 0f,
-                                    endY = size.height * 0.40f,
+                                    endY = size.height * 0.42f,
                                 ),
                             )
                         },
                 )
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
 
-            // ── Metadata: track title + artist ───────────────────────────────
             Column(Modifier.weight(1f)) {
                 Text(
-                    text      = track.title,
-                    color     = C.text,
+                    text = track.title,
+                    color = C.text,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines  = 1,
-                    overflow  = TextOverflow.Ellipsis,
-                    fontSize  = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 15.sp,
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text      = track.artist,
-                    color     = C.textSecondary,
-                    fontSize  = 12.sp,
-                    maxLines  = 1,
-                    overflow  = TextOverflow.Ellipsis,
+                    text = track.artist,
+                    color = C.textSecondary,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
-            // ── Tinted glass play button (Spotify Green accent) ─────────────
-            IconButton(onClick = onToggle) {
-                TintedGlassButton(
-                    modifier     = Modifier.size(40.dp),
-                    tintColor    = C.accent,
-                    cornerRadius = 20.dp,
+            IconButton(onClick = onExpand) {
+                Icon(
+                    imageVector = Ic.Airplay,
+                    contentDescription = null,
+                    tint = C.textSecondary,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+
+            IconButton(onClick = onToggle, modifier = Modifier.size(58.dp)) {
+                Box(
+                    Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(27.dp))
+                        .background(Color.White.copy(alpha = if (C.isDark) 0.92f else 0.96f))
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.55f),
+                                        Color.Transparent,
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height * 0.5f,
+                                ),
+                            )
+                        }
+                        .border(0.7.dp, Color.White.copy(alpha = 0.36f), RoundedCornerShape(27.dp)),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Ic.TransportPause else Ic.TransportPlay,
                         contentDescription = null,
-                        tint         = Color.White,
-                        modifier     = Modifier.size(20.dp),
+                        tint = Color.Black.copy(alpha = 0.88f),
+                        modifier = Modifier.size(28.dp),
                     )
                 }
             }
-
-            // ── Skip next ───────────────────────────────────────────────────
-            IconButton(onClick = onNext) {
-                Icon(
-                    imageVector = Ic.SkipNext,
-                    contentDescription = null,
-                    tint         = C.text,
-                    modifier     = Modifier.size(22.dp),
-                )
-            }
         }
-        } // closes Column from drag handle
 
-        // ── Progress bar — accent green, refined 2.5dp ───────────────────────
+        // Ultra-subtle progress: visible enough to be useful, but not a hard
+        // Material line through the glass capsule.
         Box(
             Modifier
-                .fillMaxWidth()
-                .height(2.5.dp)
                 .align(Alignment.BottomStart)
-                .background(
-                    if (C.isDark) Color(0x1AFFFFFF)
-                    else Color(0x14000000)
-                )
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth(progress.coerceIn(0f, 1f))
-                    .fillMaxHeight()
-                    .background(C.accent)
-            )
-        }
+                .padding(horizontal = 32.dp)
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(1.5.dp)
+                .background(C.accent.copy(alpha = 0.70f))
+        )
     }
 }

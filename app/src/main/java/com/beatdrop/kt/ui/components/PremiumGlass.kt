@@ -87,10 +87,10 @@ fun Modifier.premiumGlass(
     // The whole point of premiumGlass is one material, not 12 'almost
     // the same' materials. If you find yourself wanting to tweak these
     // for ONE screen, you're fighting the architecture — push back.
-    val baseTintAlpha = 0.78f + tintBoost.coerceIn(0f, 0.20f)
+    val baseTintAlpha = (if (C.isDark) 0.70f else 0.78f) + tintBoost.coerceIn(0f, 0.20f)
     val noiseOpacity = 0.015f       // spec: 1.5%
-    val rimAlpha = if (C.isDark) 0.10f else 0.16f
-    val borderAlpha = if (C.isDark) 0.06f else 0.10f
+    val rimAlpha = if (C.isDark) 0.15f else 0.18f
+    val borderAlpha = if (C.isDark) 0.11f else 0.10f
     val blueRefractionAlpha = 0.03f  // 'Slight Blue Refraction' per spec
 
     return this

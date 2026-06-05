@@ -54,29 +54,29 @@ fun GlassTabBar2(
 
     // ── Scroll-responsive morphing ───────────────────────────────────────────
     val barHeight by animateDpAsState(
-        targetValue = if (isScrolledDown) 56.dp else 88.dp,
+        targetValue = if (isScrolledDown) 60.dp else 96.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "barHeight",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (isScrolledDown) 22.dp else 26.dp,
+        targetValue = if (isScrolledDown) 24.dp else 30.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "iconSize",
     )
     val labelAlpha by animateFloatAsState(
-        targetValue = if (isScrolledDown) 0f else 1f,
+        targetValue = 0f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 500f),
         label = "labelAlpha",
     )
 
     // ── Spec: outer radius=44px (pill), inner indicator uses concentric rule ─
-    val outerRadius = 44.dp
+    val outerRadius = 48.dp
     val outerShape  = RoundedCornerShape(outerRadius)
 
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Box(
             Modifier
@@ -109,15 +109,15 @@ fun GlassTabBar2(
                 Modifier
                     .fillMaxWidth()
                     .height(barHeight)
-                    .padding(horizontal = 8.dp),
+                    .padding(horizontal = 10.dp),
             ) {
                 val activeIdx = tabs.indexOfFirst { it.route == current }
                     .coerceAtLeast(0)
                 val barWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    (this@BoxWithConstraints.maxWidth - 16.dp).toPx()   // minus 8.dp padding × 2
+                    (this@BoxWithConstraints.maxWidth - 20.dp).toPx()   // minus 10.dp padding × 2
                 }
                 val itemWidthPx = barWidthPx / tabs.size
-                val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
+                val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
                 val targetXpx = (activeIdx * itemWidthPx) + (itemWidthPx / 2f) - (puckSizePx / 2f)
                 val animatedX by animateFloatAsState(
                     targetValue = targetXpx,
@@ -129,33 +129,25 @@ fun GlassTabBar2(
                 )
 
                 // The floating puck — single instance, slides between slots.
-                val puckShape = RoundedCornerShape(32.dp)
-                val puckTint = if (C.isDark) Color.White.copy(alpha = 0.08f)
-                               else Color.White.copy(alpha = 0.15f)
+                // Concept target: a raised circular lens like the uploaded iOS dock.
                 androidx.compose.foundation.layout.Box(
                     Modifier
                         .align(Alignment.CenterStart)
                         .offset { androidx.compose.ui.unit.IntOffset(animatedX.toInt(), 0) }
-                        .size(64.dp)
-                        .clip(puckShape)
-                        .hazeGlass(shape = puckShape, tintColor = puckTint, blurRadius = 30.dp)
-                        .background(puckTint)
-                        .border(
-                            width = 1.dp,
-                            color = if (C.isDark) Color.White.copy(alpha = 0.15f)
-                                    else Color.White.copy(alpha = 0.30f),
-                            shape = puckShape,
+                        .size(72.dp)
+                        .premiumGlass(
+                            level = GlassLevel.Z5_ActiveLens,
+                            shape = CircleShape,
+                            tintBoost = if (C.isDark) 0.05f else 0f,
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Accent glow inside the puck — the lens 'lit from
-                    // within' look. Per spec: 'Inner Reflection'.
                     androidx.compose.foundation.layout.Box(
                         Modifier
-                            .size(52.dp)
-                            .clip(puckShape)
-                            .background(C.accent.copy(alpha = 0.20f))
-                            .border(0.5.dp, C.accent.copy(alpha = 0.30f), puckShape),
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .background(C.accent.copy(alpha = if (C.isDark) 0.18f else 0.14f))
+                            .border(0.5.dp, C.accent.copy(alpha = 0.32f), CircleShape),
                     )
                 }
 
@@ -232,7 +224,7 @@ private fun LiquidTabItem(
             Icon(
                 imageVector = if (active) tab.iconFilled else tab.iconOutlined,
                 contentDescription = tab.label,
-                tint = if (active) C.accent else C.textSecondary,
+                tint = if (active) C.text else C.textSecondary.copy(alpha = 0.72f),
                 modifier = Modifier.size(iconSize),
             )
             // Label below icon (spec: 10sp, letter-spacing 0.1sp)
