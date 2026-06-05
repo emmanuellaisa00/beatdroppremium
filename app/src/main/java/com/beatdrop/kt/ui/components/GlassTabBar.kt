@@ -130,13 +130,12 @@ fun GlassTabBar2(
             androidx.compose.foundation.layout.BoxWithConstraints(
                 Modifier
                     .fillMaxWidth()
-                    .height(barHeight)
-                    .padding(horizontal = 10.dp),
+                    .height(barHeight),
             ) {
                 val activeIdx = tabs.indexOfFirst { it.route == current }
                     .coerceAtLeast(0)
                 val barWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) {
-                    (this@BoxWithConstraints.maxWidth - 20.dp).toPx()   // minus 10.dp padding × 2
+                    this@BoxWithConstraints.maxWidth.toPx()
                 }
                 val itemWidthPx = barWidthPx / tabs.size
                 val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 58.dp.toPx() }
