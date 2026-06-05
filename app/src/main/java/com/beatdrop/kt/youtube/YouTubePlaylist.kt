@@ -23,7 +23,21 @@ object YouTubePlaylist {
     suspend fun fetchPlaylist(
         playlistId: String,
         maxItems: Int = 200,
+        forceRefresh: Boolean = false,
     ): PlaylistInfo = withContext(Dispatchers.IO) {
+        // ── Cache hit (24-h TTL, disk-backed) ───────────────────────────
+        // Fixes the 'Discover takes forever' / 'why does this re-fetch
+        // every time I open it' user pain points. If we already have
+        // the playlist in cache and the caller didn't explicitly ask for
+        // a refresh, skip the whole Innertube round-trip.
+        if (!forceRefresh) {
+            PlaylistCache.get(playlistId)?.let { cached ->
+                com.beatdrop.kt.DebugLog.i("playlist",
+                    "cache hit: $playlistId (${cached.videos.size} videos)")
+                return@withContext cached
+            }
+        }
+
         val body = JSONObject().apply {
             put("browseId", "VL$playlistId")
             put("context", JSONObject().put("client", JSONObject().apply {
@@ -93,7 +107,11 @@ object YouTubePlaylist {
             } catch (_: Exception) { break }
         }
 
-        PlaylistInfo(playlistId, title, items.take(maxItems))
+        val result = PlaylistInfo(playlistId, title, items.take(maxItems))
+        // Store on success (cache.put no-ops on empty results — so a
+        // partial / failed fetch never poisons the cache).
+        PlaylistCache.put(playlistId, result)
+        result
     }
 
     private fun extractPlaylistTitle(json: JSONObject): String {

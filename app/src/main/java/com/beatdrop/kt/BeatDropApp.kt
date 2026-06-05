@@ -36,6 +36,16 @@ class BeatDropApp : Application(), ImageLoaderFactory {
         // Initialize download history
         DownloadHistory.init(this)
 
+        // Initialize playlist/album cache (disk-backed; 24-h TTL).
+        // Lets re-opens of the same album/playlist skip the network
+        // fetch and lets row-tap playback happen instantly.
+        com.beatdrop.kt.youtube.PlaylistCache.init(this)
+
+        // Initialize Discover (Made-For-You) cache — separate keyspace
+        // from individual playlists so a Discover refresh doesn't
+        // wipe per-playlist caches and vice versa.
+        com.beatdrop.kt.youtube.MadeForYouCache.init(this)
+
         // Initialize subscriptions
         Subscriptions.init(this)
 

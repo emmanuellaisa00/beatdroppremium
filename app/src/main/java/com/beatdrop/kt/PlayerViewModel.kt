@@ -284,12 +284,34 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      * a refresh.
      */
     fun loadMadeForYou(force: Boolean = false) {
-        if (!force && (_madeForYou.value.isNotEmpty() || _madeForYouLoading.value)) return
+        // ── Instant render from disk cache (even if stale) ──────────────
+        // Discover was the slowest screen in the app on cold open — 10
+        // parallel YT playlist fetches, bottlenecked by the slowest one.
+        // User complained 'Discover is taking forever to fetch'. Now:
+        //   1. If we have ANY cached snapshot, paint it immediately so
+        //      the carousel is populated within one frame.
+        //   2. Only kick a real network fetch when (a) caller forced one,
+        //      (b) cache is empty, or (c) snapshot is older than 12 h.
+        //   3. The fresh result silently replaces the cached one when it
+        //      lands — no jarring re-layout because both lists are the
+        //      same 10 tiles in the same order.
+        val cached = com.beatdrop.kt.youtube.MadeForYouCache.getAny()
+        if (cached != null && _madeForYou.value.isEmpty()) {
+            _madeForYou.value = cached
+        }
+        val needsFetch = force ||
+            cached == null ||
+            com.beatdrop.kt.youtube.MadeForYouCache.isStale()
+        if (!needsFetch) return
+        if (_madeForYouLoading.value) return
         _madeForYouLoading.value = true
         viewModelScope.launch(Dispatchers.IO) {
             val list = runCatching { com.beatdrop.kt.youtube.MadeForYou.fetchAll() }
                 .getOrDefault(emptyList())
-            _madeForYou.value = list
+            if (list.isNotEmpty()) {
+                _madeForYou.value = list
+                com.beatdrop.kt.youtube.MadeForYouCache.put(list)
+            }
             _madeForYouLoading.value = false
         }
     }
@@ -1707,6 +1729,35 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
      *  pushRecentOnline is called inside prepareAndPlayOnline(). */
     fun playOnline(result: OnlineResult) {
         prepareAndPlayOnline(result)
+    }
+
+    /**
+     * Play an already-fetched list of online tracks starting at [startIndex],
+     * setting that list as the next/prev navigation context.
+     *
+     * Use this when you ALREADY have the playlist's tracks in hand
+     * (e.g. OnlineAlbumScreen loaded them once into local state) and you
+     * just want to play them — no network round-trip, no re-filtering.
+     *
+     * Fixes two long-standing bugs:
+     *   • 'Next button doesn't work on playlists' — previously the row
+     *     tap re-fetched the playlist asynchronously, so for a beat
+     *     after pressing play the onlineContext was empty/stale. If you
+     *     hit Next inside that window, next() walked the wrong list.
+     *     With this entry point, context is set in the same call frame
+     *     as playback starts.
+     *   • Lag between tap and audio — the re-fetch added 1-2 s of
+     *     spinner time even when the screen visibly already had the
+     *     tracks. Now it's instant.
+     *
+     * Note: this does NOT filter by duration. Callers (e.g. the album
+     * screen) are responsible for any filtering — the assumption is
+     * that what the user sees is what they want to play.
+     */
+    fun playOnlineList(tracks: List<OnlineResult>, startIndex: Int = 0) {
+        if (tracks.isEmpty()) return
+        val idx = startIndex.coerceIn(0, tracks.size - 1)
+        prepareAndPlayOnline(tracks[idx], tracks, idx)
     }
 
     /** Retry the last failed online playback */

@@ -82,18 +82,51 @@ fun OnlineAlbumScreen(
 ) {
     val C   = LocalAppColors.current
     val ctx = LocalContext.current
-    var tracks by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
+    // ── Instant render from PlaylistCache, refresh in background ───────
+    // Re-opening the same playlist / album used to re-fetch from the
+    // network every single time. Now we synchronously seed from the
+    // 24-h disk cache (PlaylistCache) so the screen comes up populated
+    // on re-open; the LaunchedEffect below only does a network round
+    // trip when the cache is empty for this playlistId.
+    val initiallyCached = remember(collection.playlistId) {
+        com.beatdrop.kt.youtube.PlaylistCache.get(collection.playlistId)?.videos
+            ?: emptyList()
+    }
+    var tracks by remember(collection.playlistId) { mutableStateOf(initiallyCached) }
+    var loading by remember(collection.playlistId) {
+        mutableStateOf(initiallyCached.isEmpty())
+    }
 
     LaunchedEffect(collection.playlistId) {
+        if (tracks.isNotEmpty()) return@LaunchedEffect    // already had cache
         loading = true
         val fetched = runCatching {
             withContext(Dispatchers.IO) {
+                // fetchPlaylist internally consults PlaylistCache too,
+                // so this still no-ops on a cache hit that arrived
+                // between composition and effect launch.
                 YouTubePlaylist.fetchPlaylist(collection.playlistId, maxItems = 100).videos
             }
         }.getOrDefault(emptyList())
         tracks = fetched
         loading = false
+    }
+
+    // Total runtime — shown in the secondary line as 'N songs · 1 hr 12 min'.
+    // Spec: 'album should show Duration time same for playlists'.
+    val totalDurationText = remember(tracks) {
+        val secs = tracks.sumOf { it.durationSecs.coerceAtLeast(0) }
+        if (secs <= 0) ""
+        else {
+            val h = secs / 3600
+            val m = (secs % 3600) / 60
+            when {
+                h > 0 && m > 0 -> "$h hr $m min"
+                h > 0          -> "$h hr"
+                m > 0          -> "$m min"
+                else           -> "${secs}s"
+            }
+        }
     }
 
     // For playlists / Featured tiles the coverUrl may be null initially
@@ -104,15 +137,19 @@ fun OnlineAlbumScreen(
     // Secondary line: 'Album · Artist · Year' OR 'Playlist · Author · 56 tracks'.
     // Once tracks are loaded, prefer the live count for playlists since the
     // search-time trackCount can be stale.
-    val secondaryLine = remember(collection, tracks) {
+    val secondaryLine = remember(collection, tracks, totalDurationText) {
         when (collection) {
             is PlayableCollection.Playlist,
             is PlayableCollection.Featured -> buildString {
                 append(collection.kindLabel)
                 if (collection.author.isNotBlank()) append(" · ").append(collection.author)
                 if (tracks.isNotEmpty()) append(" · ").append("${tracks.size} songs")
+                if (totalDurationText.isNotEmpty()) append(" · ").append(totalDurationText)
             }
-            is PlayableCollection.Album -> collection.secondaryLine
+            is PlayableCollection.Album -> buildString {
+                append(collection.secondaryLine)
+                if (totalDurationText.isNotEmpty()) append(" · ").append(totalDurationText)
+            }
         }
     }
 
@@ -257,7 +294,13 @@ fun OnlineAlbumScreen(
                                     .background(C.accent)
                                     .pressableScale(
                                         onClick = {
-                                            vm.playFeaturedPlaylist(collection.playlistId)
+                                            // Use the tracks we already have in memory —
+                                            // no re-fetch, no race with Next button.
+                                            if (tracks.isNotEmpty()) {
+                                                vm.playOnlineList(tracks, startIndex = 0)
+                                            } else {
+                                                vm.playFeaturedPlaylist(collection.playlistId)
+                                            }
                                             onExpandPlayer()
                                         },
                                         scaleTo = 0.96f,
@@ -277,8 +320,12 @@ fun OnlineAlbumScreen(
                             }
                             IconButton(
                                 onClick = {
-                                    val pick = tracks.randomOrNull() ?: return@IconButton
-                                    vm.playFeaturedPlaylist(collection.playlistId, startFromTrackId = pick.videoId)
+                                    if (tracks.isEmpty()) return@IconButton
+                                    // Shuffle a copy then play — keeps the
+                                    // current screen's track list as the
+                                    // navigation context but in a new order.
+                                    val shuffled = tracks.shuffled()
+                                    vm.playOnlineList(shuffled, startIndex = 0)
                                     onExpandPlayer()
                                 },
                                 modifier = Modifier
@@ -335,7 +382,12 @@ fun OnlineAlbumScreen(
                             forceShowArtist = collection !is PlayableCollection.Album ||
                                 track.author != (collection as? PlayableCollection.Album)?.album?.artist,
                             onPlay = {
-                                vm.playFeaturedPlaylist(collection.playlistId, startFromTrackId = track.videoId)
+                                // Play from the in-memory list at idx — no
+                                // network round-trip and onlineContext is set
+                                // in the same call frame, so Next works
+                                // immediately even if the user mashes it
+                                // right after the play tap.
+                                vm.playOnlineList(tracks, startIndex = idx)
                                 onExpandPlayer()
                             },
                         )
