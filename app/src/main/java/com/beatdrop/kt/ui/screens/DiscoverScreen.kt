@@ -55,7 +55,15 @@ import com.beatdrop.kt.youtube.OnlineResult
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
-fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandPlayer: () -> Unit = {}) {
+fun DiscoverScreen(
+    vm: PlayerViewModel,
+    onOpenSearch: () -> Unit = {},
+    onExpandPlayer: () -> Unit = {},
+    // Tap on a Made-For-You tile = open its detail screen (album-style).
+    // Was previously vm.playFeaturedPlaylist which auto-played the first
+    // track, which the user correctly identified as wrong.
+    onOpenCollection: (com.beatdrop.kt.youtube.PlayableCollection) -> Unit = {},
+) {
     val C = LocalAppColors.current
     var trending  by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
     var popHits   by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
@@ -177,15 +185,18 @@ fun DiscoverScreen(vm: PlayerViewModel, onOpenSearch: () -> Unit = {}, onExpandP
         }
 
         // ── Made For You — curated YT Music playlist tiles ─────────────────
-        // Spotify "Made for You" / "Daily Mix" style. Each card opens its
-        // playlist; tapping it starts playback at track 0 and the full
-        // playlist becomes the onlineContext for next/prev.
+        // Spotify "Made for You" / "Daily Mix" style. Tap = open the
+        // playlist detail screen (cover + Play/Shuffle/Download + track
+        // list). Was previously auto-play-first-track which the user
+        // correctly identified as wrong — tapping a playlist tile should
+        // never start playback automatically.
         if (madeForYou.isNotEmpty()) {
             item { OnlineEyebrow("MADE FOR YOU") }
             item {
                 MadeForYouCarousel(madeForYou) { preview ->
-                    vm.playFeaturedPlaylist(preview.meta.playlistId)
-                    onExpandPlayer()
+                    onOpenCollection(
+                        com.beatdrop.kt.youtube.PlayableCollection.Featured(preview.meta)
+                    )
                 }
             }
         }

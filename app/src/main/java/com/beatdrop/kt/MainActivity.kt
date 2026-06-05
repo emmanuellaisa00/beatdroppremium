@@ -247,7 +247,9 @@ private sealed interface Dest {
     data class ClipUrl(val url: String) : Dest
     data class PlaylistDownload(val playlistId: String) : Dest
     /** YT-Music online album detail screen (Spotify-style). */
-    data class OnlineAlbum(val album: com.beatdrop.kt.youtube.OnlineAlbum) : Dest
+    /** Online album / playlist / curated featured tile detail screen.
+     *  All three are PlayableCollection so a single screen handles them. */
+    data class OnlineCollection(val collection: com.beatdrop.kt.youtube.PlayableCollection) : Dest
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -446,7 +448,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onOpenBrowser       = { push(Dest.Browser) },
                             onOpenStorage       = { push(Dest.Storage) },
                             onOpenPrivateFolder = { push(Dest.PrivateFolder) },
-                            onOpenOnlineAlbum   = { push(Dest.OnlineAlbum(it)) },
+                            onOpenOnlineCollection = { push(Dest.OnlineCollection(it)) },
                         )
                         is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
                         is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
@@ -460,7 +462,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                         Dest.Search          -> SearchScreen(
                             vm,
                             onExpandPlayer = { push(Dest.NowPlaying) },
-                            onOpenOnlineAlbum = { push(Dest.OnlineAlbum(it)) },
+                            onOpenOnlineCollection = { push(Dest.OnlineCollection(it)) },
                             // Entered via Discover → online-only catalog.
                             mode = com.beatdrop.kt.ui.screens.SearchMode.ONLINE_ONLY,
                         )
@@ -494,9 +496,9 @@ fun MainScaffold(vm: PlayerViewModel) {
                         is Dest.PlaylistDownload -> com.beatdrop.kt.ui.screens.PlaylistDownloadScreen(
                             vm = vm, playlistId = dest.playlistId, onBack = { pop() },
                         )
-                        is Dest.OnlineAlbum -> com.beatdrop.kt.ui.screens.OnlineAlbumScreen(
+                        is Dest.OnlineCollection -> com.beatdrop.kt.ui.screens.OnlineAlbumScreen(
                             vm = vm,
-                            album = dest.album,
+                            collection = dest.collection,
                             onBack = { pop() },
                             onExpandPlayer = { push(Dest.NowPlaying) },
                         )
@@ -518,7 +520,7 @@ private fun TabsHost(
     onOpenEq: () -> Unit, onOpenDebug: () -> Unit,
     onOpenDownloads: () -> Unit, onOpenTrending: () -> Unit,
     onOpenBrowser: () -> Unit, onOpenStorage: () -> Unit, onOpenPrivateFolder: () -> Unit,
-    onOpenOnlineAlbum: (com.beatdrop.kt.youtube.OnlineAlbum) -> Unit,
+    onOpenOnlineCollection: (com.beatdrop.kt.youtube.PlayableCollection) -> Unit,
 ) {
     val C = LocalAppColors.current
     Box(Modifier.fillMaxSize().background(Color.Transparent)) {
@@ -527,7 +529,12 @@ private fun TabsHost(
                 when (tab) {
                     "library"  -> LibraryScreen(vm, onOpenAlbum = onOpenAlbum, onOpenArtist = onOpenArtist,
                         onOpenLocalDiscover = onOpenLocalDiscover, onOpenPlaylists = onOpenPlaylists, onOpenStats = onOpenStats)
-                    "discover" -> DiscoverScreen(vm, onOpenSearch = onOpenSearch, onExpandPlayer = onExpandPlayer)
+                    "discover" -> DiscoverScreen(
+                        vm,
+                        onOpenSearch = onOpenSearch,
+                        onExpandPlayer = onExpandPlayer,
+                        onOpenCollection = onOpenOnlineCollection,
+                    )
                     "search"   -> SearchScreen(
                         vm,
                         onExpandPlayer = onExpandPlayer,
@@ -535,7 +542,7 @@ private fun TabsHost(
                         mode = com.beatdrop.kt.ui.screens.SearchMode.HYBRID,
                         // BUG FIX: previously omitted, so album taps from
                         // the bottom-tab search were silent no-ops.
-                        onOpenOnlineAlbum = onOpenOnlineAlbum,
+                        onOpenOnlineCollection = onOpenOnlineCollection,
                     )
                     "radio"    -> RadioScreen(vm)
                     "settings" -> SettingsScreen(vm, onBack = {}, onOpenEq = onOpenEq, onOpenDebug = onOpenDebug)

@@ -70,7 +70,12 @@ enum class SearchMode { HYBRID, ONLINE_ONLY }
 fun SearchScreen(
     vm: PlayerViewModel,
     onExpandPlayer: () -> Unit = {},
-    onOpenOnlineAlbum: (com.beatdrop.kt.youtube.OnlineAlbum) -> Unit = {},
+    /**
+     * Open the album/playlist detail screen. Accepts any PlayableCollection
+     * so the same callback handles albums, playlists, and curated featured
+     * tiles uniformly (one nav route, one detail screen).
+     */
+    onOpenOnlineCollection: (com.beatdrop.kt.youtube.PlayableCollection) -> Unit = {},
     mode: SearchMode = SearchMode.HYBRID,
 ) {
     val C = LocalAppColors.current
@@ -220,11 +225,19 @@ fun SearchScreen(
                                         onExpandPlayer()
                                     }
                                     is PlayerViewModel.LiveSuggestion.Album -> {
-                                        onOpenOnlineAlbum(suggestion.album)
+                                        // Open album detail (don't auto-play).
+                                        onOpenOnlineCollection(
+                                            com.beatdrop.kt.youtube.PlayableCollection.Album(suggestion.album)
+                                        )
                                     }
                                     is PlayerViewModel.LiveSuggestion.Playlist -> {
-                                        vm.playFeaturedPlaylist(suggestion.playlist.playlistId)
-                                        onExpandPlayer()
+                                        // Playlist tap = open detail screen
+                                        // (same as album). Was previously
+                                        // 'auto-play' which the user
+                                        // correctly identified as wrong.
+                                        onOpenOnlineCollection(
+                                            com.beatdrop.kt.youtube.PlayableCollection.Playlist(suggestion.playlist)
+                                        )
                                     }
                                 }
                             },
@@ -388,7 +401,11 @@ fun SearchScreen(
                                                 if (topAlbum.artist.isNotBlank()) append(" · ").append(topAlbum.artist)
                                             },
                                             thumbnailUrl = topAlbum.thumbnailUrl,
-                                            onClick = { onOpenOnlineAlbum(topAlbum) },
+                                            onClick = {
+                                                onOpenOnlineCollection(
+                                                    com.beatdrop.kt.youtube.PlayableCollection.Album(topAlbum)
+                                                )
+                                            },
                                         )
                                     } else if (topSong != null) {
                                         TopResultHero(
@@ -413,7 +430,11 @@ fun SearchScreen(
                             item {
                                 AlbumCarousel(
                                     albums = albums,
-                                    onOpen = onOpenOnlineAlbum,
+                                    onOpen = { album ->
+                                        onOpenOnlineCollection(
+                                            com.beatdrop.kt.youtube.PlayableCollection.Album(album)
+                                        )
+                                    },
                                 )
                                 Spacer(Modifier.height(16.dp))
                             }
@@ -427,10 +448,10 @@ fun SearchScreen(
                                 PlaylistCarousel(
                                     playlists = playlists,
                                     onOpen = { pl ->
-                                        // Reuse playFeaturedPlaylist plumbing — it
-                                        // starts playback and sets the onlineContext.
-                                        vm.playFeaturedPlaylist(pl.playlistId)
-                                        onExpandPlayer()
+                                        // Open detail screen (don't auto-play).
+                                        onOpenOnlineCollection(
+                                            com.beatdrop.kt.youtube.PlayableCollection.Playlist(pl)
+                                        )
                                     },
                                 )
                                 Spacer(Modifier.height(16.dp))
@@ -606,9 +627,12 @@ fun SearchScreen(
                                         title = cat.title,
                                         accentHex = cat.accentHex,
                                         modifier = Modifier.weight(1f),
+                                        // Tap = open the category's detail
+                                        // screen (don't auto-play).
                                         onClick = {
-                                            vm.playFeaturedPlaylist(cat.playlistId)
-                                            onExpandPlayer()
+                                            onOpenOnlineCollection(
+                                                com.beatdrop.kt.youtube.PlayableCollection.Featured(cat)
+                                            )
                                         },
                                     )
                                 }

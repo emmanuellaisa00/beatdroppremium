@@ -36,44 +36,47 @@ import com.beatdrop.kt.ui.components.pressableScale
 import com.beatdrop.kt.ui.theme.LocalAppColors
 import com.beatdrop.kt.ui.theme.Radius
 import com.beatdrop.kt.ui.theme.Spacing
-import com.beatdrop.kt.ui.theme.Type
-import com.beatdrop.kt.youtube.OnlineAlbum
 import com.beatdrop.kt.youtube.OnlineResult
+import com.beatdrop.kt.youtube.PlayableCollection
 import com.beatdrop.kt.youtube.YouTubePlaylist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * OnlineAlbumScreen — Spotify/iOS-style album-detail screen for YT Music
- * search results.
+ * OnlineAlbumScreen — Spotify/iOS-style detail screen for ANY YT-Music
+ * online collection (album OR playlist). The PlayableCollection sealed
+ * interface unifies the two so a single screen serves both — they have
+ * structurally identical layout requirements (cover + title + author +
+ * track list) and divergent kinds were resulting in near-duplicated code.
  *
  *   ┌─────────────────────────────────┐
- *   │   ⟨ back               …  share │
+ *   │   ⟨ back                        │
  *   │                                 │
  *   │        ┌──────────┐             │
  *   │        │  cover   │   (blurred  │
  *   │        │   art    │    cover as │
  *   │        └──────────┘    backdrop)│
- *   │   Album Title (Bold 28sp)       │
- *   │   Artist · 2024                 │
+ *   │   TITLE (Bold 28sp, UPPERCASE)  │
+ *   │   ⦿ Artist · Year / N tracks    │
  *   │                                 │
- *   │   [ ▶ Play ]   ↻ Shuffle        │
+ *   │   [ ▶ Play ]   ↻ Shuffle   ⤓    │
  *   │                                 │
- *   │   ── Tracks ────                │
- *   │   1  Track one          3:42    │
- *   │   2  Track two          4:21    │
+ *   │   1  ⌧ TRACK ONE       3:42  ⤓  │
+ *   │      Artist · ft. X                │
+ *   │   2  ⌧ TRACK TWO       4:21  ⤓  │
  *   │   …                              │
  *   └─────────────────────────────────┘
  *
  * Tracks are fetched on first composition via YouTubePlaylist.fetchPlaylist
- * (albums are backed by an OLAK5uy_… playlist). The cover is shown
- * immediately from the album's thumbnailUrl + drawn behind everything
- * with a 60-px blur as a backdrop (matches iOS).
+ * (both albums and playlists use a playlistId). The cover is shown
+ * immediately from collection.coverUrl + drawn behind everything with a
+ * 60-px blur as a cinematic backdrop. Track titles render UPPERCASE,
+ * subtitle row carries the artist + any feat./ft./x collaborators.
  */
 @Composable
 fun OnlineAlbumScreen(
     vm: PlayerViewModel,
-    album: OnlineAlbum,
+    collection: PlayableCollection,
     onBack: () -> Unit,
     onExpandPlayer: () -> Unit,
 ) {
@@ -82,21 +85,41 @@ fun OnlineAlbumScreen(
     var tracks by remember { mutableStateOf<List<OnlineResult>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(album.audioPlaylistId) {
+    LaunchedEffect(collection.playlistId) {
         loading = true
         val fetched = runCatching {
             withContext(Dispatchers.IO) {
-                YouTubePlaylist.fetchPlaylist(album.audioPlaylistId, maxItems = 100).videos
+                YouTubePlaylist.fetchPlaylist(collection.playlistId, maxItems = 100).videos
             }
         }.getOrDefault(emptyList())
         tracks = fetched
         loading = false
     }
 
+    // For playlists / Featured tiles the coverUrl may be null initially
+    // (we don't have one before the first track lands). Derive a fallback
+    // from the first track's thumbnail once we have it.
+    val effectiveCover = collection.coverUrl ?: tracks.firstOrNull()?.thumbnailUrl
+
+    // Secondary line: 'Album · Artist · Year' OR 'Playlist · Author · 56 tracks'.
+    // Once tracks are loaded, prefer the live count for playlists since the
+    // search-time trackCount can be stale.
+    val secondaryLine = remember(collection, tracks) {
+        when (collection) {
+            is PlayableCollection.Playlist,
+            is PlayableCollection.Featured -> buildString {
+                append(collection.kindLabel)
+                if (collection.author.isNotBlank()) append(" · ").append(collection.author)
+                if (tracks.isNotEmpty()) append(" · ").append("${tracks.size} songs")
+            }
+            is PlayableCollection.Album -> collection.secondaryLine
+        }
+    }
+
     ScreenScaffold {
         Box(Modifier.fillMaxSize()) {
             // ── Blurred-cover backdrop ────────────────────────────────────
-            if (album.thumbnailUrl != null) {
+            if (effectiveCover != null) {
                 val blurMod =
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
                         Modifier.graphicsLayer {
@@ -106,7 +129,7 @@ fun OnlineAlbumScreen(
                         }
                     else Modifier
                 AsyncImage(
-                    model = ImageRequest.Builder(ctx).data(album.thumbnailUrl)
+                    model = ImageRequest.Builder(ctx).data(effectiveCover)
                         .crossfade(true).size(720).build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -116,10 +139,9 @@ fun OnlineAlbumScreen(
                         .then(blurMod),
                 )
                 // Vertical dim gradient — blends to a CONSTANT deep
-                // midnight indigo regardless of light/dark theme, so the
-                // white foreground text + chrome stays legible in light
-                // mode. Apple Music + Spotify both do this: their album-
-                // detail screen is always cinematic-dark.
+                // midnight indigo regardless of theme so white foreground
+                // text stays legible in light mode (Spotify/Apple Music
+                // pattern — album/playlist detail is always cinematic-dark).
                 Box(
                     Modifier.fillMaxSize().background(
                         Brush.verticalGradient(
@@ -162,9 +184,9 @@ fun OnlineAlbumScreen(
                                 .clip(RoundedCornerShape(Radius.lg))
                                 .background(C.bg3),
                         ) {
-                            if (album.thumbnailUrl != null) {
+                            if (effectiveCover != null) {
                                 AsyncImage(
-                                    model = ImageRequest.Builder(ctx).data(album.thumbnailUrl)
+                                    model = ImageRequest.Builder(ctx).data(effectiveCover)
                                         .crossfade(true).size(720).build(),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
@@ -174,27 +196,27 @@ fun OnlineAlbumScreen(
                         }
                     }
                 }
-                // Title + artist row (with circular avatar) + Play / Shuffle / Download
+                // Title + author + Play / Shuffle / Download row.
                 item {
                     Column(
                         Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
                         horizontalAlignment = Alignment.Start,
                     ) {
+                        // True UPPERCASE title — Spotify/Apple-Music-album
+                        // pattern. Reads as 'a release', not 'a song'.
                         Text(
-                            album.title,
+                            collection.title.uppercase(),
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Black,
-                            maxLines = 2,
+                            letterSpacing = 0.5.sp,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(Modifier.height(10.dp))
-                        // Artist row — circular avatar + name (+ year as suffix).
-                        // Avatar uses the album cover (square) cropped into a
-                        // 28dp circle. Real per-artist art isn't fetched (no
-                        // login) so cover-art-as-avatar is the safe, always-
-                        // available stand-in. Reads cleanly: title above,
-                        // artist row below with a visual anchor.
+                        // Author row — circular avatar + secondary line.
+                        // Avatar uses the cover (square) cropped into a
+                        // 28dp circle since real per-artist art needs login.
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 Modifier
@@ -202,9 +224,9 @@ fun OnlineAlbumScreen(
                                     .clip(CircleShape)
                                     .background(C.bg3),
                             ) {
-                                if (album.thumbnailUrl != null) {
+                                if (effectiveCover != null) {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(ctx).data(album.thumbnailUrl)
+                                        model = ImageRequest.Builder(ctx).data(effectiveCover)
                                             .crossfade(true).size(96).build(),
                                         contentDescription = null,
                                         contentScale = ContentScale.Crop,
@@ -214,19 +236,16 @@ fun OnlineAlbumScreen(
                             }
                             Spacer(Modifier.width(10.dp))
                             Text(
-                                buildString {
-                                    append(album.artist)
-                                    if (album.year.isNotBlank()) append(" · ").append(album.year)
-                                },
+                                secondaryLine,
                                 color = Color.White.copy(alpha = 0.85f),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
                         Spacer(Modifier.height(18.dp))
-                        // Play / Shuffle / Download-Album buttons.
+                        // Play / Shuffle / Download buttons.
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -238,7 +257,7 @@ fun OnlineAlbumScreen(
                                     .background(C.accent)
                                     .pressableScale(
                                         onClick = {
-                                            vm.playAlbum(album)
+                                            vm.playFeaturedPlaylist(collection.playlistId)
                                             onExpandPlayer()
                                         },
                                         scaleTo = 0.96f,
@@ -258,9 +277,8 @@ fun OnlineAlbumScreen(
                             }
                             IconButton(
                                 onClick = {
-                                    // Shuffle: pick a random starting track
                                     val pick = tracks.randomOrNull() ?: return@IconButton
-                                    vm.playAlbum(album, startVideoId = pick.videoId)
+                                    vm.playFeaturedPlaylist(collection.playlistId, startFromTrackId = pick.videoId)
                                     onExpandPlayer()
                                 },
                                 modifier = Modifier
@@ -271,14 +289,12 @@ fun OnlineAlbumScreen(
                                 Icon(Ic.Shuffle, "Shuffle", tint = Color.White,
                                     modifier = Modifier.size(22.dp))
                             }
-                            // Download whole album — enqueues every track.
-                            // Disabled while the album's track list is still
-                            // resolving (would download nothing). After tap,
-                            // each track's own row shows its diegetic ring.
+                            // Download whole collection — enqueues every track.
+                            // Disabled while still resolving (would download
+                            // nothing). After tap each row shows its diegetic
+                            // ring as bytes arrive.
                             IconButton(
-                                onClick = {
-                                    tracks.forEach { vm.downloadOnline(it) }
-                                },
+                                onClick = { tracks.forEach { vm.downloadOnline(it) } },
                                 enabled = tracks.isNotEmpty(),
                                 modifier = Modifier
                                     .size(48.dp)
@@ -287,7 +303,7 @@ fun OnlineAlbumScreen(
                             ) {
                                 Icon(
                                     Ic.Download,
-                                    "Download album",
+                                    "Download ${collection.kindLabel.lowercase()}",
                                     tint = if (tracks.isNotEmpty()) Color.White
                                            else Color.White.copy(alpha = 0.4f),
                                     modifier = Modifier.size(22.dp),
@@ -307,13 +323,19 @@ fun OnlineAlbumScreen(
                     }
                 } else {
                     itemsIndexed(tracks, key = { _, t -> t.videoId }) { idx, track ->
-                        AlbumTrackRow(
+                        TrackRow(
                             vm = vm,
                             index = idx + 1,
                             track = track,
-                            artistOverride = if (track.author != album.artist) track.author else null,
+                            // For albums we hide the artist line when it
+                            // matches the album artist (it'd be redundant
+                            // on every row). For playlists we always show
+                            // it because different songs have different
+                            // primary artists.
+                            forceShowArtist = collection !is PlayableCollection.Album ||
+                                track.author != (collection as? PlayableCollection.Album)?.album?.artist,
                             onPlay = {
-                                vm.playAlbum(album, startVideoId = track.videoId)
+                                vm.playFeaturedPlaylist(collection.playlistId, startFromTrackId = track.videoId)
                                 onExpandPlayer()
                             },
                         )
@@ -324,14 +346,30 @@ fun OnlineAlbumScreen(
     }
 }
 
+/**
+ * Track row used inside the OnlineAlbumScreen.
+ *
+ * Layout (left → right):
+ *   • Track index (28.dp wide, dim)
+ *   • Cover thumbnail (44.dp square, rounded 6.dp)
+ *   • Title in UPPERCASE bold (15sp)
+ *     subtitle: primary artist + ft./x collaborators (12sp dim)
+ *   • Duration (right-aligned)
+ *   • DiegeticDownloadIcon (always present — green check when downloaded)
+ *
+ * Per the user's spec: 'cover then song name in capital letters,
+ * below name we should have artists and ft if necessary or x'.
+ */
 @Composable
-private fun AlbumTrackRow(
+private fun TrackRow(
     vm: PlayerViewModel,
     index: Int,
     track: OnlineResult,
-    artistOverride: String?,
+    forceShowArtist: Boolean,
     onPlay: () -> Unit,
 ) {
+    val C   = LocalAppColors.current
+    val ctx = LocalContext.current
     val jobs by vm.downloadJobs.collectAsState()
     val job = jobs[track.videoId]
     val isDownloaded = vm.isOnlineDownloaded(track.videoId)
@@ -343,33 +381,57 @@ private fun AlbumTrackRow(
         else ""
     }
 
+    // Parse the title for collab markers and build a 'Author · ft. X x Y'
+    // subtitle. Keeps the primary artist + any feat./ft./x/with/&/x.
+    val subtitle = remember(track) { formatArtistLine(track.author, track.title) }
+
     Row(
         Modifier
             .fillMaxWidth()
             .pressableScale(onClick = onPlay, scaleTo = 0.98f)
-            .padding(start = Spacing.lg, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = Spacing.lg, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Track index — fixed-width column so titles align across the list.
+        // Track index — fixed-width column.
         Text(
             index.toString(),
             color = Color.White.copy(alpha = 0.55f),
             fontSize = 14.sp,
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(24.dp),
         )
-        // Title (+ subtitle artist if differs from album artist).
+        // Per-track cover thumbnail (per user spec: 'song cover then song
+        // name'). 44.dp keeps it well within row height.
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(C.bg3),
+        ) {
+            if (track.thumbnailUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx).data(track.thumbnailUrl)
+                        .crossfade(true).size(128).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        // Title (UPPERCASE) + subtitle with feat./x collaborators.
         Column(Modifier.weight(1f)) {
             Text(
-                track.title,
+                track.title.uppercase(),
                 color = Color.White,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.2.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!artistOverride.isNullOrBlank()) {
+            if (forceShowArtist && subtitle.isNotBlank()) {
                 Text(
-                    artistOverride,
+                    subtitle,
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 12.sp,
                     maxLines = 1,
@@ -377,9 +439,6 @@ private fun AlbumTrackRow(
                 )
             }
         }
-        // Duration column — fixed minimum width so the download icon below
-        // it always lines up vertically across rows even when one row's
-        // duration is '3:42' and another is '12:08'.
         if (duration.isNotBlank()) {
             Text(
                 duration,
@@ -388,8 +447,7 @@ private fun AlbumTrackRow(
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
         }
-        // Per-track download — diegetic progress ring (no spinner). Same
-        // composable used in NowPlaying so the visual language is identical.
+        // Per-track download — diegetic progress ring (no spinner).
         com.beatdrop.kt.ui.components.DiegeticDownloadIcon(
             isDownloaded = isDownloaded,
             isDownloading = isDownloading,
@@ -397,4 +455,44 @@ private fun AlbumTrackRow(
             onClick = { vm.downloadOnline(track) },
         )
     }
+}
+
+/**
+ * Build the subtitle line for a track row.
+ *
+ *   "Drake — God's Plan"                 →  "Drake"
+ *   "Drake ft. 21 Savage — Knife Talk"   →  "Drake · ft. 21 Savage"
+ *   "Burna Boy x Wizkid — Ginger"        →  "Burna Boy · x Wizkid"
+ *   "Travis Scott & Kanye West - …"      →  "Travis Scott · & Kanye West"
+ *
+ * Logic: look for the first collab marker (ft./feat./featuring/x/×/&/with)
+ * in the title, and if the text after it looks like an artist name (≤40
+ * chars, no song-title separator before it), append it to the primary
+ * author with the same marker word so the user reads 'who's on this'.
+ */
+private fun formatArtistLine(primary: String, title: String): String {
+    val artistPart = title.substringBefore(" - ", missingDelimiterValue = title)
+    val markers = listOf(" ft. ", " ft ", " feat. ", " feat ", " featuring ",
+                         " with ", " w/ ", " x ", " × ", " & ", " and ")
+    val lower = " $artistPart ".lowercase()
+    for (m in markers) {
+        val idx = lower.indexOf(m)
+        if (idx >= 0) {
+            // The substring after the marker (in the original casing).
+            val tail = artistPart.substring((idx + m.length - 1).coerceAtMost(artistPart.length))
+                .takeWhile { it !in setOf('(', '[', '|') }
+                .split(Regex("[,;]"))
+                .firstOrNull()
+                ?.trim()
+                .orEmpty()
+            if (tail.length in 2..40) {
+                // Use the marker as it appeared (ft / x / &) so the
+                // subtitle reads naturally.
+                val markerLabel = m.trim()
+                return if (primary.isBlank()) "$markerLabel $tail"
+                       else "$primary · $markerLabel $tail"
+            }
+        }
+    }
+    return primary
 }
