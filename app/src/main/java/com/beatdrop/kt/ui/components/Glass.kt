@@ -320,45 +320,24 @@ fun TintedGlassButton(
 @Composable
 fun Modifier.glassCard(
     radius: Dp = Radius.md,
-    blur: Float = Blur.light,
+    @Suppress("UNUSED_PARAMETER") blur: Float = Blur.light,
 ): Modifier {
-    val C = LocalAppColors.current
-    val shape = RoundedCornerShape(radius)
-    return this
-        .glassShadow(elevation = 15.dp, shape = shape, isDark = C.isDark)
-        .clip(shape)
-        // Real backdrop blur (no-op outside ScreenScaffold).
-        .hazeGlass(shape = shape, tintColor = C.glassCardElevated, blurRadius = blur.dp)
-        // Background fallback for screens without a HazeState (hazeGlass
-        // is a no-op there) — the tinted glass surface still shows.
-        .background(C.glassCardElevated)
-        .noiseOverlay(opacity = 0.025f)
-        .drawWithContent {
-            drawContent()
-            // Top reflection — stronger in light mode per spec
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = if (C.isDark) 0.06f else 0.12f),
-                        Color.Transparent,
-                    ),
-                    startY = 0f,
-                    endY = size.height * 0.30f,
-                ),
-            )
-            // Bottom inner shadow — thickness/depth
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        C.glassInnerShadow.copy(alpha = if (C.isDark) 0.06f else 0.04f),
-                    ),
-                    startY = size.height * 0.70f,
-                    endY = size.height,
-                ),
-            )
-        }
-        .border(0.5.dp, C.glassCardElevatedBorder, shape)
+    // ── DELEGATES TO premiumGlass(Z2_Card) ───────────────────────────
+    // Per Premium Glass spec: 'The entire UI uses one material. Never
+    // create different glass styles.' The old bespoke glassCard stack
+    // (haze + tint + drawWithContent + border + glassShadow) diverged
+    // from the unified material over time.
+    //
+    // To migrate all 18 call-site screens in a single move WITHOUT
+    // touching each file (which would be 18 risky commits), glassCard
+    // now thunks through to premiumGlass(Z2_Card). The 'blur' param is
+    // accepted-but-ignored — call sites that passed Blur.medium etc.
+    // still compile, and the unified material chooses the spec-correct
+    // blur for the Z2 level (20dp).
+    //
+    // When migrating individual screens, prefer calling premiumGlass()
+    // directly. This shim exists to avoid churn.
+    return this.premiumGlass(level = GlassLevel.Z2_Card, shape = RoundedCornerShape(radius))
 }
 
 /**
@@ -377,29 +356,14 @@ fun Modifier.glassCard(
 @Composable
 fun Modifier.glassRow(
     radius: Dp = Radius.sm,
-    blur: Float = Blur.subtle,
+    @Suppress("UNUSED_PARAMETER") blur: Float = Blur.subtle,
 ): Modifier {
-    val C = LocalAppColors.current
-    val shape = RoundedCornerShape(radius)
-    val tint = C.glassCardElevated.copy(alpha = 0.95f)
-    return this
-        .clip(shape)
-        .hazeGlass(shape = shape, tintColor = tint, blurRadius = blur.dp)
-        .background(tint)
-        .drawWithContent {
-            drawContent()
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = if (C.isDark) 0.05f else 0.10f),
-                        Color.Transparent,
-                    ),
-                    startY = 0f,
-                    endY = size.height * 0.40f,
-                ),
-            )
-        }
-        .border(0.5.dp, C.glassCardElevatedBorder, shape)
+    // ── DELEGATES TO premiumGlass(Z1_List) ───────────────────────────
+    // See glassCard's comment above — same migration strategy: one
+    // material everywhere, call sites unchanged. Z1_List uses the
+    // smallest blur (6dp) appropriate for dense small-text rows in
+    // long LazyColumns; 60fps friendly.
+    return this.premiumGlass(level = GlassLevel.Z1_List, shape = RoundedCornerShape(radius))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
