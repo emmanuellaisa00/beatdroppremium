@@ -56,7 +56,7 @@ fun StatsScreen(vm: PlayerViewModel, onBack: () -> Unit = {}) {
             LazyColumn(
                 Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 240.dp,
+                    start = Spacing.lg, end = Spacing.lg, top = Spacing.sm, bottom = 190.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {

@@ -86,7 +86,7 @@ fun DownloadsScreen(
                     LazyColumn(
                         Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 240.dp),
+                        contentPadding = PaddingValues(bottom = 190.dp),
                     ) {
                         items(active, key = { it.videoId }) { job ->
                             ActiveDownloadRow(job)
@@ -101,7 +101,7 @@ fun DownloadsScreen(
                     LazyColumn(
                         Modifier.fillMaxSize().padding(horizontal = Spacing.lg),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(bottom = 240.dp),
+                        contentPadding = PaddingValues(bottom = 190.dp),
                     ) {
                         items(records, key = { it.videoId }) { record ->
                             HistoryRow(record)

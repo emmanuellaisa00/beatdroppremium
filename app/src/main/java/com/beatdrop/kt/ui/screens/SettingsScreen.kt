@@ -51,7 +51,7 @@ fun SettingsScreen(vm: PlayerViewModel, onBack: () -> Unit, onOpenEq: () -> Unit
     ScreenScaffold {
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(bottom = 240.dp),
+        contentPadding = PaddingValues(bottom = 190.dp),
     ) {
         // ── Header ──────────────────────────────────────────────────────────
         item {

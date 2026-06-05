@@ -36,7 +36,7 @@ fun EqScreen(onBack: () -> Unit) {
     val bass by EqEngine.bassStrength.collectAsState()
 
     ScreenScaffold {
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 240.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp), contentPadding = PaddingValues(bottom = 190.dp)) {
         item {
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Ic.Back, "Back", tint = C.text) }

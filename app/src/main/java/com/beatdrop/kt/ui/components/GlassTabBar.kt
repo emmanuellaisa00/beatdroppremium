@@ -55,12 +55,12 @@ fun GlassTabBar2(
 
     // ── Scroll-responsive morphing ───────────────────────────────────────────
     val barHeight by animateDpAsState(
-        targetValue = if (isScrolledDown) 60.dp else 96.dp,
+        targetValue = if (isScrolledDown) 54.dp else 78.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "barHeight",
     )
     val iconSize by animateDpAsState(
-        targetValue = if (isScrolledDown) 24.dp else 30.dp,
+        targetValue = if (isScrolledDown) 22.dp else 26.dp,
         animationSpec = spring(dampingRatio = 0.75f, stiffness = 400f),
         label = "iconSize",
     )
@@ -71,13 +71,13 @@ fun GlassTabBar2(
     )
 
     // ── Spec: outer radius=44px (pill), inner indicator uses concentric rule ─
-    val outerRadius = 48.dp
+    val outerRadius = 39.dp
     val outerShape  = RoundedCornerShape(outerRadius)
 
     Box(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 18.dp, vertical = 6.dp)
     ) {
         Box(
             Modifier
@@ -139,7 +139,7 @@ fun GlassTabBar2(
                     (this@BoxWithConstraints.maxWidth - 20.dp).toPx()   // minus 10.dp padding × 2
                 }
                 val itemWidthPx = barWidthPx / tabs.size
-                val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 72.dp.toPx() }
+                val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 58.dp.toPx() }
                 val targetXpx = (activeIdx * itemWidthPx) + (itemWidthPx / 2f) - (puckSizePx / 2f)
                 val animatedX by animateFloatAsState(
                     targetValue = targetXpx,
@@ -156,7 +156,7 @@ fun GlassTabBar2(
                     Modifier
                         .align(Alignment.CenterStart)
                         .offset { androidx.compose.ui.unit.IntOffset(animatedX.toInt(), 0) }
-                        .size(72.dp)
+                        .size(58.dp)
                         .premiumGlass(
                             level = GlassLevel.Z5_ActiveLens,
                             shape = CircleShape,
@@ -166,7 +166,7 @@ fun GlassTabBar2(
                 ) {
                     androidx.compose.foundation.layout.Box(
                         Modifier
-                            .size(58.dp)
+                            .size(46.dp)
                             .clip(CircleShape)
                             .background(C.accent.copy(alpha = if (C.isDark) 0.18f else 0.14f))
                             .border(0.5.dp, C.accent.copy(alpha = 0.32f), CircleShape),

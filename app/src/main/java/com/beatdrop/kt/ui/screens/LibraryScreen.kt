@@ -183,7 +183,7 @@ private fun SongsList(vm: PlayerViewModel) {
     val sort   by vm.sort.collectAsState()
     var sheetTrack by remember { mutableStateOf<Track?>(null) }
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 240.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
         // Play All / Shuffle action bar
         item {
             Row(
@@ -310,7 +310,7 @@ private fun ArtistsList(vm: PlayerViewModel, onOpen: (String) -> Unit) {
     val C      = LocalAppColors.current
     val artists by vm.artistGroups.collectAsState()
 
-    LazyColumn(contentPadding = PaddingValues(bottom = 240.dp)) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 190.dp)) {
         itemsIndexed(artists, key = { _, ar -> ar.artist }) { _, ar ->
             Row(
                 Modifier

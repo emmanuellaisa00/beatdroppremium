@@ -129,12 +129,12 @@ fun Modifier.premiumGlass(
         )
         // ── Surface clip (Layer 6) ────────────────────────────────────
         .clip(shape)
-        // ── Backdrop sampling + blur (Layers 1, 2) ────────────────────
-        .hazeGlass(
-            shape = shape,
-            tintColor = C.bg3.copy(alpha = baseTintAlpha),
-            blurRadius = level.blurPx.dp,
-        )
+        // ── Content-safe glass base (Layers 1-3 approximation) ───────
+        // Haze is intentionally NOT applied here. On several real devices the
+        // haze child render pass can paint over descendant text/icons, making
+        // cards, MiniPlayer, and dock appear as empty black blobs. Keep glass
+        // surfaces readable first; the global blurred artwork/scrim still gives
+        // the frosted context behind them.
         // ── Darkening filter (Layer 3) ────────────────────────────────
         // Belt-and-braces over the hazeGlass tint so on devices without
         // RenderEffect support the glass still reads as smoked.

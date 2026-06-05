@@ -52,7 +52,7 @@ fun ClipUrlScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = Spacing.lg)
-                    .padding(top = 24.dp, bottom = 240.dp),
+                    .padding(top = 24.dp, bottom = 190.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 IconPuck(icon = Ic.Link, contentDescription = null, size = 84.dp, tint = C.accent)

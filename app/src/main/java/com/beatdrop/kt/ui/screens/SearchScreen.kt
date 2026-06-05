@@ -324,7 +324,7 @@ fun SearchScreen(
                     val showPlaylists = filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS
                     LazyColumn(
                         state          = listState,
-                        contentPadding = PaddingValues(bottom = 240.dp),
+                        contentPadding = PaddingValues(bottom = 190.dp),
                     ) {
                         // ── Sticky filter chips ─────────────────────────────
                         // Pinned to the top of the results LazyColumn so as
@@ -506,7 +506,7 @@ fun SearchScreen(
                     // has 4+ words, + recent searches below so the user
                     // can re-discover something they searched before.
                     LazyColumn(
-                        contentPadding = PaddingValues(top = 24.dp, bottom = 240.dp),
+                        contentPadding = PaddingValues(top = 24.dp, bottom = 190.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         item {
@@ -605,7 +605,7 @@ fun SearchScreen(
                     // Each tile = 100dp tall accent-coloured card, tap →
                     // opens the playlist's first track in Now Playing.
                     LazyColumn(
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 240.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 190.dp),
                     ) {
                         item {
                             Text(
@@ -650,7 +650,7 @@ fun SearchScreen(
             Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
-                .padding(bottom = 230.dp),
+                .padding(bottom = 160.dp),
         )
     }
 }

@@ -63,15 +63,15 @@ fun MiniPlayer(
     // Concept target: floating iOS-style glass capsule sitting above the dock.
     // Larger art, calmer controls, no handle, stronger rim, and real backdrop
     // blur from the global HazeState provided by MainScaffold.
-    val outerRadius = 42.dp
+    val outerRadius = 34.dp
     val outerShape  = RoundedCornerShape(outerRadius)
     val artShape    = CircleShape
 
     Box(
         Modifier
             .fillMaxWidth()
-            .height(84.dp)
-            .padding(horizontal = 16.dp)
+            .height(70.dp)
+            .padding(horizontal = 18.dp)
             .graphicsLayer {
                 translationX = animX
                 translationY = animY
@@ -135,13 +135,13 @@ fun MiniPlayer(
         Row(
             Modifier
                 .fillMaxSize()
-                .padding(start = 12.dp, end = 12.dp),
+                .padding(start = 10.dp, end = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Artwork inset: rounded jewel under the glass surface.
             Box(
                 Modifier
-                    .size(60.dp)
+                    .size(50.dp)
                     .border(1.dp, Color.Black.copy(alpha = 0.42f), artShape)
                     .clip(artShape)
                     .background(C.bg3),
@@ -176,7 +176,7 @@ fun MiniPlayer(
                 )
             }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             Column(Modifier.weight(1f)) {
                 Text(
@@ -185,13 +185,13 @@ fun MiniPlayer(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = track.artist,
                     color = C.textSecondary,
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -202,15 +202,15 @@ fun MiniPlayer(
                     imageVector = Ic.Airplay,
                     contentDescription = null,
                     tint = C.textSecondary,
-                    modifier = Modifier.size(26.dp),
+                    modifier = Modifier.size(23.dp),
                 )
             }
 
-            IconButton(onClick = onToggle, modifier = Modifier.size(58.dp)) {
+            IconButton(onClick = onToggle, modifier = Modifier.size(48.dp)) {
                 Box(
                     Modifier
-                        .size(54.dp)
-                        .clip(RoundedCornerShape(27.dp))
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
                         .background(Color.White.copy(alpha = if (C.isDark) 0.92f else 0.96f))
                         .drawWithContent {
                             drawContent()
@@ -225,14 +225,14 @@ fun MiniPlayer(
                                 ),
                             )
                         }
-                        .border(0.7.dp, Color.White.copy(alpha = 0.36f), RoundedCornerShape(27.dp)),
+                        .border(0.7.dp, Color.White.copy(alpha = 0.36f), RoundedCornerShape(22.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Ic.TransportPause else Ic.TransportPlay,
                         contentDescription = null,
                         tint = Color.Black.copy(alpha = 0.88f),
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(24.dp),
                     )
                 }
             }
@@ -243,7 +243,7 @@ fun MiniPlayer(
         Box(
             Modifier
                 .align(Alignment.BottomStart)
-                .padding(horizontal = 32.dp)
+                .padding(horizontal = 28.dp)
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
                 .height(1.5.dp)
                 .background(C.accent.copy(alpha = 0.70f))

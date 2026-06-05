@@ -70,7 +70,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
             val listState = rememberLazyListState()
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = 4.dp, bottom = 240.dp),
+                contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = 4.dp, bottom = 190.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 itemsIndexed(queue, key = { i, t -> t.id + i }) { index, t ->

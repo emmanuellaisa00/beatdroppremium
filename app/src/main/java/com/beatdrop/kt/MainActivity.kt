@@ -610,8 +610,8 @@ fun MainScaffold(vm: PlayerViewModel) {
                             )
                         }
                         .navigationBarsPadding()
-                        .padding(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(bottom = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     current?.takeIf { showMiniPlayer }?.let { t ->
                         MiniPlayer(

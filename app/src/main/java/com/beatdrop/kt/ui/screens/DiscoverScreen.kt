@@ -105,7 +105,7 @@ fun DiscoverScreen(
     ScreenScaffold {
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 240.dp),
+        contentPadding = PaddingValues(top = topPadding + 10.dp, bottom = 190.dp),
     ) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
@@ -432,7 +432,7 @@ fun LocalDiscoverScreen(vm: PlayerViewModel, onBack: () -> Unit = {}, onOpenSear
 
     val topPaddingLocal = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     ScreenScaffold {
-    LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 240.dp)) {
+    LazyColumn(contentPadding = PaddingValues(top = topPaddingLocal + 10.dp, bottom = 190.dp)) {
         // ── Header ──────────────────────────────────────────────────────────
         item {
             Row(
