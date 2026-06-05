@@ -125,28 +125,95 @@ fun GlassTabBar2(
                     shape  = outerShape,
                 ),
         ) {
-            Row(
+            // ── Floating Active Lens (Premium Glass spec) ────────────
+            // The lens is a SINGLE glass puck that lives in the parent
+            // Box and slides between tab slots with spring physics —
+            // NOT a per-item background that fades. Per the spec:
+            //
+            //   'Active Lens Motion
+            //    Never fade. Never cross dissolve.
+            //    Instead: Spring Position moves.'
+            //
+            // Implemented via BoxWithConstraints so we know the exact
+            // bar width, then a Box(.offset(animated x)) overlay carries
+            // the puck. The Row of tab items renders icon+label only;
+            // the puck-shaped background lives one level up.
+            androidx.compose.foundation.layout.BoxWithConstraints(
                 Modifier
                     .fillMaxWidth()
                     .height(barHeight)
                     .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment     = Alignment.CenterVertically,
             ) {
-                tabs.forEachIndexed { _, tab ->
-                    val isActive = tab.route == current
-                    LiquidTabItem(
-                        tab      = tab,
-                        active   = isActive,
-                        iconSize = iconSize,
-                        labelAlpha = labelAlpha,
-                        modifier = Modifier.weight(1f),
-                        onClick  = {
-                            if (isActive) return@LiquidTabItem
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onSelect(tab.route)
-                        },
+                val activeIdx = tabs.indexOfFirst { it.route == current }
+                    .coerceAtLeast(0)
+                val barWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) {
+                    (this@BoxWithConstraints.maxWidth - 16.dp).toPx()   // minus 8.dp padding × 2
+                }
+                val itemWidthPx = barWidthPx / tabs.size
+                val puckSizePx = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
+                val targetXpx = (activeIdx * itemWidthPx) + (itemWidthPx / 2f) - (puckSizePx / 2f)
+                val animatedX by animateFloatAsState(
+                    targetValue = targetXpx,
+                    animationSpec = androidx.compose.animation.core.spring(
+                        stiffness = 400f,
+                        dampingRatio = 0.75f,
+                    ),
+                    label = "puckX",
+                )
+
+                // The floating puck — single instance, slides between slots.
+                val puckShape = RoundedCornerShape(32.dp)
+                val puckTint = if (C.isDark) Color.White.copy(alpha = 0.08f)
+                               else Color.White.copy(alpha = 0.15f)
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .offset { androidx.compose.ui.unit.IntOffset(animatedX.toInt(), 0) }
+                        .size(64.dp)
+                        .clip(puckShape)
+                        .hazeGlass(shape = puckShape, tintColor = puckTint, blurRadius = 30.dp)
+                        .background(puckTint)
+                        .border(
+                            width = 1.dp,
+                            color = if (C.isDark) Color.White.copy(alpha = 0.15f)
+                                    else Color.White.copy(alpha = 0.30f),
+                            shape = puckShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // Accent glow inside the puck — the lens 'lit from
+                    // within' look. Per spec: 'Inner Reflection'.
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .size(52.dp)
+                            .clip(puckShape)
+                            .background(C.accent.copy(alpha = 0.20f))
+                            .border(0.5.dp, C.accent.copy(alpha = 0.30f), puckShape),
                     )
+                }
+
+                // ── Tab items row — icon + label only, NO background ───
+                Row(
+                    Modifier
+                        .fillMaxSize(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    tabs.forEachIndexed { _, tab ->
+                        val isActive = tab.route == current
+                        LiquidTabItem(
+                            tab = tab,
+                            active = isActive,
+                            iconSize = iconSize,
+                            labelAlpha = labelAlpha,
+                            modifier = Modifier.weight(1f),
+                            onClick = {
+                                if (isActive) return@LiquidTabItem
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSelect(tab.route)
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -174,8 +241,12 @@ private fun LiquidTabItem(
         label = "tabScale2",
     )
 
-    // ── Active icon puck (spec: 64x64px, blur(30px)) ─────────────────────
-    val puckShape = RoundedCornerShape(32.dp)
+    // ── Per-item background removed ───────────────────────────────────
+    // The 'active puck' is now a single FLOATING lens in the parent
+    // BoxWithConstraints that slides between slots with spring physics
+    // (per Premium Glass spec: 'Never fade. Never cross dissolve.
+    // Instead: Spring Position moves.'). Each LiquidTabItem now renders
+    // ONLY icon + label.
 
     Box(
         modifier
@@ -187,37 +258,6 @@ private fun LiquidTabItem(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        // Active background pill — glass puck with green accent glow
-        if (active) {
-            val puckTint = if (C.isDark) Color.White.copy(alpha = 0.08f)
-                           else Color.White.copy(alpha = 0.15f)
-            Box(
-                Modifier
-                    .size(64.dp)
-                    .clip(puckShape)
-                    .hazeGlass(shape = puckShape, tintColor = puckTint, blurRadius = 30.dp)
-                    .background(puckTint)
-                    .border(
-                        width  = 1.dp,
-                        color  = if (C.isDark) Color.White.copy(alpha = 0.15f)
-                                 else Color.White.copy(alpha = 0.30f),
-                        shape  = puckShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Green accent glow inside puck
-                Box(
-                    Modifier
-                        .size(52.dp)
-                        .clip(puckShape)
-                        .background(
-                            C.accent.copy(alpha = 0.20f),
-                        )
-                        .border(0.5.dp, C.accent.copy(alpha = 0.30f), puckShape)
-                )
-            }
-        }
-
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.scale(scale),
