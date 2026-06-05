@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -90,32 +91,43 @@ fun GlassCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
     val C = LocalAppColors.current
     val shape = RoundedCornerShape(Radius.xl)
     Column(
-        modifier.fillMaxWidth().padding(vertical = 4.dp)
+        modifier.fillMaxWidth().padding(vertical = 5.dp)
+            .shadow(
+                elevation = 10.dp,
+                shape = shape,
+                ambientColor = Color.Black.copy(alpha = if (C.isDark) 0.34f else 0.12f),
+                spotColor = Color.Black.copy(alpha = if (C.isDark) 0.24f else 0.10f),
+            )
             .clip(shape)
-            // Base glass fill
-            .background(C.glassCardElevated)
-            // Top rim light for glass thickness
+            // Content-safe premium glass fill: translucent but never so dark
+            // that child text/icons disappear on real devices.
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        if (C.isDark) Color(0xFF1B2028).copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f),
+                        if (C.isDark) Color(0xFF0E1116).copy(alpha = 0.66f) else Color.White.copy(alpha = 0.66f),
+                    ),
+                ),
+            )
             .drawWithContent {
                 drawContent()
                 drawRect(brush = Brush.verticalGradient(
                     listOf(
-                        if (C.isDark) Color.White.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.18f),
+                        Color.White.copy(alpha = if (C.isDark) 0.12f else 0.26f),
                         Color.Transparent
                     ),
-                    startY = 0f, endY = size.height * 0.3f))
-                // Bottom inner glow
+                    startY = 0f, endY = size.height * 0.32f))
                 drawRect(brush = Brush.verticalGradient(
                     listOf(
                         Color.Transparent,
-                        if (C.isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.02f),
+                        if (C.isDark) Color.White.copy(alpha = 0.035f) else Color.Black.copy(alpha = 0.025f),
                     ),
-                    startY = size.height * 0.7f,
+                    startY = size.height * 0.72f,
                     endY = size.height,
                 ))
             }
-            // Hairline border
-            .border(0.8.dp, C.glassCardElevatedBorder, shape)
-            .padding(18.dp),
+            .border(0.75.dp, Color.White.copy(alpha = if (C.isDark) 0.13f else 0.36f), shape)
+            .padding(16.dp),
         content = content,
     )
 }
@@ -138,9 +150,9 @@ fun GlassPill(
             .clip(shape)
             .background(
                 when {
-                    active -> C.accent.copy(alpha = 0.55f)
-                    C.isDark -> C.glassFloating
-                    else -> C.glassFloating
+                    active -> C.accent.copy(alpha = 0.42f)
+                    C.isDark -> Color(0xFF1A1F27).copy(alpha = 0.70f)
+                    else -> Color.White.copy(alpha = 0.70f)
                 }
             )
             .drawWithContent {
@@ -156,7 +168,7 @@ fun GlassPill(
             }
             .border(
                 0.5.dp,
-                if (active) C.accent.copy(alpha = 0.35f) else C.glassFloatingBorder,
+                if (active) C.accent.copy(alpha = 0.35f) else Color.White.copy(alpha = if (C.isDark) 0.13f else 0.32f),
                 shape,
             )
             .pressableScale(onClick = onClick)
@@ -185,7 +197,7 @@ fun GlassSearchBar(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(C.glassFloating)
+            .background(if (C.isDark) Color(0xFF171C24).copy(alpha = 0.76f) else Color.White.copy(alpha = 0.76f))
             .drawWithContent {
                 drawContent()
                 drawRect(brush = Brush.verticalGradient(
@@ -196,7 +208,7 @@ fun GlassSearchBar(
                     startY = 0f, endY = size.height * 0.4f,
                 ))
             }
-            .border(0.7.dp, C.glassFloatingBorder, shape)
+            .border(0.7.dp, Color.White.copy(alpha = if (C.isDark) 0.14f else 0.32f), shape)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

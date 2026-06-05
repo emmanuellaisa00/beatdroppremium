@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
@@ -165,11 +166,14 @@ private fun HeaderIcon(
     Box(
         Modifier
             .size(40.dp)
+            .shadow(6.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.12f))
             .clip(CircleShape)
+            .background(if (C.isDark) Color.White.copy(alpha = 0.075f) else Color.Black.copy(alpha = 0.045f))
+            .border(0.6.dp, Color.White.copy(alpha = if (C.isDark) 0.12f else 0.26f), CircleShape)
             .pressableScale(onClick = onClick, scaleTo = 0.85f),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, desc, tint = C.textSecondary, modifier = Modifier.size(22.dp))
+        Icon(icon, desc, tint = C.textSecondary.copy(alpha = 0.92f), modifier = Modifier.size(21.dp))
     }
 }
 

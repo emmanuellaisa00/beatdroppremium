@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -83,11 +84,11 @@ fun BeatDropSearchField(
 
     // ── Border colour: accent on focus, glassCardElevatedBorder at rest. ─
     val borderColor by animateColorAsState(
-        targetValue = if (isFocused) C.accent else C.glassCardElevatedBorder,
+        targetValue = if (isFocused) C.accent else Color.White.copy(alpha = if (C.isDark) 0.14f else 0.32f),
         animationSpec = tween(220),
         label = "border",
     )
-    val borderWidth = if (isFocused) 1.5.dp else 1.dp
+    val borderWidth = if (isFocused) 1.2.dp else 0.7.dp
 
     // ── Leading icon colour follows focus, plus a calm pulse during submit.
     val pulseTransition = rememberInfiniteTransition(label = "submit-pulse")
@@ -119,7 +120,7 @@ fun BeatDropSearchField(
         Row(
             modifier = modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(48.dp)
                 .shadow(
                     elevation = glowElevation.dp,
                     shape = shape,
@@ -131,9 +132,16 @@ fun BeatDropSearchField(
                 // sat on a translucent surface which let the page backdrop
                 // bleed through and produced the "white on white" look on
                 // light mode and the smeary icon in dark mode.
-                .background(C.glassCardElevated)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            if (C.isDark) Color(0xFF1A202A).copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f),
+                            if (C.isDark) Color(0xFF111721).copy(alpha = 0.66f) else Color.White.copy(alpha = 0.68f),
+                        ),
+                    ),
+                )
                 .border(borderWidth, borderColor, shape)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // ── Leading search glyph ─────────────────────────────────────
@@ -141,7 +149,7 @@ fun BeatDropSearchField(
                 Ic.Search,
                 contentDescription = null,
                 tint = iconColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(19.dp),
             )
             Spacer(Modifier.width(12.dp))
 
