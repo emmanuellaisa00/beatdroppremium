@@ -266,18 +266,64 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Open a curated playlist: fetches its full track list and starts
      * playback at the first track. Used by the Made-for-You card tap.
+     *
+     * Failure modes — all surfaced to the user, never silent:
+     *   • Fetch returned no tracks (dead playlist ID, geo-block, etc.)
+     *     → falls back to a search by the playlist's display title so
+     *     the user still gets music in roughly the right genre, then
+     *     posts a soft message describing what happened.
+     *   • Fetch threw → onlineMessage is populated with the error
+     *     so the Now Playing snackbar surfaces it.
      */
     fun playFeaturedPlaylist(playlistId: String, startFromTrackId: String? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val info = runCatching {
                 com.beatdrop.kt.youtube.YouTubePlaylist.fetchPlaylist(playlistId, maxItems = 100)
-            }.getOrNull() ?: return@launch
-            if (info.videos.isEmpty()) return@launch
-            val startIdx = if (startFromTrackId != null) {
-                info.videos.indexOfFirst { it.videoId == startFromTrackId }.coerceAtLeast(0)
-            } else 0
-            withContext(Dispatchers.Main) {
-                prepareAndPlayOnline(info.videos[startIdx], info.videos, startIdx)
+            }.getOrNull()
+            // Strip livestreams and long-form videos (1-hr mixes etc.).
+            // If the user explicitly tapped a track by id, never drop it —
+            // play it regardless of duration.
+            val filtered = info?.videos?.filter {
+                it.videoId == startFromTrackId ||
+                    (!it.isLive && it.durationSecs in 60..600)
+            }.orEmpty()
+
+            // ── Primary path: playlist returned tracks ─────────────────────
+            if (filtered.isNotEmpty()) {
+                val startIdx = if (startFromTrackId != null) {
+                    filtered.indexOfFirst { it.videoId == startFromTrackId }.coerceAtLeast(0)
+                } else 0
+                withContext(Dispatchers.Main) {
+                    prepareAndPlayOnline(filtered[startIdx], filtered, startIdx)
+                }
+                return@launch
+            }
+
+            // ── Fallback: derive a title hint and search instead ───────────
+            // Look up the curated metadata so the fallback search is sensible
+            // (e.g. dead 'Afrobeats' playlist → search 'Afrobeats hits').
+            val curated = com.beatdrop.kt.youtube.MadeForYou.featured
+                .firstOrNull { it.playlistId == playlistId }
+            val fallbackQuery = curated?.let { "${it.title} hits" } ?: playlistId
+            DebugLog.w("playlist",
+                "playlistId=$playlistId returned empty — falling back to search '$fallbackQuery'")
+            val searchResults = runCatching {
+                com.beatdrop.kt.youtube.searchYoutubeMusic(fallbackQuery, maxResults = 50)
+            }.getOrDefault(emptyList())
+
+            if (searchResults.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    prepareAndPlayOnline(searchResults.first(), searchResults, 0)
+                    // Soft note so the user knows what happened (snackbar in
+                    // SearchScreen / NowPlaying picks this up).
+                    _onlineMessage.value =
+                        "Loaded ${curated?.title ?: "playlist"} from a fresh search."
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    _onlineMessage.value =
+                        "Couldn't load ${curated?.title ?: "playlist"}. Check your connection and try again."
+                }
             }
         }
     }
@@ -299,9 +345,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         _discoverLoading.value = true
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val trending = com.beatdrop.kt.youtube.searchYoutube("trending music hits", 15)
-                val pop = com.beatdrop.kt.youtube.searchYoutube("popular pop songs hits", 10)
-                val hiphop = com.beatdrop.kt.youtube.searchYoutube("latest rap hiphop hits", 10)
+                // Discover surfaces should contain real songs (60 s – 10 min)
+                // — not 1-hr DJ sets, lofi-radio livestreams, or 8-min remixes
+                // labelled 'extended cut'. The duration filter is applied
+                // after fetch since search() returns whatever ranking YT
+                // gives us. Fetch larger pools so we still end up with ~10–15
+                // entries per row after filtering.
+                val isSingleSong: (OnlineResult) -> Boolean = { r ->
+                    !r.isLive && r.durationSecs in 60..600
+                }
+                val trending = com.beatdrop.kt.youtube.searchYoutube("trending music hits", 30)
+                    .filter(isSingleSong).take(15)
+                val pop = com.beatdrop.kt.youtube.searchYoutube("popular pop songs hits", 25)
+                    .filter(isSingleSong).take(10)
+                val hiphop = com.beatdrop.kt.youtube.searchYoutube("latest rap hiphop hits", 25)
+                    .filter(isSingleSong).take(10)
                 _cachedTrending.value = trending
                 _cachedPopHits.value = pop
                 _cachedHiphop.value = hiphop
@@ -952,6 +1010,23 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 deck.playWhenReady = true
 
+                // ── Update Now Playing UI at fade START, not at handoff ──────
+                // Previously _current.value = next happened AFTER the 60-tick
+                // fade loop, so the user heard the new song for the full
+                // fadeMs (e.g. 13 s) while Now Playing still showed the old
+                // one. Move metadata + lyrics + cover refresh to the moment
+                // Deck B starts producing audio — the user's ears and eyes
+                // now align within ~17 ms of each other.
+                _current.value = next
+                _duration.value = next.durationMs
+                _position.value = deck.currentPosition.coerceAtLeast(0L)
+                prefetchedNextId = null
+                pushRecent(next.id)
+                loadLyrics(next)
+                prefs.incrementPlayCount(next.id)
+                scheduleAnalysis(next)
+                DebugLog.i("automix", "🎵 UI switched to ${next.title} at fade start")
+
                 // Equal-power crossfade — 60 ticks regardless of duration → ~17ms cadence.
                 // Each side scaled by its loudness gain (ReplayGain-style match).
                 val ticks = 60
@@ -959,15 +1034,19 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 for (i in 0..ticks) {
                     val t = i.toFloat() / ticks                       // 0..1
                     val theta = (t * Math.PI / 2.0).toFloat()         // 0..π/2
-                    
+
                     // If X finished and looped natively mid-fade, mute it to prevent the intro bleeding in.
                     if (mainPlayer.currentPosition < 1000L && t > 0.1f) {
                         mainPlayer.volume = 0f
                     } else {
                         mainPlayer.volume = (kotlin.math.cos(theta) * gainA).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
                     }
-                    
+
                     deck.volume       = (kotlin.math.sin(theta) * gainB).toFloat().let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
+                    // Keep the seek bar moving with Deck B's actual position
+                    // so the user sees the new song scrubbing forward during
+                    // the fade, not frozen at 0:00 until handoff.
+                    _position.value = deck.currentPosition.coerceAtLeast(0L)
                     delay(stepMs)
                 }
                 // Hand off Deck B → main player at exactly Deck B's current position.
@@ -976,30 +1055,21 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 deck.volume = 0f
                 mainPlayer.repeatMode = savedRepeatMode
                 val nextIdx = mainPlayer.currentMediaItemIndex + 1
-                
-                // We MUST NOT do two seeks back-to-back (like seekToDefaultPosition then seekTo) 
-                // because the first seek clears ExoPlayer's pre-warmed buffer and the second seek 
+
+                // We MUST NOT do two seeks back-to-back (like seekToDefaultPosition then seekTo)
+                // because the first seek clears ExoPlayer's pre-warmed buffer and the second seek
                 // forces a cold I/O fetch, which causes the 1-second gap!
                 // Instead, we just seek directly to the exact millisecond Deck B is at.
                 if (nextIdx >= mainPlayer.mediaItemCount || mainPlayer.getMediaItemAt(nextIdx).mediaId != next.id) {
                     mainPlayer.addMediaItem(nextIdx, next.toMediaItem())
                 }
-                
+
                 mainPlayer.seekTo(nextIdx, handoffPos)
                 mainPlayer.prepare()
                 mainPlayer.play()
                 // Keep the B deck gain for the new track
                 mainPlayer.volume = gainB.let { if (it.isNaN()) 1f else it.coerceIn(0f, 1f) }
-                // Update UI / lyrics / play count exactly like a normal track change.
-                _current.value = next
-                _duration.value = next.durationMs
-                prefetchedNextId = null   // re-arm prefetch for the new current
-                pushRecent(next.id)
-                loadLyrics(next)
-                prefs.incrementPlayCount(next.id)
-                // Opportunistically analyze the new track for next time.
-                scheduleAnalysis(next)
-                DebugLog.i("automix", "✅ ${cur.title} → ${next.title}  (handoff @${handoffPos}ms)")
+                DebugLog.i("automix", "✅ audio handoff ${cur.title} → ${next.title} @${handoffPos}ms")
             } catch (e: Exception) {
                 DebugLog.e("automix", "crossfade failed", e)
                 // Roll back to a clean state.
@@ -1046,9 +1116,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         crossfadeJob = viewModelScope.launch {
             try {
+                // ── Optimistic UI update at fade-out START ───────────────────
+                // Publish the synthesised metadata immediately so Now Playing
+                // shows the upcoming track's title/artist/cover the moment
+                // the fade-out begins. The user's ears and eyes stay in sync
+                // throughout the transition. The real Track instance lands
+                // after stream resolution and replaces synth without flicker
+                // (same id namespace 'yt_<videoId>').
+                _current.value = synth
+                _duration.value = synth.durationMs
+                _position.value = 0L
+                _activeLyric.value = -1
+                _lyrics.value = emptyList()
+                _fetchingVideoId.value = nextResult.videoId
+                DebugLog.i("automix", "🎵 online UI switched to ${nextResult.title} at fade-out start")
+
                 val track = runCatching { youtubeResultToTrack(nextResult) }.getOrElse { err ->
                     DebugLog.e("automix", "online resolve failed: ${err.message}")
                     isCrossfading = false; _mixingNext.value = null
+                    _fetchingVideoId.value = null
                     return@launch
                 }
                 _ytTrackCache[track.id] = track
@@ -1064,6 +1150,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 mainPlayer.setMediaItem(track.toMediaItem())
                 mainPlayer.prepare(); mainPlayer.play(); mainPlayer.volume = 1f
                 _current.value = track; _duration.value = track.durationMs
+                _fetchingVideoId.value = null
                 prefetchedNextId = null
                 pushRecent("yt_${track.sourceVideoId}")
                 pushRecentOnline(track.sourceVideoId ?: "", track.title, track.artist)
@@ -1072,7 +1159,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 _onlineMessage.value = null
                 val newIdx = onlineContext.indexOfFirst { it.videoId == nextResult.videoId }
                 if (newIdx >= 0) onlineContextIndex = newIdx
-                DebugLog.i("automix", "online ✅ → ${nextResult.title}")
+                DebugLog.i("automix", "online ✅ handoff → ${nextResult.title}")
             } catch (e: Exception) {
                 DebugLog.e("automix", "online crossfade failed", e)
                 runCatching { mainPlayer.volume = 1f }

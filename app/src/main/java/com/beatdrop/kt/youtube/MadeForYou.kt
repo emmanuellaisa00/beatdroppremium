@@ -128,9 +128,17 @@ object MadeForYou {
             featured.map { pl ->
                 async {
                     val info = runCatching {
-                        YouTubePlaylist.fetchPlaylist(pl.playlistId, maxItems = previewTracks * 4)
+                        // Fetch a bigger pool than we need so we can filter
+                        // out long-form / livestream entries and still end
+                        // up with the requested previewTracks count.
+                        YouTubePlaylist.fetchPlaylist(pl.playlistId, maxItems = previewTracks * 8)
                     }.getOrNull()
-                    val videos = info?.videos.orEmpty().take(previewTracks)
+                    // Same single-song rule as Discover: 60 s – 10 min, no
+                    // livestreams. Keeps Made-For-You tiles populated with
+                    // real songs rather than 1-hr 'extended versions'.
+                    val videos = info?.videos.orEmpty()
+                        .filter { !it.isLive && it.durationSecs in 60..600 }
+                        .take(previewTracks)
                     if (videos.isEmpty()) null
                     else PlaylistPreview(
                         meta = pl,
