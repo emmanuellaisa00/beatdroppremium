@@ -164,7 +164,7 @@ class DownloadService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notif = buildNotification(this, "Downloading music…", 0, ongoing = true)
+        val notif = buildProgressNotification(this, "Downloading music…", 0, ongoing = true)
         // Android 14 (API 34) throws MissingForegroundServiceTypeException if the manifest
         // declares android:foregroundServiceType but startForeground() is called without the
         // type parameter.  Pass the type on API 29+ (when the 3-param overload was added).
