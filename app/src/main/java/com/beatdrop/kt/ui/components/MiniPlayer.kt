@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -77,11 +78,25 @@ fun MiniPlayer(
                 shape = outerShape
                 clip = false
             }
-            .premiumGlass(
-                level = GlassLevel.Z3_MiniPlayer,
+            // Background-only glass. Do NOT use haze/premiumGlass on the
+            // content container here: on some devices Haze draws above child
+            // composables, turning the MiniPlayer into an empty black pill.
+            .shadow(
+                elevation = 24.dp,
                 shape = outerShape,
-                tintBoost = if (C.isDark) 0.04f else 0f,
+                ambientColor = Color.Black.copy(alpha = 0.55f),
+                spotColor = Color.Black.copy(alpha = 0.45f),
             )
+            .clip(outerShape)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF232832).copy(alpha = if (C.isDark) 0.78f else 0.82f),
+                        Color(0xFF11141A).copy(alpha = if (C.isDark) 0.70f else 0.78f),
+                    ),
+                ),
+            )
+            .border(0.8.dp, Color.White.copy(alpha = if (C.isDark) 0.18f else 0.28f), outerShape)
             // Blue refraction on the left edge, matching the uploaded concept's
             // cool smoked-glass MiniPlayer.
             .drawWithContent {

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -81,15 +82,36 @@ fun GlassTabBar2(
         Box(
             Modifier
                 .fillMaxWidth()
-                // ── Unified Premium Glass material (spec: 'one material
-                //   everywhere'). Z4_TabBar gives blur 45 + 3-shadow stack
-                //   + 4-layer reflections + 0.5dp border in one call.
-                //   Bespoke hazeGlass/drawWithContent/rimLight/border stack
-                //   removed — was diverging from the spec's unified surface.
-                .premiumGlass(level = GlassLevel.Z4_TabBar, shape = outerShape)
-                // ── Specular highlight (device tilt) — ADDITIVE, kept ───────
-                //   because it's a runtime sensor effect orthogonal to the
-                //   static material stack. Subtle.
+                .height(barHeight)
+                // Background-only dock glass. Keeping the blur material off the
+                // parent content layer prevents icons from being swallowed by
+                // the glass shader on real devices.
+                .shadow(
+                    elevation = 26.dp,
+                    shape = outerShape,
+                    ambientColor = Color.Black.copy(alpha = 0.58f),
+                    spotColor = Color.Black.copy(alpha = 0.42f),
+                )
+                .clip(outerShape)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF25272B).copy(alpha = if (C.isDark) 0.74f else 0.84f),
+                            Color(0xFF111214).copy(alpha = if (C.isDark) 0.68f else 0.76f),
+                        ),
+                    ),
+                )
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
+                            startY = 0f,
+                            endY = size.height * 0.38f,
+                        ),
+                    )
+                }
+                .border(0.8.dp, Color.White.copy(alpha = if (C.isDark) 0.16f else 0.26f), outerShape)
                 .specularHighlight(tilt, intensity = if (C.isDark) 0.08f else 0.06f, radius = 320f),
         ) {
             // ── Floating Active Lens (Premium Glass spec) ────────────

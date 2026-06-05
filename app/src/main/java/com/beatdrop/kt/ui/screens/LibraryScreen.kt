@@ -367,12 +367,6 @@ private fun SongRow(song: Track, isCurrent: Boolean, onClick: () -> Unit, onLong
                 contentScale       = ContentScale.Crop,
                 modifier           = Modifier.fillMaxSize(),
             )
-            // Music note placeholder
-            Icon(
-                Ic.MusicNote, null,
-                tint = C.textTertiary.copy(alpha = 0.5f),
-                modifier = Modifier.size(22.dp),
-            )
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
