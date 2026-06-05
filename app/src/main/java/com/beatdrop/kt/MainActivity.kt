@@ -276,7 +276,7 @@ fun Root(vm: PlayerViewModel = viewModel()) {
  */
 @Composable
 private fun rememberTabs(): List<TabSpec2> = listOf(
-    TabSpec2("discover", stringResource(R.string.tab_discover), Ic.Discover, Ic.Discover),
+    TabSpec2("discover", stringResource(R.string.tab_discover), Ic.Home, Ic.Home),
     TabSpec2("search",   stringResource(R.string.tab_search),   Ic.Search,   Ic.Search),
     TabSpec2("library",  stringResource(R.string.tab_library),  Ic.Library,  Ic.Library),
     TabSpec2("radio",    stringResource(R.string.tab_radio),    Ic.Radio,    Ic.Radio),

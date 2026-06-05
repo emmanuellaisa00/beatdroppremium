@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause      as MFPause
 import androidx.compose.material.icons.filled.PlayArrow  as MFPlayArrow
+import androidx.compose.material.icons.filled.Home      as MFHome
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -76,6 +77,7 @@ object Ic {
     val TransportPause    : ImageVector get() = Icons.Filled.MFPause
 
     // ── Library / Content ────────────────────────────────────────────────────
+    val Home              : ImageVector get() = Icons.Filled.MFHome
     val Search            : ImageVector get() = Lucide.Search
     val Library           : ImageVector get() = Lucide.Library
     val Album             : ImageVector get() = Lucide.Disc
