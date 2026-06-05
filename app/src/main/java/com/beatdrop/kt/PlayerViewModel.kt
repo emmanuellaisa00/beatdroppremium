@@ -790,16 +790,86 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
             val nextIdx = onlineContextIndex + 1
             if (nextIdx in onlineContext.indices) {
                 val nextResult = onlineContext[nextIdx]
-                // Pre-resolve + queue the next track so lock screen shows "Next: <title>"
+
+                // ── Fast path: warm stream URL already in cache ─────────
+                // If the upcoming-tracks prefetch (kicked off when the
+                // current track started AND when the context was first set)
+                // has already resolved this videoId's stream URL, skip the
+                // full prepareAndPlayOnline path which costs:
+                //   • controller.stop()           ~50 ms IPC
+                //   • controller.clearMediaItems() ~50 ms IPC
+                //   • re-publishing temp track to _current
+                // and instead just set the resolved media item and prepare
+                // directly. UI updates still happen optimistically below.
+                val cachedStream = com.beatdrop.kt.youtube.getCachedStream(nextResult.videoId)
+                val c = controller
+                if (cachedStream != null && c != null) {
+                    // Update onlineContext index + optimistic Now Playing
+                    // immediately, then run the real swap on the controller.
+                    onlineContextIndex = nextIdx
+                    val tempTrack = Track(
+                        id = "yt_${nextResult.videoId}",
+                        uri = Uri.EMPTY,
+                        title = nextResult.title,
+                        artist = nextResult.author,
+                        album = nextResult.author,
+                        albumId = 0L,
+                        durationMs = nextResult.durationSecs * 1000L,
+                        data = null,
+                        dateAdded = System.currentTimeMillis(),
+                        artworkOverride = nextResult.thumbnailUrl,
+                    )
+                    _current.value = tempTrack
+                    _duration.value = nextResult.durationSecs * 1000L
+                    _position.value = 0L
+                    _bufferedPosition.value = 0L
+                    _activeLyric.value = -1
+                    _lyrics.value = emptyList()
+                    _fetchingVideoId.value = nextResult.videoId
+
+                    viewModelScope.launch {
+                        // youtubeResultToTrack reads from urlCache first, so
+                        // this is essentially synchronous (~1-5 ms).
+                        val nextTrack = runCatching { youtubeResultToTrack(nextResult) }.getOrNull()
+                        if (nextTrack != null) {
+                            _ytTrackCache[nextTrack.id] = nextTrack
+                            c.setMediaItem(nextTrack.toMediaItem())
+                            c.prepare()
+                            c.play()
+                            _current.value = nextTrack
+                            _duration.value = nextTrack.durationMs
+                            _fetchingVideoId.value = null
+                            pushRecent("yt_${nextTrack.sourceVideoId}")
+                            pushRecentOnline(nextTrack.sourceVideoId ?: "", nextTrack.title, nextTrack.artist)
+                            loadLyrics(nextTrack)
+                            // Prefetch the NEW upcoming entries for the
+                            // *new* current position so Next still feels
+                            // instant on the next tap.
+                            prefetchUpcomingFromContext()
+                            triggerNextOnlinePrefetch()
+                            DebugLog.i("next", "✅ fast-path next → ${nextTrack.title} (URL was cached)")
+                        } else {
+                            // Cache hit on getCachedStream but resolve still
+                            // failed — fall back to the slow path.
+                            DebugLog.w("next", "fast-path next failed, falling back to prepareAndPlayOnline")
+                            prepareAndPlayOnline(nextResult, onlineContext, nextIdx)
+                        }
+                    }
+                    return
+                }
+
+                // ── Slow path: URL not cached yet — full resolve ────────
+                // Pre-queue media item in ExoPlayer too so lock-screen
+                // controls show 'Next: <title>'.
                 viewModelScope.launch {
                     val nextTrack = runCatching { youtubeResultToTrack(nextResult) }.getOrNull()
                     if (nextTrack != null) {
                         _ytTrackCache[nextTrack.id] = nextTrack
-                        val c = controller
-                        if (c != null && c.mediaItemCount > 0) {
-                            val at = c.currentMediaItemIndex + 1
-                            if (at <= c.mediaItemCount && c.getMediaItemAt(at.coerceAtMost(c.mediaItemCount - 1)).mediaId != nextTrack.id) {
-                                c.addMediaItem(at, nextTrack.toMediaItem())
+                        val ctrl = controller
+                        if (ctrl != null && ctrl.mediaItemCount > 0) {
+                            val at = ctrl.currentMediaItemIndex + 1
+                            if (at <= ctrl.mediaItemCount && ctrl.getMediaItemAt(at.coerceAtMost(ctrl.mediaItemCount - 1)).mediaId != nextTrack.id) {
+                                ctrl.addMediaItem(at, nextTrack.toMediaItem())
                             }
                         }
                     }
@@ -1632,6 +1702,11 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         onlineContextIndex = contextIndex
         DebugLog.i("play", "tap → \"${result.title}\" [${result.videoId}] (ctx=${context.size}, idx=$contextIndex)")
 
+        // Kick off upcoming-tracks prefetch the moment the context is set,
+        // even before the current track's URL has resolved. By the time
+        // the user hits Next, the next 3 entries already have warm URLs.
+        prefetchUpcomingFromContext()
+
         // ── Instant track switch ────────────────────────────────────────
         // Cut the previous track's audio and zero the seek bar BEFORE any
         // other UI state changes — otherwise the user briefly sees the
@@ -1737,13 +1812,33 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 pool = onlineContext,
                 recentlyPlayedIds = onlineRecentlyPlayedIds.toSet(),
             )
-            // Always also prefetch the literal next entry — guarantees the
-            // STATE_ENDED auto-advance is warm even if the smart pick is
-            // somewhere else in the pool.
-            val literalNext = onlineContext.getOrNull(onlineContextIndex + 1)
-            listOfNotNull(nextPick, literalNext)
+            // Prefetch the next 3 LITERAL entries in onlineContext (covers
+            // 'user hits Next twice quickly' — second Next gets a warm URL
+            // too) AND the smart-shuffle pick (covers Auto-Mix). All four
+            // are deduped + cap-limited via prefetchedVisibleIds so we
+            // never issue duplicate getStream calls within the cache TTL.
+            val literalNext3 = (1..3).mapNotNull { onlineContext.getOrNull(onlineContextIndex + it) }
+            (listOfNotNull(nextPick) + literalNext3)
                 .distinctBy { it.videoId }
-                .take(2)
+                .take(4)
+                .forEach { prefetchOnlineUrl(it.videoId) }
+        }
+    }
+
+    /**
+     * Kick off prefetching the moment a new onlineContext is set, even
+     * BEFORE playback of the first track has started. By the time the
+     * user taps Next for the first time, the second/third tracks already
+     * have their URLs warm in the playback cache, so Next is near-instant
+     * instead of the 200-800 ms cold-resolve it used to take.
+     */
+    private fun prefetchUpcomingFromContext() {
+        if (onlineContext.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val upcoming = (1..3).mapNotNull {
+                onlineContext.getOrNull(onlineContextIndex + it)
+            }
+            upcoming.distinctBy { it.videoId }
                 .forEach { prefetchOnlineUrl(it.videoId) }
         }
     }

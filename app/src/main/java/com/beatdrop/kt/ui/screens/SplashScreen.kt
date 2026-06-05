@@ -47,7 +47,12 @@ fun SplashScreen(onDone: () -> Unit) {
 
     LaunchedEffect(Unit) {
         visible = true
-        delay(1400)
+        // 700 ms (was 1400 ms). The Android-12+ system splash already
+        // showed the logo for ~600 ms before this composable rendered,
+        // so a long in-app splash on top of it felt sluggish. 700 ms is
+        // enough for the scale-in spring + the wordmark + 'From Laisacorp'
+        // to land cleanly, then we hand off to the app.
+        delay(700)
         onDone()
     }
 
@@ -55,11 +60,11 @@ fun SplashScreen(onDone: () -> Unit) {
         Modifier
             .fillMaxSize()
             .pressableScale(onClick = { onDone() })
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF1A1020), Color(0xFF151025), Color(0xFF12121A))
-                )
-            ),
+            // Flat #151025 — exact match to themes.xml
+            // windowSplashScreenBackground. The Android-12+ system splash
+            // dissolves into this Compose splash with zero visible colour
+            // change: same logo, same background, no double-splash effect.
+            .background(Color(0xFF151025)),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
