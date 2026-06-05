@@ -55,6 +55,7 @@ import com.beatdrop.kt.youtube.OnlineResult
 // Glass search bar with blur 28px
 // ═══════════════════════════════════════════════════════════════════════════════
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun SearchScreen(
     vm: PlayerViewModel,
@@ -290,22 +291,37 @@ fun SearchScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 results.isNotEmpty() || albums.isNotEmpty() || playlists.isNotEmpty() -> {
-                    // ── Filter chips: All · Songs · Albums · Playlists ──────
                     val showSongs     = filter == SearchFilter.ALL || filter == SearchFilter.SONGS
                     val showAlbums    = filter == SearchFilter.ALL || filter == SearchFilter.ALBUMS
                     val showPlaylists = filter == SearchFilter.ALL || filter == SearchFilter.PLAYLISTS
-                    SearchFilterChips(
-                        selected = filter,
-                        songCount = results.size,
-                        albumCount = albums.size,
-                        playlistCount = playlists.size,
-                        onSelect = { filter = it },
-                    )
-                    Spacer(Modifier.height(8.dp))
                     LazyColumn(
                         state          = listState,
                         contentPadding = PaddingValues(bottom = 160.dp),
                     ) {
+                        // ── Sticky filter chips ─────────────────────────────
+                        // Pinned to the top of the results LazyColumn so as
+                        // the user scrolls through long song lists the
+                        // 'All / Songs / Albums / Playlists' tabs stay
+                        // reachable without having to scroll back up. Wrapped
+                        // in a Box with the screen's background so the
+                        // content scrolling underneath doesn't bleed through
+                        // (stickyHeader by default has no background).
+                        stickyHeader {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .background(C.bg0)
+                                    .padding(top = 4.dp, bottom = 4.dp),
+                            ) {
+                                SearchFilterChips(
+                                    selected = filter,
+                                    songCount = results.size,
+                                    albumCount = albums.size,
+                                    playlistCount = playlists.size,
+                                    onSelect = { filter = it },
+                                )
+                            }
+                        }
                         // ── Top Result hero card (Spotify / Apple Music) ────
                         // Only when no specific section is filtered. Picks the
                         // single best match across all three result types:
