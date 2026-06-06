@@ -458,27 +458,40 @@ fun NowPlayingScreen(
 
             // ── Transport controls — glass capsule with Spotify Green accent ─
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(42.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (C.isDark) 0.12f else 0.22f),
+                                Color.White.copy(alpha = if (C.isDark) 0.06f else 0.14f),
+                            ),
+                        ),
+                    )
+                    .border(0.7.dp, Color.White.copy(alpha = if (C.isDark) 0.16f else 0.30f), RoundedCornerShape(42.dp))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment     = Alignment.CenterVertically,
             ) {
                 // Previous
                 IconButton(
                     onClick = { vm.prev() },
-                    modifier = Modifier.size(64.dp).pointerInput(Unit) {
+                    modifier = Modifier.size(54.dp).pointerInput(Unit) {
                         detectTapGestures(
                             onLongPress = { vm.seekTo((vm.position.value - 5000).coerceAtLeast(0)) },
                             onTap = { vm.prev() },
                         )
                     },
                 ) {
-                    Icon(Ic.SkipPrev, "Previous", tint = Color.White, modifier = Modifier.size(46.dp))
+                    Icon(Ic.SkipPrev, "Previous", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
 
                 // Play / pause — glass circle with green accent
                 Box(
                     Modifier
-                        .size(76.dp)
+                        .size(68.dp)
                         .clip(CircleShape)
                         .background(C.accent.copy(alpha = 0.25f))       // Green tint glass
                         .background(
@@ -497,21 +510,21 @@ fun NowPlayingScreen(
                         if (isPlaying) Ic.TransportPause else Ic.TransportPlay,
                         "Play/Pause",
                         tint     = C.accent,         // Spotify Green icon
-                        modifier = Modifier.size(42.dp),
+                        modifier = Modifier.size(36.dp),
                     )
                 }
 
                 // Next
                 IconButton(
                     onClick = { vm.next() },
-                    modifier = Modifier.size(64.dp).pointerInput(Unit) {
+                    modifier = Modifier.size(54.dp).pointerInput(Unit) {
                         detectTapGestures(
                             onLongPress = { vm.seekTo((vm.position.value + 5000).coerceAtMost(vm.duration.value)) },
                             onTap = { vm.next() },
                         )
                     },
                 ) {
-                    Icon(Ic.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(46.dp))
+                    Icon(Ic.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(34.dp))
                 }
                 // Note: During online fetch, next press is handled safely in ViewModel (onlineTransitionInProgress guard)
             }
@@ -548,8 +561,15 @@ fun NowPlayingScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.14f))
-                    .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(50))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (C.isDark) 0.13f else 0.24f),
+                                Color.White.copy(alpha = if (C.isDark) 0.06f else 0.14f),
+                            ),
+                        ),
+                    )
+                    .border(0.8.dp, Color.White.copy(alpha = if (C.isDark) 0.18f else 0.32f), RoundedCornerShape(50))
                     .drawWithContent {
                         drawContent()
                         // Top rim light on dock pill
