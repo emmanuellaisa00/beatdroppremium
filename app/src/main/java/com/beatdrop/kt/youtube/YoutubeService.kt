@@ -557,10 +557,22 @@ suspend fun getStreamUrl(videoId: String): String = getStream(videoId).url
  * looping.
  */
 private val skipInnertubeOnce = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+private val forceMuxedOnce = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
 /** Mark [videoId] for WebView-first re-resolution on the next call. */
 fun markForWebViewRetry(videoId: String) {
     skipInnertubeOnce.add(videoId)
+    invalidateStreamCache(videoId)
+}
+
+/**
+ * Mark [videoId] for one muxed/progressive fallback attempt. Used when an
+ * audio-only googlevideo URL resolves but ExoPlayer rejects it with
+ * ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE (2004). This keeps normal playback
+ * audio-only/data-saving, but still rescues stubborn tracks automatically.
+ */
+fun markForMuxedRetry(videoId: String) {
+    forceMuxedOnce.add(videoId)
     invalidateStreamCache(videoId)
 }
 
@@ -578,8 +590,11 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
     // go WebView-first. Consumed (cleared) on entry — a second failure on
     // the same track will surface as a real error instead of looping.
     val webViewFirst = skipInnertubeOnce.remove(videoId)
+    val forceMuxed = forceMuxedOnce.remove(videoId)
     if (webViewFirst) {
         com.beatdrop.kt.DebugLog.i("resolve", "getStream($videoId) start — WebView-first (post-recovery)")
+    } else if (forceMuxed) {
+        com.beatdrop.kt.DebugLog.i("resolve", "getStream($videoId) start — muxed fallback rescue")
     } else {
         com.beatdrop.kt.DebugLog.i("resolve", "getStream($videoId) start")
     }
@@ -680,13 +695,14 @@ suspend fun getStream(videoId: String): ResolvedStream = withContext(Dispatchers
             // 2) Fall back to MUXED/progressive (video+audio in one file, e.g. itag 18).
             //    Muxed formats are far more lenient (rarely PO-token-gated), so this is
             //    the SnapTube trick: grab the full stream and just play the audio out of it.
-            var pickedKind = "audio"
-            var url = resolveBestAudio(streamingData.optJSONArray("adaptiveFormats"))
-                ?: resolveBestAudio(streamingData.optJSONArray("formats"))
-            if (url.isNullOrBlank() && QualityPreference.allowVideoFallback) {
+            var pickedKind = if (forceMuxed) "muxed-recovery" else "audio"
+            var url = if (forceMuxed) null else
+                resolveBestAudio(streamingData.optJSONArray("adaptiveFormats"))
+                    ?: resolveBestAudio(streamingData.optJSONArray("formats"))
+            if (url.isNullOrBlank() && (QualityPreference.allowVideoFallback || forceMuxed)) {
                 url = resolveBestMuxed(streamingData.optJSONArray("formats"))
                     ?: resolveBestMuxed(streamingData.optJSONArray("adaptiveFormats"))
-                if (!url.isNullOrBlank()) pickedKind = "muxed"
+                if (!url.isNullOrBlank() && !forceMuxed) pickedKind = "muxed"
             } else if (url.isNullOrBlank()) {
                 com.beatdrop.kt.DebugLog.w("resolve", "${client.name}: audio-only failed; muxed fallback disabled")
             }

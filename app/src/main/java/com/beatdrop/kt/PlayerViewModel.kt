@@ -732,8 +732,13 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                         // Strategy 2 (Innertube) and go straight to Strategy 3
                         // (WebView extractor) which uses real Chrome cookies +
                         // visitorData and is not subject to PO-token enforcement.
-                        DebugLog.i("player", "recovery → WebView re-resolve for ${cur.sourceVideoId}")
-                        markForWebViewRetry(cur.sourceVideoId!!)
+                        if (error.errorCode == PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE) {
+                            DebugLog.i("player", "recovery → muxed fallback for ${cur.sourceVideoId}")
+                            com.beatdrop.kt.youtube.markForMuxedRetry(cur.sourceVideoId!!)
+                        } else {
+                            DebugLog.i("player", "recovery → WebView re-resolve for ${cur.sourceVideoId}")
+                            markForWebViewRetry(cur.sourceVideoId!!)
+                        }
                         val fresh = runCatching {
                             youtubeResultToTrack(
                                 OnlineResult(
