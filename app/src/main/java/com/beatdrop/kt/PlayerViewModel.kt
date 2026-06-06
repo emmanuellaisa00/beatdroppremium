@@ -758,7 +758,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                             _current.value = fresh
                         } else {
                             onlineTransitionInProgress = false
-                            _onlineMessage.value = "Couldn't play this track — may be region-blocked or require sign-in. Try another."
+                            _onlineMessage.value = "Still blocked after recovery. Try enabling Video fallback in Settings → Streaming, or choose another version."
                         }
                     }
                     return
@@ -767,16 +767,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 val msg = when (error.errorCode) {
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-                        "Network error. Check your connection."
-                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                        "Connection lost while opening the stream. Check your network and tap Retry."
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
+                        "The stream link was rejected by the server. BeatDrop will re-resolve it if you retry."
                     PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE ->
-                        "Stream unavailable (HTTP error). Try another song."
+                        "YouTube returned a non-audio response for this stream. Try again or enable Video fallback."
                     PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
-                        "Track not found. It may have been removed."
+                        "This file is missing from storage. It may have been moved or deleted."
                     PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
                     PlaybackException.ERROR_CODE_DECODING_FAILED ->
-                        "Cannot play this audio format."
-                    else -> "Playback error: ${error.message}"
+                        "This audio format is not supported on your device. Try a different quality or version."
+                    else -> "Playback stopped: ${error.message ?: "unknown player error"}."
                 }
                 _onlineMessage.value = msg
             }
@@ -1840,6 +1841,28 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         prepareAndPlayOnline(tracks[idx], tracks, idx)
     }
 
+    private fun streamFailureMessage(err: Throwable, title: String? = null): String {
+        val raw = listOfNotNull(err.message, err.cause?.message).joinToString(" ")
+        val lower = raw.lowercase()
+        val prefix = title?.takeIf { it.isNotBlank() }?.let { "“$it” — " }.orEmpty()
+        return when {
+            "login_required" in lower || "sign in" in lower || "bot" in lower ->
+                prefix + "YouTube is asking for sign-in/bot verification. Try another upload, use your resolver backend, or enable Video fallback."
+            "unplayable" in lower || "not available" in lower || "region" in lower ->
+                prefix + "This video is unavailable in your region or has playback restrictions."
+            "too many follow-up" in lower ->
+                prefix + "The extractor hit a redirect loop. BeatDrop will try another strategy; if it repeats, try another version."
+            "timeout" in lower || "timed out" in lower ->
+                prefix + "The resolver timed out. Check your connection and tap Retry."
+            "no playable" in lower || "could not load" in lower || "all strategies failed" in lower ->
+                prefix + "No playable audio stream was found. Try enabling Video fallback or a resolver backend."
+            "403" in lower || "forbidden" in lower ->
+                prefix + "The stream was blocked by the server. Retry to re-resolve with fresh headers."
+            raw.isNotBlank() -> prefix + "Couldn’t stream this track: ${raw.take(120)}"
+            else -> prefix + "Couldn’t stream this track. Try Retry or another version."
+        }
+    }
+
     /** Retry the last failed online playback */
     fun retryOnlinePlay() {
         val result = _lastFailedOnline.value ?: return
@@ -1940,16 +1963,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
         viewModelScope.launch {
             val track = runCatching { youtubeResultToTrack(result) }.getOrElse { err ->
-                val msg = when {
-                    err.message?.contains("403") == true ->
-                        "Playback blocked (403). YouTube may be restricting this content. Try another song."
-                    err.message?.contains("timeout", true) == true ->
-                        "Connection timed out. Check your internet and try again."
-                    err.message?.contains("Could not load") == true ->
-                        "No playable stream found. Try a different song."
-                    else ->
-                        "Couldn't stream this song: ${err.message}"
-                }
+                val msg = streamFailureMessage(err, result.title)
                 DebugLog.e("play", "resolve failed", err)
                 _onlineMessage.value = msg
                 _lastFailedOnline.value = result
@@ -2067,7 +2081,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 onlineTransitionInProgress = true
                 
                 val track = runCatching { youtubeResultToTrack(cleanMatch) }.getOrElse {
-                    _onlineMessage.value = "Couldn't stream this song: ${it.message}"
+                    _onlineMessage.value = streamFailureMessage(it, title)
                     _fetchingVideoId.value = null
                     onlineTransitionInProgress = false
                     return@launch
@@ -2086,7 +2100,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
                 loadLyrics(track)
                 _fetchingVideoId.value = null
             } else {
-                _onlineMessage.value = "Could not find a stream for: $title"
+                _onlineMessage.value = "No matching stream found for “$title”. Try editing the title/artist or searching manually."
             }
         }
     }

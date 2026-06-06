@@ -70,6 +70,9 @@ fun NowPlayingScreen(
     val liked         by vm.liked.collectAsState()
     val volume        by vm.volume.collectAsState()
     val mixingNext    by vm.mixingNext.collectAsState()
+    val onlineMessage by vm.onlineMessage.collectAsState()
+    val lastFailed    by vm.lastFailedOnline.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showLyrics    by remember { mutableStateOf(false) }
     var fullLyrics    by remember { mutableStateOf(false) }
     var showActions   by remember { mutableStateOf(false) }
@@ -87,6 +90,18 @@ fun NowPlayingScreen(
     // Hardware/system back should close the player sheet. Transport previous is
     // still handled by the on-screen skip-back button only.
     BackHandler { onCollapse() }
+
+
+    LaunchedEffect(onlineMessage) {
+        onlineMessage?.let { msg ->
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = if (lastFailed != null) "Retry" else null,
+            )
+            if (result == SnackbarResult.ActionPerformed) vm.retryOnlinePlay()
+            vm.clearOnlineMessage()
+        }
+    }
 
     if (showActions) {
         com.beatdrop.kt.ui.components.TrackActionsSheet(vm, t, onDismiss = { showActions = false })
@@ -724,22 +739,50 @@ fun NowPlayingScreen(
                         // (proper Apple Music behaviour in full mode).
                     )
                 }
-                // Close button — small floating glass puck top-right
-                IconButton(
-                    onClick = { fullLyrics = false },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
+                // Apple Music-style song header pinned above full lyrics.
+                Row(
+                    Modifier
+                        .align(Alignment.TopCenter)
                         .statusBarsPadding()
-                        .padding(12.dp)
-                        .size(40.dp),
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(Color.Black.copy(alpha = 0.32f))
+                        .border(0.7.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(28.dp))
+                        .padding(start = 10.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        Ic.Close, "Close lyrics",
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(22.dp),
-                    )
+                    Box(
+                        Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.10f)),
+                    ) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).size(96).build(),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(t.title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(t.artist, color = Color.White.copy(alpha = 0.62f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = { fullLyrics = false }, modifier = Modifier.size(40.dp)) {
+                        Icon(Ic.Close, "Close lyrics", tint = Color.White.copy(alpha = 0.86f), modifier = Modifier.size(22.dp))
+                    }
                 }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        )
     }
 }
