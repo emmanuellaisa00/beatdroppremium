@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +59,7 @@ import com.beatdrop.kt.youtube.OnlineResult
 fun DiscoverScreen(
     vm: PlayerViewModel,
     onOpenSearch: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     onExpandPlayer: () -> Unit = {},
     // Tap on a Made-For-You tile = open its detail screen (album-style).
     // Was previously vm.playFeaturedPlaylist which auto-played the first
@@ -73,6 +75,7 @@ fun DiscoverScreen(
     val cachedHiphop    by vm.cachedHiphop.collectAsState()
     val discoverLoading by vm.discoverLoading.collectAsState()
     val madeForYou      by vm.madeForYou.collectAsState()
+    val dataSaver       by vm.dataSaver.collectAsState()
 
     // Skeletons appear ONLY on the very first launch (no on-device cache).
     // Subsequent app opens hydrate cachedTrending from DataStore in
@@ -138,6 +141,32 @@ fun DiscoverScreen(
                 // every theme (the legacy glassRow + tint = 0xDDFFFFFF in
                 // light mode put a white icon on a near-white surface).
                 BeatDropSearchButton(onClick = onOpenSearch, contentDescription = "Search online")
+            }
+        }
+
+        // ── Home quick actions: downloads + data-saver are first-class in a
+        // sideload music app, not buried in Settings.
+        item {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.lg, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                HomeActionPill(
+                    label = "Downloads",
+                    icon = Ic.Download,
+                    modifier = Modifier.weight(1f),
+                    active = false,
+                    onClick = onOpenDownloads,
+                )
+                HomeActionPill(
+                    label = if (dataSaver) "Data Saver On" else "Data Saver",
+                    icon = Ic.Network,
+                    modifier = Modifier.weight(1f),
+                    active = dataSaver,
+                    onClick = { vm.setDataSaver(!dataSaver) },
+                )
             }
         }
 
@@ -236,6 +265,43 @@ fun DiscoverScreen(
         }
     }
     }   // ScreenScaffold
+}
+
+
+@Composable
+private fun HomeActionPill(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    active: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val C = LocalAppColors.current
+    val shape = RoundedCornerShape(Radius.pill)
+    Row(
+        modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(
+                if (active) C.accent.copy(alpha = 0.22f)
+                else if (C.isDark) Color.White.copy(alpha = 0.075f)
+                else Color.Black.copy(alpha = 0.045f),
+            )
+            .border(
+                0.7.dp,
+                if (active) C.accent.copy(alpha = 0.36f)
+                else Color.White.copy(alpha = if (C.isDark) 0.12f else 0.28f),
+                shape,
+            )
+            .pressableScale(onClick = onClick, scaleTo = 0.96f)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, tint = if (active) C.accent else C.textSecondary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = Type.caption, color = if (active) C.accent else C.text, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
 }
 
 @Composable private fun OnlineEyebrow(text: String) {

@@ -660,6 +660,7 @@ private fun TabsHost(
                     "discover" -> DiscoverScreen(
                         vm,
                         onOpenSearch = onOpenSearch,
+                        onOpenDownloads = onOpenDownloads,
                         onExpandPlayer = onExpandPlayer,
                         onOpenCollection = onOpenOnlineCollection,
                     )
