@@ -1,5 +1,6 @@
 package com.beatdrop.kt.ui.screens
 
+import androidx.activity.compose.BackHandler
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
@@ -82,6 +83,10 @@ fun NowPlayingScreen(
         }
         return
     }
+
+    // Hardware/system back should close the player sheet. Transport previous is
+    // still handled by the on-screen skip-back button only.
+    BackHandler { onCollapse() }
 
     if (showActions) {
         com.beatdrop.kt.ui.components.TrackActionsSheet(vm, t, onDismiss = { showActions = false })

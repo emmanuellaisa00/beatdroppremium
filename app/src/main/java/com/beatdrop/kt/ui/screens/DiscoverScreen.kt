@@ -170,7 +170,10 @@ fun DiscoverScreen(
             }
         }
 
-        if (loading) {
+        val hasAnyHomeContent = trending.isNotEmpty() || popHits.isNotEmpty() || hiphopHits.isNotEmpty() || madeForYou.isNotEmpty()
+        val showInitialLoading = loading || (discoverLoading && !hasAnyHomeContent)
+
+        if (showInitialLoading) {
             // Check if we're offline with no cache
             val isOnline = com.beatdrop.kt.util.NetworkMonitor.isOnline.value
             if (!isOnline && trending.isEmpty() && popHits.isEmpty()) {
@@ -200,6 +203,31 @@ fun DiscoverScreen(
 
         val featured   = trending.firstOrNull()
         val quickGrid  = trending.drop(1).take(6)
+
+        if (!showInitialLoading && !hasAnyHomeContent) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Ic.Network, null, tint = C.textTertiary, modifier = Modifier.size(44.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Home couldn't load", style = Type.title3, color = C.text)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "Check your connection or tap refresh to try again.",
+                            style = Type.footnote,
+                            color = C.textSecondary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        HomeActionPill(label = "Refresh", icon = Ic.Refresh, active = true) {
+                            loading = true
+                            vm.getDiscoverData(forceRefresh = true)
+                            vm.loadMadeForYou(force = true)
+                        }
+                    }
+                }
+            }
+        }
 
         // ── Featured Hero card (glass style, blur 28px) ─────────────────────
         // Featured + quickGrid all come from the same `trending` list, so we

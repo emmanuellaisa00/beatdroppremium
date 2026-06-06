@@ -34,7 +34,7 @@ import com.beatdrop.kt.ui.theme.Spacing
 import com.beatdrop.kt.ui.theme.Type
 
 @Composable
-fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBack: () -> Unit) {
+fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBack: () -> Unit, onOpenArtist: (String) -> Unit = {}) {
     val C = LocalAppColors.current
     var sheetTrack by remember { mutableStateOf<com.beatdrop.kt.data.Track?>(null) }
     val ctx = LocalContext.current
@@ -80,7 +80,7 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                             albumName, style = Type.title1, color = C.text,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
-                        Text(artistName, style = Type.callout, color = C.textSecondary)
+                        Text(artistName, style = Type.callout, color = C.textSecondary, modifier = Modifier.pressableScale(onClick = { onOpenArtist(artistName) }, scaleTo = 0.96f))
                         Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             TintedGlassButton(modifier = Modifier.height(44.dp).width(124.dp)) {
@@ -136,6 +136,14 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                                 color = if (current?.id == t.id) C.accent else C.text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                t.artist,
+                                style = Type.footnote,
+                                color = C.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.pressableScale(onClick = { onOpenArtist(t.artist) }, scaleTo = 0.97f),
                             )
                         }
                         Text(fmt(t.durationMs), style = Type.footnote, color = C.textTertiary)

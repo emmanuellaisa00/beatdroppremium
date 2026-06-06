@@ -530,7 +530,7 @@ fun MainScaffold(vm: PlayerViewModel) {
                             onOpenPrivateFolder = { push(Dest.PrivateFolder) },
                             onOpenOnlineCollection = { push(Dest.OnlineCollection(it)) },
                         )
-                        is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() })
+                        is Dest.Album        -> AlbumScreen(vm, dest.name, dest.artist, onBack = { pop() }, onOpenArtist = { push(Dest.Artist(it)) })
                         is Dest.Artist       -> ArtistScreen(vm, dest.name, onBack = { pop() })
                         is Dest.Playlist     -> PlaylistDetailScreen(vm, dest.name, onBack = { pop() })
                         Dest.Playlists       -> PlaylistsScreenHosted(vm, onBack = { pop() }, onOpen = { push(Dest.Playlist(it)) })
