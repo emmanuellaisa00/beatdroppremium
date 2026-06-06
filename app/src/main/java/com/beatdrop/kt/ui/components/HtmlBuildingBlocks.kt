@@ -1,7 +1,12 @@
 package com.beatdrop.kt.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -740,22 +745,21 @@ fun SongRow(
 @Composable
 private fun Equalizer(modifier: Modifier = Modifier) {
     val C = LocalAppColors.current
-    val infinite = androidx.compose.animation.core.rememberInfiniteTransition(label = "eq")
+    val infinite = rememberInfiniteTransition(label = "eq")
     Row(
         modifier.height(14.dp),
         horizontalArrangement = Arrangement.spacedBy(2.5.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        listOf(300, 100, 500, 200).forEach { delay ->
-            val h by androidx.compose.animation.core.animateFloat(
-                transition = infinite,
+        listOf(300, 100, 500, 200).forEach { d ->
+            val h by infinite.animateFloat(
                 initialValue = 0.4f,
                 targetValue = 1.0f,
-                animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                    androidx.compose.animation.core.tween(900, delayMillis = delay),
-                    androidx.compose.animation.core.RepeatMode.Reverse,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(900, delayMillis = d),
+                    repeatMode = RepeatMode.Reverse,
                 ),
-                label = "eqBar$delay",
+                label = "eqBar$d",
             )
             Box(
                 Modifier
@@ -766,21 +770,6 @@ private fun Equalizer(modifier: Modifier = Modifier) {
         }
     }
 }
-
-/** Compose's `InfiniteTransition.animateFloat` accessed positionally. */
-@Composable
-private inline fun androidx.compose.animation.core.animateFloat(
-    transition: androidx.compose.animation.core.InfiniteTransition,
-    initialValue: Float,
-    targetValue: Float,
-    animationSpec: androidx.compose.animation.core.InfiniteRepeatableSpec<Float>,
-    label: String,
-): State<Float> = transition.animateFloat(
-    initialValue = initialValue,
-    targetValue = targetValue,
-    animationSpec = animationSpec,
-    label = label,
-)
 
 
 /* ─────────────────────────────────────────────────────────────────────────────
