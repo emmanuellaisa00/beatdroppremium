@@ -63,7 +63,7 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                         // Album artwork — glass-framed
                         Box(
                             Modifier
-                                .size(220.dp)
+                                .size(196.dp)
                                 .glassShadow(elevation = 26.dp, shape = artShape, isDark = C.isDark)
                                 .clip(artShape)
                                 .background(C.bg3),
@@ -75,15 +75,15 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(14.dp))
                         Text(
                             albumName, style = Type.title1, color = C.text,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                         Text(artistName, style = Type.callout, color = C.textSecondary)
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TintedGlassButton(modifier = Modifier.height(48.dp).width(132.dp)) {
+                            TintedGlassButton(modifier = Modifier.height(44.dp).width(124.dp)) {
                                 Row(
                                     Modifier.fillMaxSize().pressableScale(
                                         onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) },
@@ -125,14 +125,14 @@ fun AlbumScreen(vm: PlayerViewModel, albumName: String, artistName: String, onBa
                                 onClick = { vm.playList(tracks, t.id) },
                                 onLongClick = { sheetTrack = t },
                             )
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("${index + 1}", style = Type.footnote, color = C.textTertiary, modifier = Modifier.width(28.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
                                 t.title,
-                                style = Type.title3,
+                                style = Type.headline,
                                 color = if (current?.id == t.id) C.accent else C.text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontWeight = FontWeight.SemiBold,

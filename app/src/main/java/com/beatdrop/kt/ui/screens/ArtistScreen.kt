@@ -65,7 +65,7 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
                         // Avatar puck — glass-framed circle with rim + specular
                         Box(
                             Modifier
-                                .size(128.dp)
+                                .size(112.dp)
                                 .glassShadow(elevation = 20.dp, shape = CircleShape, isDark = C.isDark)
                                 .clip(CircleShape)
                                 .background(Brush.linearGradient(listOf(C.accent, C.purple)))
@@ -105,15 +105,15 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
                                 style = Type.largeTitle.copy(fontWeight = FontWeight.Black),
                             )
                         }
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(14.dp))
                         Text(
                             artistName, style = Type.title1, color = C.text,
                             maxLines = 2, overflow = TextOverflow.Ellipsis,
                         )
                         Text("${tracks.size} songs", style = Type.subhead, color = C.textSecondary)
-                        Spacer(Modifier.height(18.dp))
+                        Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TintedGlassButton(modifier = Modifier.height(48.dp).width(132.dp)) {
+                            TintedGlassButton(modifier = Modifier.height(44.dp).width(124.dp)) {
                                 Row(
                                     Modifier.fillMaxSize().pressableScale(
                                         onClick = { if (tracks.isNotEmpty()) vm.playList(tracks, tracks.first().id) },
@@ -155,7 +155,7 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
                                 onClick = { vm.playList(tracks, t.id) },
                                 onLongClick = { sheetTrack = t },
                             )
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(44.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3)) {
@@ -170,7 +170,7 @@ fun ArtistScreen(vm: PlayerViewModel, artistName: String, onBack: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(
                                 t.title,
-                                style = Type.title3,
+                                style = Type.headline,
                                 color = if (current?.id == t.id) C.accent else C.text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontWeight = FontWeight.SemiBold,

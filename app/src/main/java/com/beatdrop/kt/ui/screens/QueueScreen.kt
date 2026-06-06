@@ -34,7 +34,7 @@ import com.beatdrop.kt.ui.theme.Spacing
 import com.beatdrop.kt.ui.theme.Type
 import kotlin.math.roundToInt
 
-private val ROW_HEIGHT = 68.dp
+private val ROW_HEIGHT = 60.dp
 
 @Composable
 fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
@@ -71,7 +71,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = 4.dp, bottom = 190.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 itemsIndexed(queue, key = { i, t -> t.id + i }) { index, t ->
                     val isCurrent = current?.id == t.id
@@ -112,7 +112,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                                 },
                         )
                         Spacer(Modifier.width(8.dp))
-                        Box(Modifier.size(44.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3)) {
+                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(Radius.sm)).background(C.bg3)) {
                             AsyncImage(
                                 model = ImageRequest.Builder(ctx).data(t.artworkUri).crossfade(true).size(96).build(),
                                 contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
@@ -124,7 +124,7 @@ fun QueueScreen(vm: PlayerViewModel, onClose: () -> Unit) {
                         ) {
                             Text(
                                 t.title,
-                                style = Type.title3,
+                                style = Type.headline,
                                 color = if (isCurrent) C.accent else C.text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 fontWeight = FontWeight.SemiBold,
