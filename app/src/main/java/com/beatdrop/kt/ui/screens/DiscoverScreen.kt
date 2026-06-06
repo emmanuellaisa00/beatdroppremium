@@ -76,6 +76,7 @@ fun DiscoverScreen(
     val discoverLoading by vm.discoverLoading.collectAsState()
     val madeForYou      by vm.madeForYou.collectAsState()
     val dataSaver       by vm.dataSaver.collectAsState()
+    var actionResult by remember { mutableStateOf<OnlineResult?>(null) }
 
     // Skeletons appear ONLY on the very first launch (no on-device cache).
     // Subsequent app opens hydrate cachedTrending from DataStore in
@@ -234,10 +235,14 @@ fun DiscoverScreen(
         // use that as the skip-next/prev context. The featured one is index 0.
         featured?.let { feat ->
             item {
-                OnlineFeaturedHero(feat) {
-                    vm.prepareAndPlayOnline(feat, trending, 0)
-                    onExpandPlayer()
-                }
+                OnlineFeaturedHero(
+                    track = feat,
+                    onPlay = {
+                        vm.prepareAndPlayOnline(feat, trending, 0)
+                        onExpandPlayer()
+                    },
+                    onLongPress = { actionResult = feat },
+                )
             }
         }
 
@@ -262,36 +267,56 @@ fun DiscoverScreen(
         if (quickGrid.isNotEmpty()) {
             item { OnlineEyebrow("HOT TRENDING") }
             item {
-                OnlineQuickGrid(quickGrid) { track ->
-                    // quickGrid is `trending.drop(1).take(6)` — find original index in `trending`
-                    val ctxIdx = trending.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
-                    vm.prepareAndPlayOnline(track, trending, ctxIdx)
-                    onExpandPlayer()
-                }
+                OnlineQuickGrid(
+                    list = quickGrid,
+                    onPlay = { track ->
+                        val ctxIdx = trending.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                        vm.prepareAndPlayOnline(track, trending, ctxIdx)
+                        onExpandPlayer()
+                    },
+                    onLongPress = { actionResult = it },
+                )
             }
         }
 
         // ── Carousels (glass cards, accent green play button) ─────────────
         if (popHits.isNotEmpty()) {
             item {
-                OnlineCarousel("Trending Pop Hits", popHits) { track ->
-                    val ctxIdx = popHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
-                    vm.prepareAndPlayOnline(track, popHits, ctxIdx)
-                    onExpandPlayer()
-                }
+                OnlineCarousel(
+                    title = "Trending Pop Hits",
+                    list = popHits,
+                    onPlay = { track ->
+                        val ctxIdx = popHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                        vm.prepareAndPlayOnline(track, popHits, ctxIdx)
+                        onExpandPlayer()
+                    },
+                    onLongPress = { actionResult = it },
+                )
             }
         }
 
         if (hiphopHits.isNotEmpty()) {
             item {
-                OnlineCarousel("Global Hot Charts", hiphopHits) { track ->
-                    val ctxIdx = hiphopHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
-                    vm.prepareAndPlayOnline(track, hiphopHits, ctxIdx)
-                    onExpandPlayer()
-                }
+                OnlineCarousel(
+                    title = "Global Hot Charts",
+                    list = hiphopHits,
+                    onPlay = { track ->
+                        val ctxIdx = hiphopHits.indexOfFirst { it.videoId == track.videoId }.coerceAtLeast(0)
+                        vm.prepareAndPlayOnline(track, hiphopHits, ctxIdx)
+                        onExpandPlayer()
+                    },
+                    onLongPress = { actionResult = it },
+                )
             }
         }
     }
+        actionResult?.let { r ->
+            com.beatdrop.kt.ui.components.OnlineTrackActionsSheet(
+                vm = vm,
+                result = r,
+                onDismiss = { actionResult = null },
+            )
+        }
     }   // ScreenScaffold
 }
 
@@ -338,7 +363,7 @@ private fun HomeActionPill(
 }
 
 @Composable
-private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
+private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit, onLongPress: () -> Unit = {}) {
     val C  = LocalAppColors.current
     val ctx = LocalContext.current
     Box(
@@ -347,7 +372,7 @@ private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
             .aspectRatio(1.6f)
             .clip(RoundedCornerShape(Radius.lg))
             .background(C.bg3)
-            .pressableScale(onClick = onPlay, scaleTo = 0.98f),
+            .pressableScale(onClick = onPlay, onLongClick = onLongPress, scaleTo = 0.98f),
     ) {
         if (track.thumbnailUrl != null) {
             AsyncImage(
@@ -390,7 +415,7 @@ private fun OnlineFeaturedHero(track: OnlineResult, onPlay: () -> Unit) {
 }
 
 @Composable
-private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit) {
+private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit, onLongPress: (OnlineResult) -> Unit = {}) {
     val C  = LocalAppColors.current
     val ctx = LocalContext.current
     Column(Modifier.padding(horizontal = Spacing.lg)) {
@@ -417,7 +442,7 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
                                 C.glassCardElevatedBorder,
                                 RoundedCornerShape(Radius.md),
                             )
-                            .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.97f),
+                            .pressableScale(onClick = { onPlay(t) }, onLongClick = { onLongPress(t) }, scaleTo = 0.97f),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
@@ -446,7 +471,7 @@ private fun OnlineQuickGrid(list: List<OnlineResult>, onPlay: (OnlineResult) -> 
 }
 
 @Composable
-private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit) {
+private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (OnlineResult) -> Unit, onLongPress: (OnlineResult) -> Unit = {}) {
     val C  = LocalAppColors.current
     val ctx = LocalContext.current
     Column(Modifier.padding(top = 18.dp)) {
@@ -460,7 +485,7 @@ private fun OnlineCarousel(title: String, list: List<OnlineResult>, onPlay: (Onl
                 Column(
                     Modifier
                         .width(150.dp)
-                        .pressableScale(onClick = { onPlay(t) }, scaleTo = 0.96f),
+                        .pressableScale(onClick = { onPlay(t) }, onLongClick = { onLongPress(t) }, scaleTo = 0.96f),
                 ) {
                     Box(
                         Modifier

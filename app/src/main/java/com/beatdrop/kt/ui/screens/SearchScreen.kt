@@ -89,6 +89,7 @@ fun SearchScreen(
     val suggestions by vm.suggestions.collectAsState()
     val history    by vm.searchHistory.collectAsState()
     val jobs       by vm.downloadJobs.collectAsState()
+    var actionResult by remember { mutableStateOf<OnlineResult?>(null) }
 
     // Filter chips state — defaults to ALL so the first paint shows the
     // full Albums + Playlists + Songs stack. Reset to ALL whenever a new
@@ -419,6 +420,7 @@ fun SearchScreen(
                                                 vm.prepareAndPlayOnline(topSong, results, 0)
                                                 onExpandPlayer()
                                             },
+                                            onLongPress = { actionResult = topSong },
                                         )
                                     }
                                     Spacer(Modifier.height(20.dp))
@@ -498,6 +500,7 @@ fun SearchScreen(
                                         else                         -> vm.downloadOnline(r)
                                     }
                                 },
+                                onLongPress = { actionResult = r },
                             )
                         }
                     }
@@ -654,6 +657,13 @@ fun SearchScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 160.dp),
         )
+        actionResult?.let { r ->
+            com.beatdrop.kt.ui.components.OnlineTrackActionsSheet(
+                vm = vm,
+                result = r,
+                onDismiss = { actionResult = null },
+            )
+        }
     }
 }
 
@@ -667,6 +677,7 @@ private fun CatalogRow(
     isSaved: Boolean,
     onPlay: () -> Unit,
     onSave: () -> Unit,
+    onLongPress: () -> Unit = {},
 ) {
     val C  = LocalAppColors.current
     val ctx = LocalContext.current
@@ -674,7 +685,7 @@ private fun CatalogRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .pressableScale(onClick = onPlay)
+            .pressableScale(onClick = onPlay, onLongClick = onLongPress)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1056,6 +1067,7 @@ private fun TopResultHero(
     subtitle: String,
     thumbnailUrl: String?,
     onClick: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val C = LocalAppColors.current
     val ctx = LocalContext.current
@@ -1072,7 +1084,7 @@ private fun TopResultHero(
                 ),
             )
             .border(0.7.dp, Color.White.copy(alpha = if (C.isDark) 0.13f else 0.30f), RoundedCornerShape(24.dp))
-            .pressableScale(onClick = onClick, scaleTo = 0.97f)
+            .pressableScale(onClick = onClick, onLongClick = onLongPress, scaleTo = 0.97f)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
