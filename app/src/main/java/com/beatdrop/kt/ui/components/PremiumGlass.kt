@@ -87,11 +87,18 @@ fun Modifier.premiumGlass(
     // The whole point of premiumGlass is one material, not 12 'almost
     // the same' materials. If you find yourself wanting to tweak these
     // for ONE screen, you're fighting the architecture — push back.
-    val baseTintAlpha = (if (C.isDark) 0.70f else 0.78f) + tintBoost.coerceIn(0f, 0.20f)
-    val noiseOpacity = 0.015f       // spec: 1.5%
-    val rimAlpha = if (C.isDark) 0.15f else 0.18f
-    val borderAlpha = if (C.isDark) 0.11f else 0.10f
-    val blueRefractionAlpha = 0.03f  // 'Slight Blue Refraction' per spec
+    val depthAlpha = when (level) {
+        GlassLevel.Z1_List -> 0.075f
+        GlassLevel.Z2_Card -> 0.095f
+        GlassLevel.Z3_MiniPlayer -> 0.120f
+        GlassLevel.Z4_TabBar -> 0.135f
+        GlassLevel.Z5_ActiveLens -> 0.155f
+        GlassLevel.Z6_Floating -> 0.170f
+    } + tintBoost.coerceIn(0f, 0.08f)
+    val noiseOpacity = 0.012f       // premium grain: present, never dirty
+    val rimAlpha = if (C.isDark) 0.16f else 0.24f
+    val borderAlpha = if (C.isDark) 0.13f else 0.20f
+    val blueRefractionAlpha = if (C.isDark) 0.035f else 0.018f
 
     return this
         // ── Shadow stack (Layer 9) ────────────────────────────────────
@@ -135,14 +142,28 @@ fun Modifier.premiumGlass(
         // cards, MiniPlayer, and dock appear as empty black blobs. Keep glass
         // surfaces readable first; the global blurred artwork/scrim still gives
         // the frosted context behind them.
-        // ── Darkening filter (Layer 3) ────────────────────────────────
-        // Belt-and-braces over the hazeGlass tint so on devices without
-        // RenderEffect support the glass still reads as smoked.
-        .background(C.bg3.copy(alpha = baseTintAlpha), shape)
-        // ── Blue refraction tint (per spec 'Slight Blue Refraction') ──
-        // Adds the just-noticeable cool cast that distinguishes our
-        // smoked glass from generic dark plastic. Subtle — 3% blue.
-        .background(Color(0x66102030).copy(alpha = blueRefractionAlpha), shape)
+        // ── Frosted translucent material (Layer 3) ─────────────────────
+        // Use 8–18% luminous material in dark mode per the design spec, with
+        // a tiny charcoal substrate for legibility. This reads as glass, not
+        // a flat black rectangle.
+        .background(
+            Brush.verticalGradient(
+                colors = if (C.isDark) listOf(
+                    Color.White.copy(alpha = depthAlpha + 0.035f),
+                    Color.White.copy(alpha = depthAlpha * 0.55f),
+                    Color(0xFF05070C).copy(alpha = 0.20f),
+                ) else listOf(
+                    Color.White.copy(alpha = 0.72f + depthAlpha),
+                    Color.White.copy(alpha = 0.56f + depthAlpha * 0.5f),
+                    Color(0xFFEAF0F6).copy(alpha = 0.24f),
+                ),
+            ),
+            shape,
+        )
+        // ── Cool refraction tint ──────────────────────────────────────
+        .background(Color(0xFF7FB2FF).copy(alpha = blueRefractionAlpha), shape)
+        // ── Accent light scattering — very subtle, keeps BeatDrop identity ─
+        .background(C.accent.copy(alpha = if (C.isDark) 0.018f else 0.012f), shape)
         // ── Reflection system (Layers 7-8) — 4-layer reflection stack ─
         // Per spec 'Reflection System':
         //   Top:    Horizontal Reflection  (white, brightest)
