@@ -198,6 +198,14 @@ object Radius {
     val xxl  = 44.dp
     val pill = 999.dp
 
+    // Premium aliases — Apple Music / Liquid Glass naming
+    val Cards       = 28.dp
+    val AlbumArt    = 20.dp
+    val Buttons     = 18.dp
+    val BottomSheet = 32.dp
+    val Navigation  = 30.dp
+    val grid16      = 16.dp
+
     fun inner(outer: Dp, padding: Dp): Dp = (outer - padding).coerceAtLeast(0.dp)
 }
 
@@ -212,6 +220,17 @@ object Spacing {
     val xl  = 20.dp
     val xxl = 24.dp     // primary screen gutter
     val xxxl = 32.dp    // section separation
+
+    // 8dp grid aliases — for Premium V2 components
+    val grid2  = 2.dp
+    val grid4  = 4.dp
+    val grid8  = 8.dp
+    val grid12 = 12.dp
+    val grid16 = 16.dp
+    val grid24 = 24.dp
+    val grid32 = 32.dp
+    val grid48 = 48.dp
+    val grid64 = 64.dp
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
